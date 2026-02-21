@@ -41,6 +41,22 @@ CHUNK_OVERLAP: int = 50      # words of overlap between consecutive chunks
 # ── Supported file types for ingestion ──
 SUPPORTED_EXTENSIONS: tuple[str, ...] = (".pdf",)
 
+# ── Retrieval hyper-parameters ─────────────────────────────────────
+# RETRIEVAL_TOP_K: how many candidates each method (vector / BM25)
+#   returns before fusion.  More candidates → better recall but
+#   slower.  10 is a solid default for ~1 000–10 000 chunks.
+RETRIEVAL_TOP_K: int = 10
+
+# RETRIEVAL_FINAL_K: how many fused results the agent actually sees.
+#   Keeping this small respects the LLM context window and forces
+#   the retriever to surface only the most relevant evidence.
+RETRIEVAL_FINAL_K: int = 5
+
+# RRF_K: Reciprocal Rank Fusion smoothing constant.  The standard
+#   value from the original Cormack et al. paper is 60.  Lowering it
+#   amplifies the difference between ranks; raising it flattens it.
+RRF_K: int = 60
+
 # ── LLM provider (overridden at runtime / via .env) ──
 # Accepted values: "anthropic" | "google"
 DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "google")
