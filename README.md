@@ -12,7 +12,7 @@
 Ricoh's challenge: build an AI-powered technical support system that can answer complex, multi-part questions about Ricoh products using only the provided documentation.
 
 **Restated in our own words:**
-Field technicians and support engineers waste significant time searching through hundreds of pages of Ricoh product manuals to find specific procedures, error code resolutions, and configuration steps. We need an intelligent system that can ingest these manuals, understand natural-language questions, retrieve the most relevant passages, and generate accurate, cited answers — with zero hallucination.
+Field technicians and support engineers waste significant time searching through hundreds of pages of Ricoh product manuals to find specific procedures, error code resolutions, and configuration steps. We need an intelligent system that can ingest these manuals, understand natural-language questions, retrieve the most relevant passages, and generate accurate, cited answers - with zero hallucination.
 
 **End user:** Ricoh field service technicians, help desk agents, and customers seeking self-service support.
 
@@ -23,7 +23,7 @@ Field technicians and support engineers waste significant time searching through
 ## 2️⃣ Why We Chose This Problem
 
 - **Real-world impact:** Technical support is a multi-billion dollar industry; AI-assisted retrieval can cut resolution times by 60%+.
-- **Technical depth:** The problem demands a full agentic pipeline — ingestion, hybrid retrieval, reasoning, and grounded generation — not just a simple chatbot.
+- **Technical depth:** The problem demands a full agentic pipeline - ingestion, hybrid retrieval, reasoning, and grounded generation - not just a simple chatbot.
 - **RAG + Agentic challenges:** Handling multi-part questions, entity extraction (error codes, model numbers), and strict hallucination control pushed us to build a retry-capable reasoning loop.
 - **Measurable evaluation:** The 10 official test questions gave us a concrete benchmark to optimise against.
 
@@ -36,7 +36,7 @@ Field technicians and support engineers waste significant time searching through
 1. **Ingests** Ricoh PDF manuals using PyMuPDF with metadata-preserving chunking (500 words, 50-word overlap).
 2. **Retrieves** relevant passages via a **hybrid engine** combining semantic vector search (ChromaDB + MiniLM) and keyword search (BM25), fused with Reciprocal Rank Fusion.
 3. **Reasons** through a LangGraph state machine with 4 nodes (Planner → Retriever → Verifier → Synthesizer) and a conditional retry loop.
-4. **Generates** grounded answers with strict `[Document Name, Page X]` citations — refusing to answer when evidence is insufficient.
+4. **Generates** grounded answers with strict `[Document Name, Page X]` citations - refusing to answer when evidence is insufficient.
 5. **Visualises** the full reasoning process in a "Glass Box" Streamlit dashboard.
 
 **What makes it unique:** The agentic verify-and-retry loop + dual retrieval fusion + complete reasoning transparency.
@@ -79,7 +79,7 @@ Cited Answer + Glass Box Visualisation
 
 ### Why this architecture?
 - **Hybrid retrieval** because pure vector search misses exact matches on error codes (`SC542`) and model numbers (`IM C3500`), while pure BM25 misses semantic similarity.
-- **RRF fusion** because BM25 and cosine similarity scores are incommensurable — rank-based fusion avoids score normalisation issues.
+- **RRF fusion** because BM25 and cosine similarity scores are incommensurable - rank-based fusion avoids score normalisation issues.
 - **Agentic loop** because single-pass retrieval often misses evidence for multi-part questions. The verify-retry pattern catches gaps.
 - **Trade-off:** We cap retries at 2 iterations to balance answer quality vs. API cost/latency.
 
@@ -90,7 +90,7 @@ Cited Answer + Glass Box Visualisation
 - **Dataset:** Official Ricoh product documentation PDFs provided by the sponsor (stored in `data/`, gitignored due to size).
 - **Extraction:** PyMuPDF extracts raw text page-by-page, preserving `source_document` and `page_number` metadata throughout.
 - **Chunking strategy:** Sliding window of ~500 words with 50-word overlap. Word-based (not character-based) to keep semantic coherence. Overlap ensures no answer is lost at chunk boundaries.
-- **Tokenisation (BM25):** Simple lowercase whitespace split — intentionally basic because error codes like `SC542` don't benefit from stemming.
+- **Tokenisation (BM25):** Simple lowercase whitespace split - intentionally basic because error codes like `SC542` don't benefit from stemming.
 - **Storage:** ChromaDB (vector index) + pickled BM25 (keyword index), both persisted to `chroma_db/` for fast restarts.
 - **Limitations:** Table-heavy PDF pages may lose structure during text extraction. Future work could add table parsing.
 
@@ -100,12 +100,12 @@ Cited Answer + Glass Box Visualisation
 
 ### LLM: Claude Sonnet (Anthropic)
 - **Why:** Strong instruction-following, reliable JSON output for planner, low hallucination rate. Temperature=0.0 for deterministic, factual answers.
-- **Alternative considered:** GPT-4o (OpenAI) — switched to Claude due to API availability constraints.
+- **Alternative considered:** GPT-4o (OpenAI) - switched to Claude due to API availability constraints.
 
 ### Prompt Engineering (4 specialised prompts)
 1. **Planner prompt:** Decomposes queries into sub-queries + extracts entities. Outputs structured JSON. Includes retry-aware context injection.
 2. **Verifier prompt:** Binary SUFFICIENT/INSUFFICIENT verdict. Defaults to SUFFICIENT on ambiguous output to prevent infinite loops.
-3. **Synthesizer prompt:** Strict citation rules — every claim must cite `[Document Name, Page X]`. Refuses to answer when evidence is missing.
+3. **Synthesizer prompt:** Strict citation rules - every claim must cite `[Document Name, Page X]`. Refuses to answer when evidence is missing.
 4. **Retry context:** On INSUFFICIENT verdict, the Planner receives a list of already-searched sources to broaden the next search.
 
 ### Retrieval Strategy
@@ -114,7 +114,7 @@ Cited Answer + Glass Box Visualisation
 - **Fusion:** RRF(k=60) merges rank positions, returning top-5 fused results per sub-query.
 
 ### Hallucination Control
-- The Synthesizer is instructed to say *"Information unavailable in provided documents"* when evidence is insufficient — validated in our evaluation (see Section 7).
+- The Synthesizer is instructed to say *"Information unavailable in provided documents"* when evidence is insufficient - validated in our evaluation (see Section 7).
 
 ---
 
@@ -138,7 +138,7 @@ Cited Answer + Glass Box Visualisation
 
 ### Evaluation Metrics
 - **Citation accuracy:** Every answer includes `[Document Name, Page X]` citations traceable to source material.
-- **Hallucination control:** Agent correctly refused to fabricate answers when evidence was missing — outputs "Information unavailable" instead.
+- **Hallucination control:** Agent correctly refused to fabricate answers when evidence was missing - outputs "Information unavailable" instead.
 - **Latency:** Average 13.9s per question (including LLM inference, retrieval, and verification).
 - **Retrieval coverage:** BM25 + vector search consistently returned 5+ relevant chunks per sub-query after the persistence fix.
 
@@ -156,13 +156,13 @@ Cited Answer + Glass Box Visualisation
 - **Training:** New technicians can learn by exploring the agent's reasoning process.
 
 ### Real-world usability
-- Runs entirely offline (except LLM API) — deployable in air-gapped environments with a local LLM.
+- Runs entirely offline (except LLM API) - deployable in air-gapped environments with a local LLM.
 - Modular architecture allows swapping LLM providers (Anthropic/OpenAI/Google) via a single config change.
 
 ### Limitations
 - Requires pre-ingested PDF manuals; no real-time document updates.
 - Table-heavy content may have reduced retrieval accuracy due to PDF text extraction limitations.
-- LLM API latency (~10-15s) may be too slow for live phone support — could be improved with smaller/local models.
+- LLM API latency (~10-15s) may be too slow for live phone support - could be improved with smaller/local models.
 
 ---
 
@@ -272,7 +272,7 @@ RicohLibrary-Ricoh/
 | **Evaluation** | 10 official test questions, citation accuracy, hallucination control, latency benchmarks |
 | **Business Actionability** | 60%+ estimated time savings, Glass Box transparency for supervisors, modular LLM swapping |
 | **Visualisation** | Streamlit Glass Box dashboard showing full reasoning pipeline |
-| **Innovation** | Verify-and-retry agentic loop with Glass Box transparency — not just RAG, but *reasoned* RAG |
+| **Innovation** | Verify-and-retry agentic loop with Glass Box transparency - not just RAG, but *reasoned* RAG |
 
 ---
 

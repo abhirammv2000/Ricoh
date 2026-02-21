@@ -1,9 +1,9 @@
 """
-app/main.py — RicohLibrary Streamlit Glass Box Dashboard.
+app/main.py - RicohLibrary Streamlit Glass Box Dashboard.
 
 This is Phase 5 of the hackathon project.  It provides a
 professional chat-style interface that shows not just the
-agent's answer, but its full reasoning process — the "Glass Box".
+agent's answer, but its full reasoning process - the "Glass Box".
 
 Features:
 ─────────
@@ -60,7 +60,7 @@ st.set_page_config(
 
 
 # ====================================================================
-# 2. CUSTOM CSS — Premium dark Glass Box styling
+# 2. CUSTOM CSS - Premium dark Glass Box styling
 # ====================================================================
 
 st.markdown(
@@ -205,7 +205,7 @@ def ensure_index() -> None:
 
 
 # ====================================================================
-# 5. AGENT RUNNER — returns full state for Glass Box
+# 5. AGENT RUNNER - returns full state for Glass Box
 # ====================================================================
 
 def run_agent_full(query: str) -> dict:
@@ -240,51 +240,44 @@ def render_glass_box(state: dict, latency: float) -> None:
 
     with st.expander("🕵️ Agent Thoughts & Evidence", expanded=False):
 
-        # ── Metrics row ──
+        # -- Metrics row --
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("⏱️ Latency", f"{latency:.1f}s")
         with col2:
             st.metric("🔄 Iterations", state.get("iterations", "?"))
         with col3:
-            status = state.get("verification_status", "—")
+            status = state.get("verification_status", " - ")
             st.metric("✅ Verification", status)
 
         st.divider()
 
-        # ── Plan: sub-queries ──
+        # -- Plan: sub-queries (JSON formatted) --
         sub_queries = state.get("sub_queries", [])
-        st.markdown("#### 🧠 Plan — Sub-Queries")
-        if sub_queries:
-            for i, sq in enumerate(sub_queries, 1):
-                st.markdown(f"**{i}.** {sq}")
-        else:
-            st.caption("No sub-queries generated.")
-
-        # ── Extracted entities ──
         entities = state.get("entities", [])
-        if entities:
-            st.markdown("#### 🏷️ Extracted Entities")
-            entity_tags = "  ".join(f"`{e}`" for e in entities)
-            st.markdown(entity_tags)
+        st.markdown("#### 🧠 Plan")
+        plan_json = {
+            "sub_queries": sub_queries,
+            "entities": entities,
+        }
+        st.json(plan_json, expanded=True)
 
         st.divider()
 
-        # ── Evidence: retrieved chunks ──
+        # -- Evidence: retrieved chunks (JSON formatted) --
         evidence = state.get("retrieved_evidence", [])
-        st.markdown(f"#### 📚 Evidence — {len(evidence)} chunks retrieved")
+        st.markdown(f"#### 📚 Evidence - {len(evidence)} chunks retrieved")
 
         if evidence:
+            evidence_display = []
             for i, e in enumerate(evidence, 1):
-                source = e.get("source_document", "unknown")
-                page = e.get("page_number", "?")
-                snippet = e.get("text", "")[:200].replace("\n", " ")
-                st.markdown(
-                    f'<div class="evidence-card">'
-                    f"<strong>[{i}] {source}, Page {page}</strong><br/>"
-                    f"{snippet}…</div>",
-                    unsafe_allow_html=True,
-                )
+                evidence_display.append({
+                    "index": i,
+                    "source": e.get("source_document", "unknown"),
+                    "page": e.get("page_number", "?"),
+                    "snippet": e.get("text", "")[:200].replace("\n", " "),
+                })
+            st.json(evidence_display, expanded=False)
         else:
             st.caption("No evidence retrieved.")
 
@@ -356,7 +349,7 @@ with st.sidebar:
 st.markdown(
     '<div class="main-header">'
     "<h1>📚 RicohLibrary</h1>"
-    "<p>Agentic AI Technical Support — Ask anything about Ricoh products</p>"
+    "<p>Agentic AI Technical Support - Ask anything about Ricoh products</p>"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -370,25 +363,32 @@ for msg in st.session_state.messages:
         if msg["role"] == "assistant" and "agent_state" in msg:
             render_glass_box(msg["agent_state"], msg.get("latency", 0))
 
-# ── Chat input ──
-if user_input := st.chat_input("Ask a Ricoh technical support question…"):
+# -- Chat input --
+if user_input := st.chat_input("Ask a Ricoh technical support question..."):
 
     # Display user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Run the agent
+    # Run the agent with visual status indicator
     with st.chat_message("assistant"):
-        with st.spinner("🔍 Searching knowledge base & reasoning…"):
+        with st.status("🤖 Agent is thinking...", expanded=True) as status_box:
+            status_box.update(label="🧠 Planning sub-queries...", state="running")
             t0 = time.perf_counter()
             try:
                 state = run_agent_full(user_input)
                 answer = state.get("final_answer", "No answer generated.")
+                status_box.update(
+                    label=f"✅ Done in {time.perf_counter() - t0:.1f}s",
+                    state="complete",
+                    expanded=False,
+                )
             except Exception as e:
                 logger.error("Agent error: %s", e)
                 answer = f"⚠️ An error occurred: {e}"
                 state = {}
+                status_box.update(label="❌ Error", state="error")
             latency = time.perf_counter() - t0
 
         st.markdown(answer)

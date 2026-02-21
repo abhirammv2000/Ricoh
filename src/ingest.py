@@ -1,5 +1,5 @@
 """
-src/ingest.py — PDF parsing and metadata-preserving chunking pipeline.
+src/ingest.py - PDF parsing and metadata-preserving chunking pipeline.
 
 This is the **heart of Phase 1**.  It:
 
@@ -15,7 +15,7 @@ Design decisions
 ────────────────
 • We use PyMuPDF (``import fitz``) because it gives us precise
   page-number control and handles scanned-text PDFs well.
-• "Token" is approximated by whitespace-split words — simple,
+• "Token" is approximated by whitespace-split words - simple,
   deterministic, zero extra dependencies.
 • Each chunk records the page(s) it originated from so the
   hackathon rubric's *strict citation* requirement is met.
@@ -28,7 +28,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import fitz  # PyMuPDF — page-level PDF text extraction
+import fitz  # PyMuPDF - page-level PDF text extraction
 
 from src.config import (
     CHUNK_OVERLAP,
@@ -140,7 +140,7 @@ def chunk_pages(
     Why NOT cross page boundaries?
         Mixing text from different pages makes page-number citation
         ambiguous.  We chunk **within** each page so every chunk maps
-        to exactly ONE page number — clean citations, zero ambiguity.
+        to exactly ONE page number - clean citations, zero ambiguity.
     """
     chunks: list[dict[str, Any]] = []
     global_idx = 0  # running counter for unique IDs across all pages
@@ -200,7 +200,7 @@ def chunk_pages(
 
 
 # ====================================================================
-# 3. ORCHESTRATOR — ingest all PDFs in data/
+# 3. ORCHESTRATOR - ingest all PDFs in data/
 # ====================================================================
 
 def ingest_all(data_dir: str | Path = DATA_DIR) -> list[dict[str, Any]]:
@@ -243,7 +243,7 @@ def ingest_all(data_dir: str | Path = DATA_DIR) -> list[dict[str, Any]]:
 
 
 # ====================================================================
-# 4. __main__ — quick smoke test with a generated sample PDF
+# 4. __main__ - quick smoke test with a generated sample PDF
 # ====================================================================
 
 def _create_sample_pdf(path: Path) -> None:
@@ -325,7 +325,7 @@ if __name__ == "__main__":
     import sys
 
     print("=" * 70)
-    print("  RicohLibrary — Phase 1 Ingestion Pipeline Smoke Test")
+    print("  RicohLibrary - Phase 1 Ingestion Pipeline Smoke Test")
     print("=" * 70)
 
     # ── Create a sample PDF in data/ for testing ──
@@ -336,7 +336,7 @@ if __name__ == "__main__":
     chunks = ingest_all(DATA_DIR)
 
     if not chunks:
-        print("\n❌  No chunks produced — something went wrong.")
+        print("\n❌  No chunks produced - something went wrong.")
         sys.exit(1)
 
     # ── Summary statistics ──
@@ -356,7 +356,7 @@ if __name__ == "__main__":
     sample["text"] = sample["text"][:200] + "..."  # truncate for readability
     print(json.dumps(sample, indent=2))
 
-    # ── Clean up sample PDF (optional — comment out to keep it) ──
+    # ── Clean up sample PDF (optional - comment out to keep it) ──
     sample_path.unlink(missing_ok=True)
     print(f"\n🧹  Cleaned up sample PDF.")
     print("=" * 70)

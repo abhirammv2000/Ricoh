@@ -1,5 +1,5 @@
 """
-src/config.py — Centralised configuration for RicohLibrary.
+src/config.py - Centralised configuration for RicohLibrary.
 
 All tuneable parameters live here so they can be adjusted in ONE
 place.  We use python-dotenv to load any secrets (e.g. API keys)
@@ -56,7 +56,7 @@ CHROMA_COLLECTION_NAME: str = "ricoh_manuals"
 # ── Chunking hyper-parameters ──────────────────────────────────────
 # We approximate "tokens" as whitespace-delimited words (~1.3 tokens
 # per word on average for English text).  Using word count is simpler
-# and deterministic — no tokeniser dependency at ingest time.
+# and deterministic - no tokeniser dependency at ingest time.
 #
 # 500 words ≈ 650 tokens ≈ 2 000 characters.  This keeps each chunk
 # small enough for the LLM context window while large enough to hold
