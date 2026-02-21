@@ -6,13 +6,40 @@ place.  We use python-dotenv to load any secrets (e.g. API keys)
 from a `.env` file at the project root.
 """
 
+import logging
 import os
 from pathlib import Path
+
+# ── Silence ChromaDB telemetry BEFORE any chromadb import ──
+# This MUST run before chromadb is ever imported in any module.
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 from dotenv import load_dotenv
 
 # ── Load .env (if present) so API keys are available via os.getenv ──
 load_dotenv()
+
+# ── Centralised logging configuration ─────────────────────────────
+# We configure logging ONCE here.  All modules use
+# logging.getLogger(__name__) so this controls everything.
+#
+# Library loggers (chromadb, httpx, etc.) are forced to WARNING
+# so only our agent "thoughts" and critical errors print.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
+)
+# Suppress noisy library loggers
+for _noisy in (
+    "chromadb",
+    "chromadb.telemetry",
+    "chromadb.telemetry.product.posthog",
+    "httpx",
+    "httpcore",
+    "openai",
+    "anthropic",
+):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 # ── Project root = parent of the `src/` package directory ──
 PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent

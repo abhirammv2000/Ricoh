@@ -37,12 +37,8 @@ from src.config import (
     SUPPORTED_EXTENSIONS,
 )
 
-# ── Logging setup ──
+# ── Logging (configured centrally in config.py) ──
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
-)
 
 
 # ====================================================================
