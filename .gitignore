@@ -1,0 +1,53 @@
+# ============================================================
+# RicohLibrary .gitignore
+# Purpose: Keep the repo clean of binaries, secrets, and
+#          OS/editor artefacts. Tuned for a Python 3.11 +
+#          ChromaDB + venv stack.
+# ============================================================
+
+# ---------- Python bytecode & caches ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# ---------- Virtual environment ----------
+venv/
+.venv/
+env/
+
+# ---------- Distribution / packaging ----------
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ---------- IDE / editor ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------- Environment variables / secrets ----------
+.env
+.env.*
+
+# ---------- Data directory ----------
+# We DO NOT commit the ~300 MB of Ricoh PDFs (or any other
+# binary data placed here), but we keep the folder itself
+# via a tracked .gitkeep sentinel.
+data/*
+!data/.gitkeep
+
+# ---------- ChromaDB local storage ----------
+chroma_db/
+.chroma/
+
+# ---------- Jupyter notebook checkpoints ----------
+.ipynb_checkpoints/
+
+# ---------- OS junk ----------
+.DS_Store
+Thumbs.db
+desktop.ini
