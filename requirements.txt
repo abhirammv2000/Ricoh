@@ -7,6 +7,7 @@ chromadb==0.6.3
 rank_bm25==0.2.2
 langgraph==0.2.74
 langchain-core==0.3.34
+langchain-anthropic==0.3.12
 python-dotenv==1.0.1
 pandas==2.2.3
 numpy==2.2.2
