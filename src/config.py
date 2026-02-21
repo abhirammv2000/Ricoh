@@ -20,6 +20,8 @@ PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 # ── Paths ──
 DATA_DIR: Path = PROJECT_ROOT / "data"          # Raw Ricoh PDFs go here
 CHROMA_DIR: Path = PROJECT_ROOT / "chroma_db"   # Local ChromaDB persistence
+BM25_INDEX_PATH: Path = PROJECT_ROOT / "chroma_db" / "bm25_index.pkl"
+BM25_CHUNKS_PATH: Path = PROJECT_ROOT / "chroma_db" / "bm25_chunks.pkl"
 
 # ── ChromaDB settings ──
 CHROMA_COLLECTION_NAME: str = "ricoh_manuals"
@@ -59,4 +61,4 @@ RRF_K: int = 60
 
 # ── LLM provider (overridden at runtime / via .env) ──
 # Accepted values: "anthropic" | "google"
-DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "google")
+DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")

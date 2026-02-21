@@ -7,7 +7,8 @@ This is the **heart of Phase 2**.  It:
 2. Builds **two parallel indices**:
    a. A ChromaDB collection for dense/semantic vector search
       (embeddings computed locally via the bundled all-MiniLM-L6-v2).
-   b. An in-memory BM25 index for sparse/keyword search.
+   b. A BM25 index for sparse/keyword search, **persisted to disk**
+      as pickle files so it survives process restarts.
 3. At query time, runs *both* searches and fuses the ranked lists
    via **Reciprocal Rank Fusion (RRF)** — a simple, tuning-free
    method that combines ranks instead of raw scores.
@@ -20,6 +21,8 @@ Design decisions
 • BM25 adds keyword-exact-match strength that pure vector search
   misses on model numbers, error codes, and part names that are
   common in Ricoh technical manuals.
+• BM25 is pickled to disk alongside ChromaDB so both indices
+  persist across restarts — fixes the "BM25 not built" bug.
 • RRF (k=60) is preferred over linear score fusion because the two
   score distributions are incommensurable.
 """
@@ -27,6 +30,7 @@ Design decisions
 from __future__ import annotations
 
 import logging
+import pickle
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +38,8 @@ import chromadb
 from rank_bm25 import BM25Okapi
 
 from src.config import (
+    BM25_CHUNKS_PATH,
+    BM25_INDEX_PATH,
     CHROMA_COLLECTION_NAME,
     CHROMA_DIR,
     RETRIEVAL_FINAL_K,
@@ -57,6 +63,9 @@ class HybridRetriever:
         retriever = HybridRetriever()
         retriever.build_index(chunks)          # one-time
         results = retriever.retrieve("query")  # per-question
+
+    On subsequent runs, the constructor auto-loads the persisted
+    BM25 index from disk — no need to call ``build_index`` again.
     """
 
     # ----------------------------------------------------------------
@@ -69,6 +78,9 @@ class HybridRetriever:
         collection_name: str = CHROMA_COLLECTION_NAME,
     ) -> None:
         """Create or load a persistent ChromaDB client + collection.
+
+        Also attempts to load a previously pickled BM25 index so that
+        keyword search works immediately without re-ingestion.
 
         Args:
             persist_dir:     Directory for ChromaDB's SQLite storage.
@@ -88,17 +100,53 @@ class HybridRetriever:
             metadata={"hnsw:space": "cosine"},  # cosine similarity
         )
 
-        # BM25 index + backing store (populated by build_index)
+        # BM25 index + backing store — try loading from disk first
         self._bm25: BM25Okapi | None = None
         self._bm25_chunks: list[dict[str, Any]] = []
+        self._load_bm25()
 
         logger.info(
             "HybridRetriever ready — Chroma collection '%s' "
-            "(%d existing docs) at '%s'.",
+            "(%d existing docs) at '%s'.  BM25: %s",
             collection_name,
             self._collection.count(),
             self._persist_dir,
+            "loaded" if self._bm25 is not None else "NOT loaded",
         )
+
+    # ----------------------------------------------------------------
+    # BM25 PERSISTENCE — save / load pickle files
+    # ----------------------------------------------------------------
+
+    def _save_bm25(self) -> None:
+        """Persist the BM25 index and chunk list to disk as pickle."""
+        BM25_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(BM25_INDEX_PATH, "wb") as f:
+            pickle.dump(self._bm25, f)
+
+        with open(BM25_CHUNKS_PATH, "wb") as f:
+            pickle.dump(self._bm25_chunks, f)
+
+        logger.info(
+            "BM25 index + chunks saved to '%s'.", BM25_INDEX_PATH.parent
+        )
+
+    def _load_bm25(self) -> None:
+        """Load previously pickled BM25 index + chunks from disk."""
+        if BM25_INDEX_PATH.exists() and BM25_CHUNKS_PATH.exists():
+            with open(BM25_INDEX_PATH, "rb") as f:
+                self._bm25 = pickle.load(f)
+
+            with open(BM25_CHUNKS_PATH, "rb") as f:
+                self._bm25_chunks = pickle.load(f)
+
+            logger.info(
+                "BM25 index loaded from disk: %d chunks.",
+                len(self._bm25_chunks),
+            )
+        else:
+            logger.info("No persisted BM25 index found — will need build_index().")
 
     # ----------------------------------------------------------------
     # INDEX BUILDING
@@ -110,6 +158,9 @@ class HybridRetriever:
         This is designed to be **idempotent**: if the ChromaDB
         collection already contains documents, we skip re-adding
         them (ChromaDB upserts by ID).
+
+        The BM25 index is **pickled to disk** so it persists across
+        process restarts — matching ChromaDB's persistence.
 
         Args:
             chunks: Flat list of chunk dicts from ``ingest.py``.
@@ -162,8 +213,11 @@ class HybridRetriever:
         self._bm25 = BM25Okapi(tokenised_corpus)
         self._bm25_chunks = chunks  # keep a reference for lookup
 
+        # ── 3. Persist BM25 to disk ───────────────────────────────
+        self._save_bm25()
+
         logger.info(
-            "BM25 index built over %d chunks.", len(chunks)
+            "BM25 index built and persisted: %d chunks.", len(chunks)
         )
 
     # ----------------------------------------------------------------
@@ -361,13 +415,17 @@ class HybridRetriever:
         """Number of documents currently in the ChromaDB collection."""
         return self._collection.count()
 
+    @property
+    def bm25_ready(self) -> bool:
+        """Whether the BM25 index is loaded and ready."""
+        return self._bm25 is not None
+
 
 # ====================================================================
 # __main__ — End-to-end smoke test
 # ====================================================================
 
 if __name__ == "__main__":
-    import json
     import sys
     import time
 
@@ -394,6 +452,7 @@ if __name__ == "__main__":
     retriever.build_index(chunks)
     elapsed = time.perf_counter() - t0
     print(f"   Index built in {elapsed:.1f}s — {retriever.index_size} docs in ChromaDB.")
+    print(f"   BM25 ready: {retriever.bm25_ready}")
 
     # ── Step 3: Run sample queries ──
     sample_queries = [
