@@ -29,26 +29,17 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from typing import Any, TypedDict
 
-# ── Silence ChromaDB telemetry spam ──
-os.environ["ANONYMIZED_TELEMETRY"] = "False"
-
-
 from langgraph.graph import END, StateGraph
 
-from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K
+from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K  # noqa: F401 — triggers config.py logging setup
 from src.llm_factory import get_llm
 from src.retriever import HybridRetriever
 
-# ── Logging setup ──
+# ── Logging (configured centrally in config.py) ──
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
-)
 
 # ── Constants ──
 MAX_ITERATIONS: int = 2  # hard cap on agentic retries
