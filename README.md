@@ -38,8 +38,9 @@ Field technicians and support engineers waste significant time searching through
 3. **Reasons** through a LangGraph state machine with 4 nodes (Planner → Retriever → Verifier → Synthesizer) and a conditional retry loop.
 4. **Generates** grounded answers with strict `[Document Name, Page X]` citations - refusing to answer when evidence is insufficient.
 5. **Visualises** the full reasoning process in a "Glass Box" Streamlit dashboard.
+6. 🌍 **Polyglot Support:** Automatically detects user language (e.g., Spanish, Japanese, Hindi) and answers in that language while preserving English citations.
 
-**What makes it unique:** The agentic verify-and-retry loop + dual retrieval fusion + complete reasoning transparency.
+**What makes it unique:** The agentic verify-and-retry loop + dual retrieval fusion + complete reasoning transparency + multi-lingual support.
 
 ---
 
@@ -231,6 +232,24 @@ python -m src.retriever    # Retrieval smoke test
 python -m src.agent        # Agent smoke test
 ```
 
+### 🌍 Live Public Demo (Ngrok)
+
+To share a live demo link with judges or teammates:
+
+```bash
+# 1. Install Ngrok (https://ngrok.com/download)
+# Or via Chocolatey on Windows:
+choco install ngrok
+
+# 2. Run Streamlit locally
+streamlit run app/main.py
+
+# 3. In a separate terminal, expose port 8501
+ngrok http 8501
+
+# 4. Share the generated https://xxxx.ngrok-free.app link
+```
+
 ---
 
 ## 1️⃣1️⃣ Repository Structure
@@ -272,7 +291,7 @@ RicohLibrary-Ricoh/
 | **Evaluation** | 10 official test questions, citation accuracy, hallucination control, latency benchmarks |
 | **Business Actionability** | 60%+ estimated time savings, Glass Box transparency for supervisors, modular LLM swapping |
 | **Visualisation** | Streamlit Glass Box dashboard showing full reasoning pipeline |
-| **Innovation** | Verify-and-retry agentic loop with Glass Box transparency - not just RAG, but *reasoned* RAG |
+| **Innovation** | Verify-and-retry agentic loop with Glass Box transparency - not just RAG, but *reasoned* RAG. **Multi-lingual Support:** Agent detects and answers in user's native language. **Glass Box UX:** Full transparency into reasoning with JSON-formatted plan and evidence. |
 
 ---
 
