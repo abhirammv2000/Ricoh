@@ -57,6 +57,7 @@ class AgentState(TypedDict):
     """
     user_query: str                          # original question
     sub_queries: list[str]                   # decomposed sub-questions
+    entities: list[str]                      # error codes, model numbers, part names
     retrieved_evidence: list[dict[str, Any]] # chunks + metadata
     verification_status: str                 # "SUFFICIENT" | "INSUFFICIENT"
     final_answer: str                        # synthesised response
@@ -207,14 +208,17 @@ def planner_node(state: AgentState) -> dict[str, Any]:
     for i, sq in enumerate(sub_queries, 1):
         print(f"     {i}. {sq}")
 
-    return {"sub_queries": sub_queries}
+    return {"sub_queries": sub_queries, "entities": entities}
 
 
 def retriever_node(state: AgentState) -> dict[str, Any]:
-    """Node 2 — Run hybrid retrieval for each sub-query.
+    """Node 2 — Run hybrid retrieval with TWO passes.
 
-    De-duplicates results by chunk ID so repeated queries don't
-    flood the evidence pool.
+    Pass 1: Search using the sub-queries from the Planner.
+    Pass 2: Search using entity-boosted refined queries
+            (error codes, model numbers, part names).
+
+    De-duplicates results by chunk ID across both passes.
     """
     retriever = HybridRetriever()
 
@@ -224,6 +228,7 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
     }
     new_evidence: list[dict[str, Any]] = list(state["retrieved_evidence"])
 
+    # ── Pass 1: Sub-query retrieval ──
     for sq in state["sub_queries"]:
         results = retriever.retrieve(
             query=sq,
@@ -235,7 +240,29 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
                 seen_ids.add(r["id"])
                 new_evidence.append(r)
 
-    print(f"\n📚  RETRIEVER — {len(new_evidence)} unique evidence chunks")
+    pass1_count = len(new_evidence)
+    print(f"\n📚  RETRIEVER — Pass 1 (sub-queries): {pass1_count} chunks")
+
+    # ── Pass 2: Entity-boosted refined queries ──
+    entities = state.get("entities", [])
+    if entities:
+        for entity in entities:
+            # Refine: combine entity with original question for context
+            refined_query = f"{entity} {state['user_query']}"
+            results = retriever.retrieve(
+                query=refined_query,
+                top_k=RETRIEVAL_TOP_K,
+                final_k=RETRIEVAL_FINAL_K,
+            )
+            for r in results:
+                if r["id"] not in seen_ids:
+                    seen_ids.add(r["id"])
+                    new_evidence.append(r)
+
+        pass2_new = len(new_evidence) - pass1_count
+        print(f"📚  RETRIEVER — Pass 2 (entities: {entities}): +{pass2_new} new chunks")
+
+    print(f"📚  RETRIEVER — Total: {len(new_evidence)} unique evidence chunks")
 
     return {
         "retrieved_evidence": new_evidence,
@@ -380,6 +407,7 @@ def run_agent(query: str) -> str:
     initial_state: AgentState = {
         "user_query": query,
         "sub_queries": [],
+        "entities": [],
         "retrieved_evidence": [],
         "verification_status": "",
         "final_answer": "",

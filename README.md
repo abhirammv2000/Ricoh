@@ -48,17 +48,18 @@ Field technicians and support engineers waste significant time searching through
 ```
 User Question
      ↓
-┌─────────────────────────────────────────────────┐
-│              LangGraph State Machine             │
-│                                                  │
-│   🧠 PLANNER ──→ 📚 RETRIEVER ──→ ✅ VERIFIER  │
-│      ↑                                  │       │
-│      └──── (INSUFFICIENT & iter < 2) ───┘       │
-│                                  │               │
-│                          (SUFFICIENT)            │
-│                                  ↓               │
-│                          💬 SYNTHESIZER          │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│               LangGraph State Machine                     │
+│                                                           │
+│   🧠 PLANNER ──→ 📚 RETRIEVER (2-pass) ──→ ✅ VERIFIER  │
+│      ↑            │ Pass 1: sub-queries      │           │
+│      │            │ Pass 2: entity-boosted   │           │
+│      └──── (INSUFFICIENT & iter < 2) ────────┘           │
+│                                  │                        │
+│                          (SUFFICIENT)                     │
+│                                  ↓                        │
+│                          💬 SYNTHESIZER                   │
+└──────────────────────────────────────────────────────────┘
      ↓
 Cited Answer + Glass Box Visualisation
 ```
