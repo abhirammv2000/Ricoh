@@ -1,0 +1,212 @@
+question_number,question,answer,latency_seconds,sources
+1,What property do I set if I want the printers to enable after a restart?,"To enable printers after a restart, you need to set the **""Remember enabled status of printers""** property to **Yes**.
+
+Here are the steps:
+
+1. Navigate to the System page of the Administration tab [aiw00p18.pdf, Page 1]
+2. Change the ""Remember enabled status of printers"" property value to Yes [aiw00p18.pdf, Page 1]
+
+By default, after a system shutdown and restart, all printers are disabled [aiw00p18.pdf, Page 1] [aiw00a12.pdf, Page 1]. Setting this property to Yes ensures that all printers that were enabled before the shutdown will be automatically enabled after the system is restarted [aiw00p18.pdf, Page 1] [aiw00a12.pdf, Page 1].",10.53,aiw00a12.pdf; aiw00p18.pdf
+2,How much RAM does the primary server need if I will be doing document-level processing?,"Information unavailable in provided documents.
+
+The provided evidence contains information about RICOH ProcessDirector system requirements, document processing features, and various configuration details, but does not specify RAM requirements for the primary server when performing document-level processing. While the documents discuss document processing capabilities and performance considerations, they do not include specific memory requirements or hardware specifications for this use case.",14.51,(no citations found)
+3,How much hard drive space should I allocate for DB2 logs?,"Information unavailable in provided documents.
+
+The provided evidence does not contain specific information about hard drive space allocation requirements for DB2 logs in RICOH ProcessDirector. While the documents mention that RICOH ProcessDirector can use either DB2 or PostgreSQL databases [aiwi_whatsnew.pdf, Page 3], and reference various logging mechanisms within the system, they do not provide guidance on DB2 log space allocation requirements.",15.52,aiwi_whatsnew.pdf
+4,Does RPD work with FusionPro?,"Yes, RPD (RICOH ProcessDirector) does work with FusionPro. 
+
+RICOH ProcessDirector can be configured to connect to FusionPro Server, which is the composition engine that creates print files based on input data files [aiw_fusionpro_configconnection.pdf, Page 1].
+
+To set up this integration:
+
+**Prerequisites:**
+1. Install a RICOH ProcessDirector application server feature on the machine where FusionPro is installed [aiw_fusionpro_configconnection.pdf, Page 1]
+2. Set the application server to run as a service on the machine where FusionPro is installed [aiw_fusionpro_configconnection.pdf, Page 1]
+3. The FusionPro service must run under the same user as the RICOH ProcessDirector application server [aiw_fusionpro_configconnection.pdf, Page 1]
+
+**Configuration Steps:**
+1. Log in to RICOH ProcessDirector [aiw_fusionpro_configconnection.pdf, Page 1]
+2. Click the Administration tab [aiw_fusionpro_configconnection.pdf, Page 1]
+3. In the left pane, click Settings ⇒ FusionPro Connect [aiw_fusionpro_configconnection.pdf, Page 1]
+4. Under FusionPro system, select the application server where FusionPro is installed [aiw_fusionpro_configconnection.pdf, Page 1]
+5. Click Get templates to retrieve all templates available on FusionPro Server [aiw_fusionpro_configconnection.pdf, Page 1]
+
+**Workflow Integration:**
+You can send files to FusionPro Server by adding the RunFusionPro step template to a workflow [aiw_fusionpro_configconnection.pdf, Page 1]. The RunFusionPro step template is available in the VARIABLE DATA group when editing workflows [aiw_fusionpro_configsteptemplate.pdf, Page 1].
+
+RICOH ProcessDirector also provides a sample workflow called ""FusionProSample"" that demonstrates how the integration works [fusionpro_o_runsamplewf.pdf, Page 1].",24.61,aiw_fusionpro_configconnection.pdf; aiw_fusionpro_configsteptemplate.pdf; fusionpro_o_runsamplewf.pdf
+5,What operating system does RPD run on?,"Based on the provided evidence, RICOH ProcessDirector (RPD) runs on different operating systems depending on the component:
+
+**Primary Server (main RPD system):**
+RPD runs on Linux operating systems. You install the base product on an x86 server that has one of these operating systems installed [aiw00o15.pdf, Page 1]:
+
+- Red Hat 8.1 through latest 8.X
+- Rocky Linux 8.4 through latest 8.X  
+- Rocky Linux 9.0 through latest 9.X
+- SUSE Linux Enterprise Server (SLES) 12.0 with Service Pack 4 or above for x86_64
+- SUSE Linux Enterprise Server (SLES) 15.0 with Service Pack 1 or above for x86_64
+
+**Application Servers:**
+Application servers run on Windows operating systems. You can install application servers on these operating systems [aiw0appservrq.pdf, Page 1]:
+
+- Windows 10 Pro or Enterprise 64-bit
+- Windows 11 Pro  
+- Windows Server 2019 64-bit
+- Windows Server 2022 64-bit
+- Windows Server 2025 64-bit
+
+**Important Notes:**
+- The DB2 database cannot be installed on Rocky Linux, so you can only install RICOH ProcessDirector with the PostgreSQL database on Rocky Linux [aiw00o15.pdf, Page 1]
+- In version 3.12, RICOH ProcessDirector for AIX has been discontinued [aiwi_whatsnew.pdf, Page 4]",9.67,aiw00o15.pdf; aiw0appservrq.pdf; aiwi_whatsnew.pdf
+6,How do I create a workflow?,"Based on the provided documentation, here are the steps to create a workflow:
+
+## Creating a Workflow
+
+**To create a workflow:** [aiw_c_createworkflow.pdf, Page 1]
+
+1. **Click the Workflow tab** [aiw_c_createworkflow.pdf, Page 1]
+
+2. **In the left pane, click Workflows** [aiw_c_createworkflow.pdf, Page 1]
+
+3. **Right-click a workflow that you want to use as a model and select Copy** [aiw_c_createworkflow.pdf, Page 1]
+
+4. **Name the copy of the workflow, fill in or edit other values that you need, and click Continue** [aiw_c_createworkflow.pdf, Page 1]
+   You will see the workflow's steps in the workflow editor.
+
+5. **Review the steps in each phase of the workflow** [aiw_c_createworkflow.pdf, Page 1]
+   The default processing phases in the base product are Receive, Prepare, Print, and Complete. Some features add other phases such as Assemble or Insert.
+
+6. **Delete any steps that you do not need** [aiw_c_createworkflow.pdf, Page 1]
+   Select the step and press the Delete key or right-click the step and select Delete.
+
+7. **Add each new step or step chain:** [aiw_c_createworkflow.pdf, Page 1]
+   - To add a step, click the side panel in the top right corner of the workflow editor and go to Steps
+   - To add a step chain, go to Step Chains
+
+## Important Recommendations
+
+- **Plan your workflow before you create it** [aiw_c_createworkflow.pdf, Page 1]. Outline the processing steps that your jobs pass through, and make sure that the step templates required to create those steps exist.
+
+- **All workflows should begin with a SetJobPropsFromTextFile step and end with a RemoveJobs step** [aiw_c_createworkflow.pdf, Page 1]
+
+## Alternative Creation Methods
+
+RICOH ProcessDirector provides several sample workflows. To create a workflow, you can:
+- **Modify one of the existing sample workflows** [aiw_c_createworkflow.pdf, Page 1]
+- **Copy an existing workflow and edit it** [aiw_c_createworkflow.pdf, Page 1]
+- **Create a new workflow that has only two steps, SetJobPropsFromTextFile and RemoveJobs, with a connector between them** [aiw_c_createworkflow.pdf, Page 1]
+
+A workflow defines a set of steps that a job follows through the system, specifying what phases and steps the job passes through during processing [aiw00c34.pdf, Page 1].",13.56,aiw00c34.pdf; aiw_c_createworkflow.pdf
+7,What programs does RPD integrate with?,"Based on the provided documentation, RICOH ProcessDirector (RPD) integrates with the following programs:
+
+**Third-Party Software Integration:**
+- **Avanti Slingshot Management Information System (MIS)** - exchanges information and PDF print jobs with JDF job tickets [aiwi0_integratefeat.pdf, Page 1]
+- **Kodak Digimaster printer** - provides cut sheet support [aiwi0_integratefeat.pdf, Page 1]
+- **Xerox printers** - provides cut sheet support for specific models [aiwi0_integratefeat.pdf, Page 1]
+- **FusionPro Server** - composes documents based on predefined templates [aiwi0_integratefeat.pdf, Page 1]
+- **MarcomCentral** - integrates online-storefront and web-to-print functions [aiwi0_integratefeat.pdf, Page 1]
+- **Enfocus PitStop Server 10 or higher** - integrates preflight operations for PDF print jobs [aiwi0_integratefeat.pdf, Page 1]
+- **Quadient Inspire Designer v8 and higher** - processes files created by Quadient Inspire Designer [aiwi0_integratefeat.pdf, Page 1]
+- **RICOH Predictive Insight application** - sends data from PostgreSQL database to the cloud application [aiwi0_integratefeat.pdf, Page 1]
+- **Ultimate Impostrip** - integrates impositioning functions [aiwi0_integratefeat.pdf, Page 1]
+
+**Adobe Integration:**
+- **Adobe Acrobat Pro** - through the RICOH ProcessDirector Plug-in for Adobe Acrobat [pdfw_c_plugin_ui.pdf, Page 1]
+
+**Database Integration:**
+- **PostgreSQL database** - used with the Reports feature to collect data [aiwi0_integratefeat.pdf, Page 1]
+
+The documentation notes that ""The other applications must be purchased separately"" [aiwi0_integratefeat.pdf, Page 1].",15.97,aiwi0_integratefeat.pdf; pdfw_c_plugin_ui.pdf
+8,What is the command to shut down RPD?,"Based on the provided documentation, there are different shutdown commands depending on what component of RPD you want to shut down:
+
+**To shut down the RPD base product or secondary servers:**
+
+Use the `stopaiw` command with these options [aiw00a13.pdf, Page 1]:
+
+1. **To stop the system immediately without waiting for steps to complete:**
+   ```
+   stopaiw
+   ```
+   Note: Any steps that were in a processing state will move to an error state when you restart the system [aiw00a13.pdf, Page 1].
+
+2. **To stop the system after currently processing steps are complete:**
+   ```
+   stopaiw -q
+   ```
+
+3. **To stop the system and all processes started by printer driver component, Download for z/OS, or AFP Download Plus:**
+   ```
+   stopaiw -t
+   ```
+   This option is only available on a primary computer with the AFP Support feature installed [aiw00a13.pdf, Page 1].
+
+**Prerequisites:**
+- Log in to the system as the RICOH ProcessDirector system user (aiw1 is the default) [aiw00a13.pdf, Page 1]
+- Access the command line [aiw00a13.pdf, Page 1]
+
+**To shut down individual printers:**
+This is done through the web interface, not a command line command. You right-click the printer in the Printers Portlet and select Shutdown [aiw00pshutdown.pdf, Page 1].
+
+The `stopaiw` command shuts down the primary server, local secondary servers, the user interface program, and the information center on the primary computer [aiw00a13.pdf, Page 1].",14.08,aiw00a13.pdf; aiw00pshutdown.pdf
+9,How do I use locations?,"Based on the provided documentation, here's how to use locations in RICOH ProcessDirector:
+
+## What are Locations?
+
+Locations are objects you create to represent geographical or physical locations, such as city names, room numbers in buildings, or limited-access spaces like secure print areas [aiw00olocation.pdf, Page 1]. RICOH ProcessDirector does not provide predefined locations [aiw00ccrlocs.pdf, Page 1].
+
+## Creating Locations
+
+To create a location:
+
+1. Click the Administration tab
+2. In the left pane, click Objects ⇒ Locations
+3. Click Add
+4. Fill in the properties
+5. Click OK
+
+[aiw00ccrlocs.pdf, Page 1]
+
+## Copying Locations
+
+You can copy existing locations to use as templates:
+
+1. Click the Administration tab
+2. In the left pane, click Objects ⇒ Locations
+3. Right-click the location that you want to copy and select Copy
+4. Fill in the properties
+5. Click OK
+
+[aiw00cclocs.pdf, Page 1]
+
+## Using Locations for Access Control
+
+After you create locations, you can use them to restrict access to objects [aiw00olocation.pdf, Page 1]. Many objects have a Location property, including printers and jobs [aiw00olocation.pdf, Page 1].
+
+Location settings apply to both the Main page and the Administration page. Administrators determine what locations each user or group members are allowed to see. Users can then select which locations to show using the Preferences dialog [aiw00olocation.pdf, Page 1].
+
+## Setting Location Properties
+
+After you define your locations, set the Location property for the objects that you can manage using locations [aiw00ccrlocs.pdf, Page 1].
+
+## Additional Features
+
+You can export entries in the Locations table to a CSV file by clicking the button in the top right corner of the page and selecting ""Export table to CSV"" [aiw00ccrlocs.pdf, Page 1].",10.58,aiw00cclocs.pdf; aiw00ccrlocs.pdf; aiw00olocation.pdf
+10,What inserters does RPD support?,"Based on the provided documentation, RICOH ProcessDirector (RPD) supports inserters from the following manufacturers:
+
+**Supported Inserter Manufacturers:**
+- Bowe [InserterOverview.pdf, Page 1]
+- Bowe with JetVision camera systems [InserterOverview.pdf, Page 1]
+- Bowe Bell & Howell [InserterOverview.pdf, Page 1]
+- Gunther [InserterOverview.pdf, Page 1]
+- Inserters with Ironsides camera systems [InserterOverview.pdf, Page 1]
+- Kern [InserterOverview.pdf, Page 1]
+- Pitney Bowes [InserterOverview.pdf, Page 1]
+- Quadient with the Automated Insertion Management System (AIMS) software [InserterOverview.pdf, Page 1]
+
+**Two Types of Inserter Support:**
+
+1. **Full Inserter Feature**: Works with inserters from a wide range of manufacturers [InserterOverview.pdf, Page 1]
+
+2. **Quadient Inserter Express Feature**: Only works with Quadient inserters [InserterOverview.pdf, Page 1]
+
+RPD provides sample inserter controller objects for several inserter manufacturers [DefiningInserterControllers.pdf, Page 1]. If your inserter manufacturer is not among the supported ones listed above, you can create a new inserter controller object [DefiningInserterControllers.pdf, Page 1].",9.83,DefiningInserterControllers.pdf; InserterOverview.pdf
