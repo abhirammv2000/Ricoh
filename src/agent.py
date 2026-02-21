@@ -1,15 +1,15 @@
 """
-src/agent.py — LangGraph Agentic State Machine.
+src/agent.py - LangGraph Agentic State Machine.
 
 This is the **brain** of RicohLibrary.  It orchestrates a
 Plan → Retrieve → Verify → Synthesize loop that:
 
-1. **Plans** — decomposes a user question into focused sub-queries
+1. **Plans** - decomposes a user question into focused sub-queries
    and extracts key entities (error codes, model numbers).
-2. **Retrieves** — calls the HybridRetriever for each sub-query.
-3. **Verifies** — asks the LLM whether the retrieved evidence is
+2. **Retrieves** - calls the HybridRetriever for each sub-query.
+3. **Verifies** - asks the LLM whether the retrieved evidence is
    sufficient to answer the question definitively.
-4. **Synthesises** — generates a grounded answer with strict
+4. **Synthesises** - generates a grounded answer with strict
    page-level citations in [Document Name, Page X] format.
 
 The agentic loop allows one retry: if the Verifier says
@@ -19,7 +19,7 @@ back to the Planner to broaden the search.
 Design decisions
 ────────────────
 • We use LangGraph's StateGraph for explicit, auditable control
-  flow — no hidden chains or prompt-chaining magic.
+  flow - no hidden chains or prompt-chaining magic.
 • ``iterations`` is capped at 2 to prevent runaway API costs.
 • Temperature is 0.0 everywhere for deterministic, factual output.
 • All prompts are defined as module-level constants for easy tuning.
@@ -34,7 +34,7 @@ from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
 
-from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K  # noqa: F401 — triggers config.py logging setup
+from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K  # noqa: F401 - triggers config.py logging setup
 from src.llm_factory import get_llm
 from src.retriever import HybridRetriever
 
@@ -53,7 +53,7 @@ class AgentState(TypedDict):
     """Typed state that flows through every node in the graph.
 
     Keeping it as a TypedDict lets LangGraph serialise / inspect
-    the state at every step — invaluable for debugging.
+    the state at every step - invaluable for debugging.
     """
     user_query: str                          # original question
     sub_queries: list[str]                   # decomposed sub-questions
@@ -83,7 +83,7 @@ User question:
 
 {retry_context}
 
-Respond with ONLY a valid JSON object in this exact format — no \
+Respond with ONLY a valid JSON object in this exact format - no \
 markdown fences, no extra text:
 {{
   "entities": ["entity1", "entity2"],
@@ -105,7 +105,7 @@ information to **definitively** answer the user's question without \
 guessing.  Consider whether specific steps, values, or procedures \
 mentioned in the question are covered.
 
-Respond with EXACTLY one word — either SUFFICIENT or INSUFFICIENT.
+Respond with EXACTLY one word - either SUFFICIENT or INSUFFICIENT.
 """
 
 SYNTHESIZER_PROMPT = """\
@@ -113,12 +113,16 @@ You are a senior Ricoh technical support engineer.  Answer the \
 user's question using ONLY the evidence provided below.
 
 Rules:
-1. Provide clear, step-by-step instructions where applicable.
-2. For EVERY factual claim, append a citation in this exact format: \
+1. Detect the language of the user's input query. You MUST generate \
+the Final Answer in that SAME language. However, keep the citation \
+tags [Document Name, Page X] exactly as they are (do not translate \
+filenames or citation format).
+2. Provide clear, step-by-step instructions where applicable.
+3. For EVERY factual claim, append a citation in this exact format: \
 [Document Name, Page X].
-3. If the evidence does not contain the answer, state: \
-"Information unavailable in provided documents."
-4. Do NOT invent information.  Do NOT guess.
+4. If the evidence does not contain the answer, state: \
+"Information unavailable in provided documents." (in the user's language).
+5. Do NOT invent information.  Do NOT guess.
 
 User question:
 \"\"\"{user_query}\"\"\"
@@ -131,7 +135,7 @@ Answer:
 
 
 # ====================================================================
-# 3. HELPER — format evidence for prompts
+# 3. HELPER - format evidence for prompts
 # ====================================================================
 
 def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
@@ -155,7 +159,7 @@ def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
 # ====================================================================
 
 def planner_node(state: AgentState) -> dict[str, Any]:
-    """Node 1 — Decompose the user query into sub-queries.
+    """Node 1 - Decompose the user query into sub-queries.
 
     On a retry (iterations > 0), we inject context about what has
     already been retrieved so the LLM can broaden its search.
@@ -202,7 +206,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
     logger.info("Planner sub-queries: %s", sub_queries)
 
     # ── Pretty-print for terminal visibility ──
-    print(f"\n🧠  PLANNER — Iteration {state['iterations'] + 1}")
+    print(f"\n🧠  PLANNER - Iteration {state['iterations'] + 1}")
     print(f"   Entities : {entities}")
     print(f"   Sub-queries:")
     for i, sq in enumerate(sub_queries, 1):
@@ -212,7 +216,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
 
 
 def retriever_node(state: AgentState) -> dict[str, Any]:
-    """Node 2 — Run hybrid retrieval with TWO passes.
+    """Node 2 - Run hybrid retrieval with TWO passes.
 
     Pass 1: Search using the sub-queries from the Planner.
     Pass 2: Search using entity-boosted refined queries
@@ -241,7 +245,7 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
                 new_evidence.append(r)
 
     pass1_count = len(new_evidence)
-    print(f"\n📚  RETRIEVER — Pass 1 (sub-queries): {pass1_count} chunks")
+    print(f"\n📚  RETRIEVER - Pass 1 (sub-queries): {pass1_count} chunks")
 
     # ── Pass 2: Entity-boosted refined queries ──
     entities = state.get("entities", [])
@@ -260,9 +264,9 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
                     new_evidence.append(r)
 
         pass2_new = len(new_evidence) - pass1_count
-        print(f"📚  RETRIEVER — Pass 2 (entities: {entities}): +{pass2_new} new chunks")
+        print(f"📚  RETRIEVER - Pass 2 (entities: {entities}): +{pass2_new} new chunks")
 
-    print(f"📚  RETRIEVER — Total: {len(new_evidence)} unique evidence chunks")
+    print(f"📚  RETRIEVER - Total: {len(new_evidence)} unique evidence chunks")
 
     return {
         "retrieved_evidence": new_evidence,
@@ -271,7 +275,7 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
 
 
 def verifier_node(state: AgentState) -> dict[str, Any]:
-    """Node 3 — Check whether evidence is sufficient.
+    """Node 3 - Check whether evidence is sufficient.
 
     Forces the LLM to output strictly "SUFFICIENT" or "INSUFFICIENT".
     """
@@ -296,13 +300,13 @@ def verifier_node(state: AgentState) -> dict[str, Any]:
         logger.warning("Verifier gave unexpected output: '%s'", verdict)
         status = "SUFFICIENT"
 
-    print(f"\n✅  VERIFIER — {status} (iteration {state['iterations']})")
+    print(f"\n✅  VERIFIER - {status} (iteration {state['iterations']})")
 
     return {"verification_status": status}
 
 
 def synthesizer_node(state: AgentState) -> dict[str, Any]:
-    """Node 4 — Generate a grounded answer with strict citations.
+    """Node 4 - Generate a grounded answer with strict citations.
 
     This is the final node.  It produces the user-facing answer
     with [Document Name, Page X] citations.
@@ -318,13 +322,13 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
     response = llm.invoke(prompt)
     answer = response.content.strip()
 
-    print(f"\n💬  SYNTHESIZER — Answer generated ({len(answer)} chars)")
+    print(f"\n💬  SYNTHESIZER - Answer generated ({len(answer)} chars)")
 
     return {"final_answer": answer}
 
 
 # ====================================================================
-# 5. CONDITIONAL EDGE — Verifier routing logic
+# 5. CONDITIONAL EDGE - Verifier routing logic
 # ====================================================================
 
 def should_retry_or_synthesize(state: AgentState) -> str:
@@ -390,7 +394,7 @@ def build_agent_graph() -> Any:
 
 
 # ====================================================================
-# 7. PUBLIC API — convenience runner
+# 7. PUBLIC API - convenience runner
 # ====================================================================
 
 def run_agent(query: str) -> str:
@@ -420,7 +424,7 @@ def run_agent(query: str) -> str:
 
 
 # ====================================================================
-# __main__ — Smoke test with a complex multi-part question
+# __main__ - Smoke test with a complex multi-part question
 # ====================================================================
 
 if __name__ == "__main__":
@@ -430,7 +434,7 @@ if __name__ == "__main__":
     from src.retriever import HybridRetriever
 
     print("=" * 70)
-    print("  RicohLibrary — Phase 3 Agent Smoke Test")
+    print("  RicohLibrary - Phase 3 Agent Smoke Test")
     print("=" * 70)
 
     # ── Step 1: Ensure the retrieval index is populated ──
@@ -439,7 +443,7 @@ if __name__ == "__main__":
 
     if retriever.index_size == 0 or not retriever.bm25_ready:
         reason = "empty" if retriever.index_size == 0 else "BM25 missing"
-        print(f"   Index needs (re)build ({reason}) — ingesting PDFs…")
+        print(f"   Index needs (re)build ({reason}) - ingesting PDFs…")
         chunks = ingest_all()
         if not chunks:
             print("❌  No PDFs found in data/. Add PDFs and retry.")

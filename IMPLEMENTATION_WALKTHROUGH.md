@@ -1,4 +1,4 @@
-# RicohLibrary — Implementation Walkthrough
+# RicohLibrary - Implementation Walkthrough
 
 ## Overview
 
@@ -15,9 +15,9 @@ RicohLibrary is an agentic AI technical support system built in 6 phases over a 
 - Uses **PyMuPDF** (`fitz`) to extract text page-by-page from all PDFs in `data/`
 - Chunks text using a **sliding window**: ~500 words per chunk, 50-word overlap
 - Preserves critical metadata on every chunk:
-  - `source_document` — original PDF filename
-  - `page_number` — page the text came from
-  - `chunk_id` — unique identifier for de-duplication
+  - `source_document` - original PDF filename
+  - `page_number` - page the text came from
+  - `chunk_id` - unique identifier for de-duplication
 - Returns a flat list of chunk dicts ready for indexing
 
 **Design decision:** Word-based chunking (not character-based) to preserve semantic coherence. Overlap ensures no answer is split across chunk boundaries.
@@ -32,7 +32,7 @@ Two search backends combined with rank fusion:
 
 ### Semantic Search (ChromaDB)
 - Uses `all-MiniLM-L6-v2` sentence transformer (local, no API key)
-- Vectors stored in `chroma_db/` — persists across restarts
+- Vectors stored in `chroma_db/` - persists across restarts
 - Finds semantically similar passages even with different wording
 
 ### Keyword Search (BM25)
@@ -42,7 +42,7 @@ Two search backends combined with rank fusion:
 
 ### Reciprocal Rank Fusion (RRF)
 - Merges ranked results from both backends using `RRF(k=60)`
-- Rank-based fusion — avoids the problem of incomparable score scales between cosine similarity and BM25 scores
+- Rank-based fusion - avoids the problem of incomparable score scales between cosine similarity and BM25 scores
 - Returns top-5 fused results per query
 
 **Design decision:** Hybrid > pure vector because technical documentation is full of exact identifiers that semantic search alone misses.
@@ -100,8 +100,8 @@ START → Planner → Retriever → Verifier ─┬─→ Synthesizer → END
 - Runs all 10 official hackathon questions through the agent
 - Captures per-question: answer text, latency, source documents cited
 - Outputs:
-  - `evaluation_results.csv` — machine-readable results
-  - `evaluation_report.md` — judge-friendly formatted report
+  - `evaluation_results.csv` - machine-readable results
+  - `evaluation_report.md` - judge-friendly formatted report
 - **Results:** 10/10 questions answered, avg 13.9s latency, hallucination control verified
 
 ---
@@ -139,7 +139,7 @@ Follows the official HackVerse 2026 template with all 12 required sections:
 ## Key Bug Fixes
 
 ### BM25 Persistence Bug
-**Problem:** BM25 index lived only in memory — empty on restart.
+**Problem:** BM25 index lived only in memory - empty on restart.
 **Fix:** Serialize BM25 index + chunk data to pickle files after `build_index()`, auto-load in `__init__()`.
 
 ### ChromaDB Telemetry Spam

@@ -1,11 +1,11 @@
 """
-src/evaluate.py — Phase 4 Evaluation Pipeline.
+src/evaluate.py - Phase 4 Evaluation Pipeline.
 
 Runs the 10 official DaSSA / HackVerse hackathon test questions
 through the full agentic pipeline and produces:
 
-1. **evaluation_results.csv** — machine-readable results.
-2. **evaluation_report.md**  — judge-ready Markdown report.
+1. **evaluation_results.csv** - machine-readable results.
+2. **evaluation_report.md**  - judge-ready Markdown report.
 
 Each question is sent to ``agent.run_agent()`` and we capture:
 • The final answer (with citations)
@@ -14,7 +14,7 @@ Each question is sent to ``agent.run_agent()`` and we capture:
 
 Design decisions
 ────────────────
-• Questions are hardcoded — the hackathon forbids web search and
+• Questions are hardcoded - the hackathon forbids web search and
   the rubric specifies these exact queries.
 • CSV uses pandas for clean formatting; Markdown is hand-assembled
   for maximum judge readability.
@@ -39,7 +39,7 @@ from src.config import PROJECT_ROOT
 for _quiet in ("src.ingest", "src.retriever"):
     logging.getLogger(_quiet).setLevel(logging.WARNING)
 
-from src.agent import run_agent  # noqa: E402 — after logging config
+from src.agent import run_agent  # noqa: E402 - after logging config
 from src.ingest import ingest_all
 from src.retriever import HybridRetriever
 
@@ -157,7 +157,7 @@ def save_markdown_report(
     avg_time = total_time / len(results) if results else 0
 
     lines: list[str] = [
-        "# 📊 RicohLibrary — Evaluation Report",
+        "# 📊 RicohLibrary - Evaluation Report",
         "",
         f"**Generated:** {timestamp}  ",
         f"**Team:** Neural Ninjas  ",
@@ -227,14 +227,14 @@ def save_markdown_report(
 
 
 # ====================================================================
-# __main__ — Run the full evaluation
+# __main__ - Run the full evaluation
 # ====================================================================
 
 if __name__ == "__main__":
     import sys
 
     print("=" * 70)
-    print("  RicohLibrary — Phase 4 Evaluation Pipeline")
+    print("  RicohLibrary - Phase 4 Evaluation Pipeline")
     print("=" * 70)
 
     # ── Ensure index is ready ──
@@ -243,7 +243,7 @@ if __name__ == "__main__":
 
     if retriever.index_size == 0 or not retriever.bm25_ready:
         reason = "empty" if retriever.index_size == 0 else "BM25 missing"
-        print(f"   Index needs (re)build ({reason}) — ingesting PDFs…")
+        print(f"   Index needs (re)build ({reason}) - ingesting PDFs…")
         # Temporarily restore ingest logging for visibility
         logging.getLogger("src.ingest").setLevel(logging.INFO)
         chunks = ingest_all()

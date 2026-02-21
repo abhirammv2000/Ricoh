@@ -1,5 +1,5 @@
 """
-src/llm_factory.py — Abstracted LLM initialisation.
+src/llm_factory.py - Abstracted LLM initialisation.
 
 Provides a single ``get_llm()`` entry-point that returns a
 LangChain-compatible chat model.  The concrete provider is
@@ -73,14 +73,14 @@ def get_llm(
             **kwargs,
         )
 
-    # ── OpenAI (stub — activate when needed) ──────────────────────
+    # ── OpenAI (stub - activate when needed) ──────────────────────
     elif provider == "openai":
         raise NotImplementedError(
             "OpenAI provider not yet wired up. "
             "Install langchain-openai and add OPENAI_API_KEY."
         )
 
-    # ── Google (stub — activate when needed) ──────────────────────
+    # ── Google (stub - activate when needed) ──────────────────────
     elif provider == "google":
         raise NotImplementedError(
             "Google provider not yet wired up. "

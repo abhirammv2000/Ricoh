@@ -1,5 +1,5 @@
 """
-src/retriever.py — Hybrid Retrieval Engine (ChromaDB + BM25 + RRF).
+src/retriever.py - Hybrid Retrieval Engine (ChromaDB + BM25 + RRF).
 
 This is the **heart of Phase 2**.  It:
 
@@ -10,19 +10,19 @@ This is the **heart of Phase 2**.  It:
    b. A BM25 index for sparse/keyword search, **persisted to disk**
       as pickle files so it survives process restarts.
 3. At query time, runs *both* searches and fuses the ranked lists
-   via **Reciprocal Rank Fusion (RRF)** — a simple, tuning-free
+   via **Reciprocal Rank Fusion (RRF)** - a simple, tuning-free
    method that combines ranks instead of raw scores.
 
 Design decisions
 ────────────────
 • ChromaDB's default embedding function (all-MiniLM-L6-v2) runs
-  entirely offline — critical because the hackathon disallows web
+  entirely offline - critical because the hackathon disallows web
   search and we want zero API-key dependencies at retrieval time.
 • BM25 adds keyword-exact-match strength that pure vector search
   misses on model numbers, error codes, and part names that are
   common in Ricoh technical manuals.
 • BM25 is pickled to disk alongside ChromaDB so both indices
-  persist across restarts — fixes the "BM25 not built" bug.
+  persist across restarts - fixes the "BM25 not built" bug.
 • RRF (k=60) is preferred over linear score fusion because the two
   score distributions are incommensurable.
 """
@@ -61,7 +61,7 @@ class HybridRetriever:
         results = retriever.retrieve("query")  # per-question
 
     On subsequent runs, the constructor auto-loads the persisted
-    BM25 index from disk — no need to call ``build_index`` again.
+    BM25 index from disk - no need to call ``build_index`` again.
     """
 
     # ----------------------------------------------------------------
@@ -96,13 +96,13 @@ class HybridRetriever:
             metadata={"hnsw:space": "cosine"},  # cosine similarity
         )
 
-        # BM25 index + backing store — try loading from disk first
+        # BM25 index + backing store - try loading from disk first
         self._bm25: BM25Okapi | None = None
         self._bm25_chunks: list[dict[str, Any]] = []
         self._load_bm25()
 
         logger.info(
-            "HybridRetriever ready — Chroma collection '%s' "
+            "HybridRetriever ready - Chroma collection '%s' "
             "(%d existing docs) at '%s'.  BM25: %s",
             collection_name,
             self._collection.count(),
@@ -111,7 +111,7 @@ class HybridRetriever:
         )
 
     # ----------------------------------------------------------------
-    # BM25 PERSISTENCE — save / load pickle files
+    # BM25 PERSISTENCE - save / load pickle files
     # ----------------------------------------------------------------
 
     def _save_bm25(self) -> None:
@@ -142,7 +142,7 @@ class HybridRetriever:
                 len(self._bm25_chunks),
             )
         else:
-            logger.info("No persisted BM25 index found — will need build_index().")
+            logger.info("No persisted BM25 index found - will need build_index().")
 
     # ----------------------------------------------------------------
     # INDEX BUILDING
@@ -156,7 +156,7 @@ class HybridRetriever:
         them (ChromaDB upserts by ID).
 
         The BM25 index is **pickled to disk** so it persists across
-        process restarts — matching ChromaDB's persistence.
+        process restarts - matching ChromaDB's persistence.
 
         Args:
             chunks: Flat list of chunk dicts from ``ingest.py``.
@@ -201,7 +201,7 @@ class HybridRetriever:
 
         # ── 2. BM25 (keyword index) ───────────────────────────────
         # Tokenisation: simple lowercase whitespace split.  This is
-        # intentionally basic — BM25 does not need stemming to match
+        # intentionally basic - BM25 does not need stemming to match
         # error codes like "SC542" or model names like "IM C3500".
         tokenised_corpus = [
             c["text"].lower().split() for c in chunks
@@ -217,7 +217,7 @@ class HybridRetriever:
         )
 
     # ----------------------------------------------------------------
-    # SEARCH — VECTOR (SEMANTIC)
+    # SEARCH - VECTOR (SEMANTIC)
     # ----------------------------------------------------------------
 
     def _vector_search(
@@ -262,7 +262,7 @@ class HybridRetriever:
         return ranked
 
     # ----------------------------------------------------------------
-    # SEARCH — BM25 (KEYWORD)
+    # SEARCH - BM25 (KEYWORD)
     # ----------------------------------------------------------------
 
     def _bm25_search(
@@ -307,7 +307,7 @@ class HybridRetriever:
         return ranked
 
     # ----------------------------------------------------------------
-    # FUSION — RECIPROCAL RANK FUSION (RRF)
+    # FUSION - RECIPROCAL RANK FUSION (RRF)
     # ----------------------------------------------------------------
 
     @staticmethod
@@ -403,7 +403,7 @@ class HybridRetriever:
         return fused
 
     # ----------------------------------------------------------------
-    # UTILITY — check if index is populated
+    # UTILITY - check if index is populated
     # ----------------------------------------------------------------
 
     @property
@@ -418,7 +418,7 @@ class HybridRetriever:
 
 
 # ====================================================================
-# __main__ — End-to-end smoke test
+# __main__ - End-to-end smoke test
 # ====================================================================
 
 if __name__ == "__main__":
@@ -428,7 +428,7 @@ if __name__ == "__main__":
     from src.ingest import ingest_all
 
     print("=" * 70)
-    print("  RicohLibrary — Phase 2 Hybrid Retrieval Smoke Test")
+    print("  RicohLibrary - Phase 2 Hybrid Retrieval Smoke Test")
     print("=" * 70)
 
     # ── Step 1: Ingest all PDFs from data/ ──
@@ -447,7 +447,7 @@ if __name__ == "__main__":
     retriever = HybridRetriever()
     retriever.build_index(chunks)
     elapsed = time.perf_counter() - t0
-    print(f"   Index built in {elapsed:.1f}s — {retriever.index_size} docs in ChromaDB.")
+    print(f"   Index built in {elapsed:.1f}s - {retriever.index_size} docs in ChromaDB.")
     print(f"   BM25 ready: {retriever.bm25_ready}")
 
     # ── Step 3: Run sample queries ──
