@@ -220,6 +220,7 @@ def run_agent_full(query: str) -> dict:
     initial_state: AgentState = {
         "user_query": query,
         "sub_queries": [],
+        "entities": [],
         "retrieved_evidence": [],
         "verification_status": "",
         "final_answer": "",
@@ -259,6 +260,13 @@ def render_glass_box(state: dict, latency: float) -> None:
                 st.markdown(f"**{i}.** {sq}")
         else:
             st.caption("No sub-queries generated.")
+
+        # ── Extracted entities ──
+        entities = state.get("entities", [])
+        if entities:
+            st.markdown("#### 🏷️ Extracted Entities")
+            entity_tags = "  ".join(f"`{e}`" for e in entities)
+            st.markdown(entity_tags)
 
         st.divider()
 
