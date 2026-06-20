@@ -1,0 +1,79 @@
+{
+  "_description": "Ground-truth set for the RicohLibrary evaluation harness. Each entry defines the EXPECTED behaviour independently of the system's output, so the harness measures quality rather than re-describing it. key_facts were curated from grounded, cited answers that trace to real RICOH ProcessDirector documents. expected_behavior is 'answer' when the corpus is believed to contain the answer, or 'refuse' when it genuinely does not. Entries marked needs_verification require a human to confirm against the source PDFs.",
+  "questions": [
+    {
+      "id": 1,
+      "question": "What property do I set if I want the printers to enable after a restart?",
+      "expected_behavior": "answer",
+      "key_facts": ["Remember enabled status of printers", "set the value to Yes"],
+      "expected_sources": ["aiw00p18.pdf", "aiw00a12.pdf"]
+    },
+    {
+      "id": 2,
+      "question": "How much RAM does the primary server need if I will be doing document-level processing?",
+      "expected_behavior": "answer",
+      "key_facts": [],
+      "expected_sources": ["aiw0appservrq.pdf"],
+      "needs_verification": true,
+      "note": "System currently REFUSES this. RAM/memory requirements for document-level processing almost certainly exist in a hardware/system-requirements doc. Treat a refusal here as a probable RETRIEVAL MISS to investigate, not a correct refusal."
+    },
+    {
+      "id": 3,
+      "question": "How much hard drive space should I allocate for DB2 logs?",
+      "expected_behavior": "answer",
+      "key_facts": [],
+      "expected_sources": [],
+      "needs_verification": true,
+      "note": "System currently REFUSES this. DB2 log sizing guidance likely exists in a database/requirements doc. Treat a refusal as a probable retrieval miss to investigate."
+    },
+    {
+      "id": 4,
+      "question": "Does RPD work with FusionPro?",
+      "expected_behavior": "answer",
+      "key_facts": ["Yes, RPD works with FusionPro", "FusionPro Connect", "RunFusionPro step template"],
+      "expected_sources": ["aiw_fusionpro_configconnection.pdf"]
+    },
+    {
+      "id": 5,
+      "question": "What operating system does RPD run on?",
+      "expected_behavior": "answer",
+      "key_facts": ["primary server runs on Linux (Red Hat, Rocky Linux, or SUSE/SLES)", "application servers run on Windows"],
+      "expected_sources": ["aiw00o15.pdf", "aiw0appservrq.pdf"]
+    },
+    {
+      "id": 6,
+      "question": "How do I create a workflow?",
+      "expected_behavior": "answer",
+      "key_facts": ["click the Workflow tab", "copy an existing workflow as a model", "workflows begin with SetJobPropsFromTextFile and end with RemoveJobs"],
+      "expected_sources": ["aiw_c_createworkflow.pdf"]
+    },
+    {
+      "id": 7,
+      "question": "What programs does RPD integrate with?",
+      "expected_behavior": "answer",
+      "key_facts": ["Avanti Slingshot", "FusionPro", "MarcomCentral", "Enfocus PitStop", "Quadient Inspire", "Ultimate Impostrip", "Adobe Acrobat"],
+      "expected_sources": ["aiwi0_integratefeat.pdf"]
+    },
+    {
+      "id": 8,
+      "question": "What is the command to shut down RPD?",
+      "expected_behavior": "answer",
+      "key_facts": ["stopaiw"],
+      "expected_sources": ["aiw00a13.pdf"]
+    },
+    {
+      "id": 9,
+      "question": "How do I use locations?",
+      "expected_behavior": "answer",
+      "key_facts": ["create locations from the Administration tab under Objects then Locations", "locations restrict access to objects"],
+      "expected_sources": ["aiw00olocation.pdf", "aiw00ccrlocs.pdf"]
+    },
+    {
+      "id": 10,
+      "question": "What inserters does RPD support?",
+      "expected_behavior": "answer",
+      "key_facts": ["Bowe", "Gunther", "Kern", "Pitney Bowes", "Quadient"],
+      "expected_sources": ["InserterOverview.pdf"]
+    }
+  ]
+}

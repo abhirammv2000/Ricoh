@@ -1,0 +1,24 @@
+# Render.com blueprint — one-click deploy of the RicohLibrary dashboard.
+# Render injects $PORT, which the Dockerfile CMD already respects.
+#
+# Setup:
+#   1. Push this repo to GitHub.
+#   2. In Render: New → Blueprint → point at this repo.
+#   3. Set the ANTHROPIC_API_KEY secret in the dashboard.
+#   4. Attach a disk and upload the Ricoh PDFs to /app/data (or bake an
+#      index into a persistent disk) — the app ingests them on boot.
+services:
+  - type: web
+    name: ricohlibrary
+    runtime: docker
+    plan: starter            # 512MB is tight for the index; bump if needed
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # set as a secret in the Render dashboard
+      - key: ANONYMIZED_TELEMETRY
+        value: "False"
+    disk:
+      name: ricoh-data
+      mountPath: /app/data
+      sizeGB: 1

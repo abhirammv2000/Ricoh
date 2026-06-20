@@ -9,5 +9,6 @@ langgraph==0.2.74
 langchain-core>=0.3.34
 langchain-anthropic==0.3.12
 python-dotenv==1.0.1
-pandas==2.2.3
+# numpy is a transitive runtime dependency of rank_bm25 (BM25Okapi);
+# pinned here for reproducible builds.
 numpy==2.2.2
