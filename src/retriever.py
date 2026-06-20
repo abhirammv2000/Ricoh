@@ -42,6 +42,7 @@ from src.config import (
     BM25_INDEX_PATH,
     CHROMA_COLLECTION_NAME,
     CHROMA_DIR,
+    EMBEDDING_MODEL,
     RERANK_CANDIDATE_POOL,
     RERANKER_ENABLED,
     RERANKER_MODEL,
@@ -55,6 +56,28 @@ logger = logging.getLogger(__name__)
 
 # Module-level cache so the (expensive) cross-encoder loads at most once.
 _RERANKER = None
+
+
+def _get_embedding_function():
+    """Return the ChromaDB embedding function for the configured model.
+
+    ``None`` → ChromaDB uses its built-in default (all-MiniLM-L6-v2 via
+    onnxruntime, no torch).  When ``EMBEDDING_MODEL`` is set, use a
+    stronger sentence-transformers model (requires the optional extra).
+    """
+    if not EMBEDDING_MODEL:
+        return None
+    try:
+        from chromadb.utils import embedding_functions
+    except ImportError as exc:  # pragma: no cover - env dependent
+        raise ImportError(
+            "EMBEDDING_MODEL is set but the dependency is missing. "
+            "Run: pip install -r requirements-enhanced.txt"
+        ) from exc
+    logger.info("Using embedding model '%s'.", EMBEDDING_MODEL)
+    return embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=EMBEDDING_MODEL
+    )
 
 
 def _get_reranker():
@@ -118,10 +141,13 @@ class HybridRetriever:
             path=str(self._persist_dir),
         )
 
-        # get_or_create → idempotent; safe to call multiple times
+        # get_or_create → idempotent; safe to call multiple times.
+        # embedding_function=None makes ChromaDB use its onnx MiniLM default;
+        # a configured EMBEDDING_MODEL swaps in a stronger sentence-transformer.
         self._collection = self._client.get_or_create_collection(
             name=collection_name,
             metadata={"hnsw:space": "cosine"},  # cosine similarity
+            embedding_function=_get_embedding_function(),
         )
 
         # BM25 index + backing store - try loading from disk first

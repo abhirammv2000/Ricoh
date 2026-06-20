@@ -68,6 +68,18 @@ BM25_CHUNKS_PATH: Path = PROJECT_ROOT / "chroma_db" / "bm25_chunks.pkl"
 # ── ChromaDB settings ──
 CHROMA_COLLECTION_NAME: str = "ricoh_manuals"
 
+# ── Embedding model ────────────────────────────────────────────────
+# Empty string ("") = ChromaDB's built-in default: all-MiniLM-L6-v2 via
+# onnxruntime (fast, offline, NO torch).  Set EMBEDDING_MODEL to a
+# sentence-transformers model id (e.g. "BAAI/bge-small-en-v1.5") for
+# materially stronger retrieval — this pulls in torch + sentence-
+# transformers (heavy), so it is opt-in:
+#   pip install -r requirements-enhanced.txt
+#   EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 python -m src.ingest
+# Changing this requires REBUILDING the index (vectors are model-specific):
+# delete chroma_db/ and re-ingest.
+EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "")
+
 # ── Chunking hyper-parameters ──────────────────────────────────────
 # We approximate "tokens" as whitespace-delimited words (~1.3 tokens
 # per word on average for English text).  Using word count is simpler
