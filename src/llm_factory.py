@@ -23,8 +23,13 @@ from src.config import DEFAULT_LLM_PROVIDER
 
 
 # ── Default model names per provider ──
+# NOTE: the original claude-sonnet-4-20250514 was retired on 2026-06-15
+# and now 404s. claude-sonnet-4-6 is the current Sonnet (bare alias, no
+# date suffix). We stay on Sonnet (not Opus) deliberately: the pipeline
+# makes ~4 LLM calls per question, so Sonnet's lower cost matters, and
+# temperature=0.0 is still supported on Sonnet 4.6.
 _DEFAULT_MODELS: dict[str, str] = {
-    "anthropic": "claude-sonnet-4-20250514",
+    "anthropic": "claude-sonnet-4-6",
     "openai": "gpt-4o",
     "google": "gemini-1.5-pro",
 }
