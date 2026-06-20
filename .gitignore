@@ -57,3 +57,6 @@ chroma_db/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Transient eval run log
+eval_run.log

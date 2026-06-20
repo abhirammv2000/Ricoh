@@ -8,7 +8,19 @@ from a `.env` file at the project root.
 
 import logging
 import os
+import sys
 from pathlib import Path
+
+# ── Force UTF-8 stdout/stderr ──────────────────────────────────────
+# On Windows the console/redirected streams default to cp1252, which
+# crashes on the emoji used in our log/print output (e.g. when piping
+# to a file).  Reconfiguring to UTF-8 makes every entrypoint (app,
+# evaluate, eval_harness, agent smoke test) robust across platforms.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    except (AttributeError, ValueError):
+        pass
 
 # ── Silence ChromaDB telemetry BEFORE any chromadb import ──
 # This MUST run before chromadb is ever imported in any module.

@@ -208,14 +208,17 @@ def _run_agent_full(query: str) -> dict[str, Any]:
     return dict(agent.invoke(initial))
 
 
-def _format_evidence_block(evidence: list[dict[str, Any]], limit: int = 12) -> str:
+def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
+    """Render the FULL evidence the synthesizer saw, so the groundedness
+    judge scores against the same material (no truncation / capping —
+    an earlier capped version understated groundedness)."""
     if not evidence:
         return "(no evidence retrieved)"
     lines = []
-    for i, e in enumerate(evidence[:limit], 1):
+    for i, e in enumerate(evidence, 1):
         src = e.get("source_document", "unknown")
         page = e.get("page_number", "?")
-        text = (e.get("text", "") or "")[:600]
+        text = (e.get("text", "") or "").strip()
         lines.append(f"[{i}] {src}, Page {page}\n{text}")
     return "\n\n".join(lines)
 
