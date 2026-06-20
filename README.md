@@ -176,6 +176,26 @@ Full corpus (733 PDFs), Claude Sonnet 4.6 as both the agent LLM and the judge, 1
 - **Recall@k (0.78) is the weakest link and varies run-to-run**, because the planner's sub-queries are LLM-generated. It's the most useful number to drive future improvement (e.g. the optional reranker).
 - Latency (~17s) reflects 4–5 sequential LLM calls per question; fine for assisted lookup, too slow for live phone support without a smaller/faster model.
 
+### Enhanced retrieval A/B (stronger embeddings + reranker)
+
+We implemented two of the "toward-SOTA" upgrades — a stronger embedding model (`BAAI/bge-small-en-v1.5` replacing `all-MiniLM-L6-v2`) and the cross-encoder reranker — and measured them on the same harness ([eval/metrics_enhanced.json](eval/metrics_enhanced.json)). They are **opt-in** (they pull in torch):
+
+```bash
+pip install -r requirements-enhanced.txt
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 RERANKER_ENABLED=true python -m src.ingest   # rebuild index
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 RERANKER_ENABLED=true python -m src.eval_harness
+```
+
+| Metric | Default (MiniLM, no reranker) | Enhanced (bge-small + reranker) |
+|---|---|---|
+| Retrieval recall@k | 0.78 | **0.89** |
+| Groundedness | 0.98 | 0.97 |
+| Correctness | 0.97 | 0.96 |
+| Citation precision | 1.00 | 1.00 |
+| Mean latency | **17.4s** | 30.0s |
+
+**Honest takeaway:** the upgrade improved retrieval recall (the metric it targets) but left groundedness/correctness flat (already near-ceiling on this corpus) and **~1.7× the latency on CPU**. With n=10 and an LLM-driven planner, recall also varies run-to-run, so this is a *real but modest* gain — not transformative for single-page help articles. It would matter more on a larger/longer-document corpus, and the latency cost largely disappears on a GPU. That tradeoff is exactly why these stay **opt-in** rather than default. We deliberately did **not** implement Contextual Retrieval or semantic chunking here: both target long multi-page documents, so they'd cost real ingest-time API calls for little gain on this single-page corpus.
+
 ### On Q2 / Q3 — verified, not assumed
 Questions **2 (RAM for document-level processing)** and **3 (DB2 log disk space)** return *refusals*. We initially suspected these might be **retrieval misses** rather than correct refusals. The harness **resolved it**: for Q2 the relevant requirements docs *were* retrieved (recall@k=1.0, ~38 chunks) and the corpus still contains no such spec, so the refusal is **correct hallucination-control behavior, confirmed** — not a gap. This is exactly the kind of question the eval harness exists to settle with evidence instead of assumption.
 
