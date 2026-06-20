@@ -1,0 +1,7 @@
+# Optional "enhanced retrieval" extras — stronger embeddings + reranker.
+# Heavy (pulls in torch). Only needed when EMBEDDING_MODEL is set and/or
+# RERANKER_ENABLED=true. Supersedes requirements-reranker.txt (same dep).
+#   pip install -r requirements-enhanced.txt
+#   EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 RERANKER_ENABLED=true \
+#       python -m src.ingest      # rebuild the index, then run the app/eval
+sentence-transformers>=3.0.0
