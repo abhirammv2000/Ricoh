@@ -42,6 +42,9 @@ from src.config import (
     BM25_INDEX_PATH,
     CHROMA_COLLECTION_NAME,
     CHROMA_DIR,
+    RERANK_CANDIDATE_POOL,
+    RERANKER_ENABLED,
+    RERANKER_MODEL,
     RETRIEVAL_FINAL_K,
     RETRIEVAL_TOP_K,
     RRF_K,
@@ -49,6 +52,31 @@ from src.config import (
 
 # ── Logging (configured centrally in config.py) ──
 logger = logging.getLogger(__name__)
+
+# Module-level cache so the (expensive) cross-encoder loads at most once.
+_RERANKER = None
+
+
+def _get_reranker():
+    """Lazily load the cross-encoder reranker (cached).
+
+    Returns ``None`` if reranking is disabled.  Raises a helpful error
+    if enabled but the optional dependency is not installed.
+    """
+    global _RERANKER
+    if not RERANKER_ENABLED:
+        return None
+    if _RERANKER is None:
+        try:
+            from sentence_transformers import CrossEncoder  # lazy, heavy
+        except ImportError as exc:  # pragma: no cover - env dependent
+            raise ImportError(
+                "RERANKER_ENABLED=true but sentence-transformers is not "
+                "installed.  Run: pip install -r requirements-reranker.txt"
+            ) from exc
+        logger.info("Loading cross-encoder reranker '%s'…", RERANKER_MODEL)
+        _RERANKER = CrossEncoder(RERANKER_MODEL)
+    return _RERANKER
 
 
 class HybridRetriever:
@@ -395,12 +423,43 @@ class HybridRetriever:
             len(bm25_results),
         )
 
-        fused = self._rrf_fuse(
-            vector_results, bm25_results, final_k=final_k
-        )
+        reranker = _get_reranker()
 
-        logger.info("  Fused results: %d", len(fused))
+        # With a reranker, fuse a LARGER pool first so the cross-encoder
+        # has more candidates to reorder, then trim to final_k.
+        fuse_k = max(final_k, RERANK_CANDIDATE_POOL) if reranker else final_k
+        fused = self._rrf_fuse(vector_results, bm25_results, final_k=fuse_k)
+
+        if reranker is not None and fused:
+            fused = self._rerank(reranker, query, fused, final_k)
+            logger.info("  Reranked to top %d.", len(fused))
+        else:
+            logger.info("  Fused results: %d", len(fused))
+
         return fused
+
+    @staticmethod
+    def _rerank(
+        reranker,
+        query: str,
+        docs: list[dict[str, Any]],
+        final_k: int,
+    ) -> list[dict[str, Any]]:
+        """Re-score candidates with a cross-encoder and keep the top-k.
+
+        Adds a ``rerank_score`` to each returned doc.
+        """
+        pairs = [(query, d["text"]) for d in docs]
+        scores = reranker.predict(pairs)
+        ranked = sorted(
+            zip(docs, scores), key=lambda x: x[1], reverse=True
+        )[:final_k]
+        out: list[dict[str, Any]] = []
+        for doc, score in ranked:
+            entry = dict(doc)
+            entry["rerank_score"] = float(score)
+            out.append(entry)
+        return out
 
     # ----------------------------------------------------------------
     # UTILITY - check if index is populated

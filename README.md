@@ -2,7 +2,7 @@
 
 **Company Track:** Ricoh Modern AI Solutions
 **Team Name:** Neural Ninjas
-**Team Members:** [Your Names Here]
+**Team Members:** Abhiram ([@ABHIRAM1234](https://github.com/ABHIRAM1234)) — _add remaining team members_
 
 ---
 
@@ -88,7 +88,7 @@ Cited Answer + Glass Box Visualisation
 
 ## 5️⃣ Data Handling & Preprocessing
 
-- **Dataset:** Official Ricoh product documentation PDFs provided by the sponsor (stored in `data/`, gitignored due to size).
+- **Dataset:** Official Ricoh ProcessDirector (RPD) documentation — **733 PDFs (~223 MB)**, stored in `data/` (gitignored due to size). Honest note: these are **individual help-topic articles**, most of which are a *single page* each, rather than a handful of 100+ page manuals. This is why nearly every citation reads "Page 1" — and it means the real retrieval challenge here is **picking the right document out of 733**, not pinpointing a page within a long manual. The page-level citation machinery still works (and would matter for true multi-page manuals), but we call out the corpus shape rather than overstate it.
 - **Extraction:** PyMuPDF extracts raw text page-by-page, preserving `source_document` and `page_number` metadata throughout.
 - **Chunking strategy:** Sliding window of ~500 words with 50-word overlap. Word-based (not character-based) to keep semantic coherence. Overlap ensures no answer is lost at chunk boundaries.
 - **Tokenisation (BM25):** Simple lowercase whitespace split - intentionally basic because error codes like `SC542` don't benefit from stemming.
@@ -137,15 +137,29 @@ Cited Answer + Glass Box Visualisation
 
 **Total:** ~139s | **Average:** ~13.9s per question
 
-### Evaluation Metrics
-- **Citation accuracy:** Every answer includes `[Document Name, Page X]` citations traceable to source material.
-- **Hallucination control:** Agent correctly refused to fabricate answers when evidence was missing - outputs "Information unavailable" instead.
-- **Latency:** Average 13.9s per question (including LLM inference, retrieval, and verification).
-- **Retrieval coverage:** BM25 + vector search consistently returned 5+ relevant chunks per sub-query after the persistence fix.
+### Two levels of evaluation
 
-### Evaluation Outputs
-- Full results: `evaluation_results.csv`
-- Detailed report: `evaluation_report.md`
+**1. Latency / citation smoke test** (`src/evaluate.py` → `evaluation_results.csv`, `evaluation_report.md`)
+The original pass: runs the 10 questions, records latency and whether citations are present. Useful, but it does **not** measure whether answers are *correct* or *faithful*.
+
+**2. Quality harness** (`src/eval_harness.py` → `eval/metrics.json`, `eval/eval_report.md`) — **new, and the one to look at**
+Measures real RAG quality against a curated ground-truth set (`eval/ground_truth.json`):
+
+| Metric | LLM-judged? | What it catches |
+|---|---|---|
+| **Retrieval recall@k** | No (objective) | Did the document(s) that *should* answer the question actually get retrieved? Surfaces retrieval misses. |
+| **Citation precision** | No (objective) | Are all cited documents real (present in evidence)? Catches fabricated citations. |
+| **Groundedness / faithfulness** | Yes | Is every claim supported by the retrieved evidence? (The gold-standard, non-circular RAG metric.) |
+| **Answer correctness** | Yes | Does the answer convey the expected key facts, or refuse correctly? |
+| **Behaviour match** | No | Did it answer when it should, and refuse only when it genuinely should? |
+
+```bash
+python -m src.eval_harness            # full quality run (uses the LLM judge)
+python -m src.eval_harness --no-judge # objective metrics only, no API calls
+```
+
+### Honest caveat on the original "hallucination control" claim
+Questions **2 (RAM for document-level processing)** and **3 (DB2 log disk space)** are reported as correct *refusals*. They may instead be **retrieval misses** — those specs very likely exist somewhere in the 733 docs, but the right document wasn't retrieved. The quality harness flags both with `⚠ verify` so this can be confirmed against the source PDFs rather than assumed. Refusal *is* a genuine strength of the system; we just don't want to claim a miss as a feature.
 
 ---
 
@@ -252,30 +266,91 @@ ngrok http 8501
 
 ---
 
+## 🧪 Testing & CI
+
+```bash
+pip install -r requirements-dev.txt
+pytest                      # offline unit tests (LLM is mocked — no API key needed)
+```
+
+The suite covers the logic most likely to break silently:
+- **Chunking invariants** — size cap, overlap preservation, page-provenance isolation, deterministic IDs (`tests/test_ingest.py`)
+- **RRF fusion math** — rank merging, score accumulation, `final_k` truncation (`tests/test_retriever.py`)
+- **Agent control flow** — retry routing, planner JSON parsing (incl. fenced/malformed output), verifier verdict normalisation (`tests/test_agent.py`)
+- **Eval metrics** — citation extraction, recall@k, citation precision, refusal detection (`tests/test_eval_metrics.py`)
+
+[GitHub Actions](.github/workflows/ci.yml) runs `pytest` on every push/PR (Python 3.11). No secrets required — the tests mock the LLM.
+
+## ⚡ Optional: Cross-Encoder Reranker
+
+A query-aware cross-encoder reranker (off by default to keep the base torch-free) can be enabled for higher precision@k:
+
+```bash
+pip install -r requirements-reranker.txt
+RERANKER_ENABLED=true streamlit run app/main.py
+```
+
+It fuses a larger candidate pool, re-scores with `cross-encoder/ms-marco-MiniLM-L-6-v2`, and trims to the top-k. Lazy-loaded and cached, so the default lightweight path is untouched.
+
+## 🐳 Deployment
+
+Beyond the local Ngrok demo, the project ships a reproducible container path. See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Docker, Render (one-click `render.yaml`), and Streamlit Cloud instructions.
+
+```bash
+docker build -t ricohlibrary .
+docker run -p 8501:8501 -e ANTHROPIC_API_KEY=sk-ant-... -v "$PWD/data:/app/data" ricohlibrary
+```
+
+## ✅ Project Status: Demo vs. Production
+
+Being straight about what this is:
+
+**Built and working:** hybrid retrieval + RRF, agentic verify-retry loop, grounded/cited generation with refusal, multi-lingual answers, Glass Box UI, a quality eval harness, a unit-test suite + CI, and a containerised deploy path.
+
+**Deliberately out of scope (next steps for true production):** auth in front of the app, secrets management, LLM-call caching + rate-limit/retry handling, request tracing (LangSmith), multi-turn conversation memory, and a CI-built index artifact instead of ingest-on-boot. These are tracked in [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## 1️⃣1️⃣ Repository Structure
 
 ```
 RicohLibrary-Ricoh/
 ├── app/
-│   └── main.py              # Streamlit Glass Box dashboard
+│   └── main.py                  # Streamlit Glass Box dashboard
 ├── data/
-│   └── *.pdf                # Ricoh product manuals (gitignored)
+│   └── *.pdf                    # Ricoh RPD docs — 733 PDFs (gitignored)
 ├── src/
 │   ├── __init__.py
-│   ├── config.py            # Centralised configuration
-│   ├── ingest.py            # PDF parsing + chunking pipeline
-│   ├── retriever.py         # Hybrid retrieval (ChromaDB + BM25 + RRF)
-│   ├── llm_factory.py       # LLM provider abstraction
-│   ├── agent.py             # LangGraph agentic state machine
-│   └── evaluate.py          # Evaluation pipeline (10 test questions)
-├── notebooks/               # Exploration notebooks
-├── chroma_db/               # Persisted ChromaDB + BM25 index (gitignored)
-├── .env                     # API keys (gitignored)
+│   ├── config.py                # Centralised configuration
+│   ├── ingest.py                # PDF parsing + chunking pipeline
+│   ├── retriever.py             # Hybrid retrieval (ChromaDB + BM25 + RRF + optional reranker)
+│   ├── llm_factory.py           # LLM provider abstraction
+│   ├── agent.py                 # LangGraph agentic state machine
+│   ├── evaluate.py              # Latency/citation smoke test
+│   └── eval_harness.py          # Quality eval harness (recall@k, groundedness, correctness)
+├── eval/
+│   ├── ground_truth.json        # Curated expected answers/sources
+│   ├── metrics.json             # Harness output (generated)
+│   └── eval_report.md           # Harness output (generated)
+├── tests/                       # pytest suite (offline, LLM mocked)
+│   ├── test_ingest.py
+│   ├── test_retriever.py
+│   ├── test_agent.py
+│   └── test_eval_metrics.py
+├── .github/workflows/ci.yml     # GitHub Actions CI
+├── notebooks/                   # Exploration notebooks
+├── chroma_db/                   # Persisted ChromaDB + BM25 index (gitignored)
+├── Dockerfile                   # Container build
+├── .dockerignore
+├── render.yaml                  # Render.com one-click deploy blueprint
+├── DEPLOYMENT.md                # Docker / Render / Streamlit Cloud guide
+├── .env.example                 # Copy to .env and fill in
 ├── .gitignore
-├── requirements.txt
-├── evaluation_results.csv   # Phase 4 output
-├── evaluation_report.md     # Phase 4 output
-└── README.md                # This file
+├── requirements.txt             # Runtime deps
+├── requirements-dev.txt         # + pytest (CI)
+├── requirements-reranker.txt    # Optional cross-encoder extra
+├── LICENSE                      # MIT
+├── evaluation_results.csv       # Smoke-test output
+├── evaluation_report.md         # Smoke-test output
+└── README.md                    # This file
 ```
 
 ---
