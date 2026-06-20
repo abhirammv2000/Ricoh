@@ -1,0 +1,30 @@
+# Keep the build context (and image) small and secret-free.
+.git/
+.github/
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Large binaries + local indices — mounted at runtime, never baked in.
+data/
+RPD-en-US/
+chroma_db/
+.chroma/
+
+# Secrets
+.env
+.env.*
+
+# Docs / notebooks not needed at runtime
+notebooks/
+*.md
+evaluation_results.csv
+
+# OS / editor junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

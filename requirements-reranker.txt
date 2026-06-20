@@ -1,0 +1,5 @@
+# Optional cross-encoder reranker.
+# Heavy (pulls in torch); only needed when RERANKER_ENABLED=true.
+#   pip install -r requirements-reranker.txt
+#   RERANKER_ENABLED=true streamlit run app/main.py
+sentence-transformers>=3.0.0

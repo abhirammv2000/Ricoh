@@ -32,6 +32,8 @@ build/
 # ---------- Environment variables / secrets ----------
 .env
 .env.*
+# …but DO track the template (contains no real secrets).
+!.env.example
 
 # ---------- Data directory ----------
 # We DO NOT commit the ~300 MB of Ricoh PDFs (or any other
@@ -39,6 +41,10 @@ build/
 # via a tracked .gitkeep sentinel.
 data/*
 !data/.gitkeep
+
+# Safety net: never commit the raw Ricoh PDF export folder if it is
+# dropped at the repo root instead of being moved into data/.
+RPD-en-US/
 
 # ---------- ChromaDB local storage ----------
 chroma_db/

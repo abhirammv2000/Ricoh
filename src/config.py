@@ -45,7 +45,10 @@ for _noisy in (
 PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 
 # ── Paths ──
-DATA_DIR: Path = PROJECT_ROOT / "data"          # Raw Ricoh PDFs go here
+# DATA_DIR can be overridden via the RICOH_DATA_DIR env var so the
+# ingestion source is never hardcoded-brittle (e.g. pointing at an
+# external export folder).  Defaults to the in-repo ``data/`` dir.
+DATA_DIR: Path = Path(os.getenv("RICOH_DATA_DIR", PROJECT_ROOT / "data"))  # Raw Ricoh PDFs go here
 CHROMA_DIR: Path = PROJECT_ROOT / "chroma_db"   # Local ChromaDB persistence
 BM25_INDEX_PATH: Path = PROJECT_ROOT / "chroma_db" / "bm25_index.pkl"
 BM25_CHUNKS_PATH: Path = PROJECT_ROOT / "chroma_db" / "bm25_chunks.pkl"
@@ -85,6 +88,25 @@ RETRIEVAL_FINAL_K: int = 5
 #   value from the original Cormack et al. paper is 60.  Lowering it
 #   amplifies the difference between ranks; raising it flattens it.
 RRF_K: int = 60
+
+# ── Optional cross-encoder reranker ────────────────────────────────
+# A reranker re-scores the fused candidates with a query-aware
+# cross-encoder, which materially improves precision@k over RRF alone.
+# It is OFF by default because it pulls in torch + sentence-transformers
+# (a heavy dependency) and the base system is intentionally lightweight
+# and torch-free.  Enable with RERANKER_ENABLED=true and install the
+# extra:  pip install -r requirements-reranker.txt
+RERANKER_ENABLED: bool = os.getenv("RERANKER_ENABLED", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+RERANKER_MODEL: str = os.getenv(
+    "RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"
+)
+# When reranking, fuse a larger candidate pool then rerank down to
+# RETRIEVAL_FINAL_K.  More candidates → better reranker headroom.
+RERANK_CANDIDATE_POOL: int = 20
 
 # ── LLM provider (overridden at runtime / via .env) ──
 # Accepted values: "anthropic" | "google"

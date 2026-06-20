@@ -16,10 +16,14 @@ Design decisions
 ────────────────
 • Questions are hardcoded - the hackathon forbids web search and
   the rubric specifies these exact queries.
-• CSV uses pandas for clean formatting; Markdown is hand-assembled
-  for maximum judge readability.
+• CSV is written with the stdlib ``csv`` module; Markdown is
+  hand-assembled for maximum judge readability.
 • We suppress ingestion logs during evaluation so only the agent
   "thoughts" (Planner / Verifier / Synthesizer) are visible.
+
+NOTE: This script reports latency + citations only. For QUALITY
+metrics (groundedness, answer correctness, retrieval recall@k) use
+the newer ``src/eval_harness.py`` instead.
 """
 
 from __future__ import annotations
