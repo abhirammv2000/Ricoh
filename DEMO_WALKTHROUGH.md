@@ -1,8 +1,8 @@
-# RicohLibrary - Demo Walkthrough (5-7 min)
+# Citera - Demo Walkthrough (5-7 min)
 
 ## 🎙️ Opening (30 seconds)
 
-> "We built **RicohLibrary** - an agentic AI system that doesn't just search Ricoh manuals, it **reasons** through them. It plans, retrieves in two passes, verifies evidence, and only answers when it's confident - with full citations."
+> "We built **Citera** - an agentic AI system that doesn't just search Ricoh manuals, it **reasons** through them. It plans, retrieves in two passes, verifies evidence, and only answers when it's confident - with full citations."
 
 ## 📋 Slide 1: Architecture (1 min)
 
@@ -79,4 +79,4 @@ streamlit run app/main.py
 2. **Verify-and-retry loop** - agent checks its own work before answering
 3. **Glass Box transparency** - judges can see every step of the reasoning
 
-> "RicohLibrary doesn't just find answers - it **reasons** to them, **verifies** them, and **cites** them."
+> "Citera doesn't just find answers - it **reasons** to them, **verifies** them, and **cites** them."

@@ -1,5 +1,5 @@
 """
-src/config.py - Centralised configuration for RicohLibrary.
+src/config.py - Centralised configuration for Citera.
 
 All tuneable parameters live here so they can be adjusted in ONE
 place.  We use python-dotenv to load any secrets (e.g. API keys)

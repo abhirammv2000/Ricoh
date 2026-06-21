@@ -1,5 +1,5 @@
 """
-app/main.py - RicohLibrary Streamlit Glass Box Dashboard.
+app/main.py - Citera Streamlit Glass Box Dashboard.
 
 This is Phase 5 of the hackathon project.  It provides a
 professional chat-style interface that shows not just the
@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 # ====================================================================
 
 st.set_page_config(
-    page_title="RicohLibrary | Neural Ninjas",
+    page_title="Citera",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -337,8 +337,8 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.caption("Built for DaSSA Hackathon 2026")
-    st.caption("Team: Neural Ninjas")
+    st.caption("Built for HackVerse 2026")
+    st.caption("by Abhiram")
 
 
 # ====================================================================
@@ -348,7 +348,7 @@ with st.sidebar:
 # ── Header ──
 st.markdown(
     '<div class="main-header">'
-    "<h1>📚 RicohLibrary</h1>"
+    "<h1>📚 Citera</h1>"
     "<p>Agentic AI Technical Support - Ask anything about Ricoh products</p>"
     "</div>",
     unsafe_allow_html=True,

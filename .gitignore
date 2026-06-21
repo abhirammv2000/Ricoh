@@ -1,5 +1,5 @@
 # ============================================================
-# RicohLibrary .gitignore
+# Citera .gitignore
 # Purpose: Keep the repo clean of binaries, secrets, and
 #          OS/editor artefacts. Tuned for a Python 3.11 +
 #          ChromaDB + venv stack.

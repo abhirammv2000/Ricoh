@@ -1,5 +1,5 @@
 """
-src/eval_harness.py - Quality-focused evaluation harness for RicohLibrary.
+src/eval_harness.py - Quality-focused evaluation harness for Citera.
 
 The original ``src/evaluate.py`` only measured *latency* and whether a
 citation regex matched.  It never checked whether answers were
@@ -345,7 +345,7 @@ def write_outputs(report: dict[str, Any]) -> None:
 
     s = report["summary"]
     lines: list[str] = [
-        "# 📊 RicohLibrary — Quality Evaluation Report",
+        "# 📊 Citera — Quality Evaluation Report",
         "",
         f"**Generated:** {report['generated']}  ",
         f"**LLM judge:** {'enabled' if report['judge_enabled'] else 'disabled (objective metrics only)'}  ",
@@ -409,7 +409,7 @@ def _ensure_index() -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="RicohLibrary quality eval harness")
+    parser = argparse.ArgumentParser(description="Citera quality eval harness")
     parser.add_argument(
         "--no-judge",
         action="store_true",
@@ -418,7 +418,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print("=" * 70)
-    print("  RicohLibrary — Quality Evaluation Harness")
+    print("  Citera — Quality Evaluation Harness")
     print("=" * 70)
     _ensure_index()
     report = evaluate(use_judge=not args.no_judge)

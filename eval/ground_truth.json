@@ -1,5 +1,5 @@
 {
-  "_description": "Ground-truth set for the RicohLibrary evaluation harness. Each entry defines the EXPECTED behaviour independently of the system's output, so the harness measures quality rather than re-describing it. key_facts were curated from grounded, cited answers that trace to real RICOH ProcessDirector documents. expected_behavior is 'answer' when the corpus is believed to contain the answer, or 'refuse' when it genuinely does not. Entries marked needs_verification require a human to confirm against the source PDFs.",
+  "_description": "Ground-truth set for the Citera evaluation harness. Each entry defines the EXPECTED behaviour independently of the system's output, so the harness measures quality rather than re-describing it. key_facts were curated from grounded, cited answers that trace to real RICOH ProcessDirector documents. expected_behavior is 'answer' when the corpus is believed to contain the answer, or 'refuse' when it genuinely does not. Entries marked needs_verification require a human to confirm against the source PDFs.",
   "questions": [
     {
       "id": 1,

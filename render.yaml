@@ -1,4 +1,4 @@
-# Render.com blueprint — one-click deploy of the RicohLibrary dashboard.
+# Render.com blueprint — one-click deploy of the Citera dashboard.
 # Render injects $PORT, which the Dockerfile CMD already respects.
 #
 # Setup:
@@ -9,7 +9,7 @@
 #      index into a persistent disk) — the app ingests them on boot.
 services:
   - type: web
-    name: ricohlibrary
+    name: citera
     runtime: docker
     plan: starter            # 512MB is tight for the index; bump if needed
     healthCheckPath: /_stcore/health

@@ -1,7 +1,7 @@
-# 📊 RicohLibrary — Evaluation Report
+# 📊 Citera — Evaluation Report
 
 **Generated:** 2026-02-21 00:12:56  
-**Team:** Neural Ninjas  
+**Author:** Abhiram  
 **Track:** Ricoh Modern AI Solutions  
 **Total Questions:** 10  
 **Total Time:** 138.9s  

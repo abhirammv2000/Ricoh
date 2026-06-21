@@ -1,4 +1,4 @@
-# 📊 RicohLibrary — Quality Evaluation Report
+# 📊 Citera — Quality Evaluation Report
 
 **Generated:** 2026-06-19 22:11:24  
 **LLM judge:** enabled  

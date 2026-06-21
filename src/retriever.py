@@ -513,7 +513,7 @@ if __name__ == "__main__":
     from src.ingest import ingest_all
 
     print("=" * 70)
-    print("  RicohLibrary - Phase 2 Hybrid Retrieval Smoke Test")
+    print("  Citera - Phase 2 Hybrid Retrieval Smoke Test")
     print("=" * 70)
 
     # ── Step 1: Ingest all PDFs from data/ ──
