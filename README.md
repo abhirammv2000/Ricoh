@@ -371,7 +371,7 @@ Being straight about what this is:
 ## 1️⃣1️⃣ Repository Structure
 
 ```
-RicohLibrary-Ricoh/
+Ricoh_Neural_Ninjas/
 ├── app/
 │   └── main.py                  # Streamlit Glass Box dashboard
 ├── data/
