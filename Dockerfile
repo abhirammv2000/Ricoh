@@ -1,4 +1,4 @@
-# ── RicohLibrary container ──────────────────────────────────────────
+# ── Citera container ──────────────────────────────────────────
 # Python 3.11 to match the tested runtime. slim base keeps the image
 # small; PyMuPDF / chromadb ship manylinux wheels so no build toolchain
 # is required.
@@ -21,7 +21,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Application code. Note: data/ and chroma_db/ are intentionally NOT
 # baked into the image (see .dockerignore). Mount the PDFs at runtime:
 #   docker run -p 8501:8501 -v "$PWD/data:/app/data" \
-#       -e ANTHROPIC_API_KEY=sk-ant-... ricohlibrary
+#       -e ANTHROPIC_API_KEY=sk-ant-... citera
 # The app ingests data/ and builds the index on first launch.
 COPY src/ ./src/
 COPY app/ ./app/

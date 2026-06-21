@@ -1,7 +1,7 @@
 """
 src/evaluate.py - Phase 4 Evaluation Pipeline.
 
-Runs the 10 official DaSSA / HackVerse hackathon test questions
+Runs the 10 official HackVerse hackathon test questions
 through the full agentic pipeline and produces:
 
 1. **evaluation_results.csv** - machine-readable results.
@@ -161,10 +161,10 @@ def save_markdown_report(
     avg_time = total_time / len(results) if results else 0
 
     lines: list[str] = [
-        "# 📊 RicohLibrary - Evaluation Report",
+        "# 📊 Citera - Evaluation Report",
         "",
         f"**Generated:** {timestamp}  ",
-        f"**Team:** Neural Ninjas  ",
+        f"**Author:** Abhiram  ",
         f"**Track:** Ricoh Modern AI Solutions  ",
         f"**Total Questions:** {len(results)}  ",
         f"**Total Time:** {total_time:.1f}s  ",
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     import sys
 
     print("=" * 70)
-    print("  RicohLibrary - Phase 4 Evaluation Pipeline")
+    print("  Citera - Phase 4 Evaluation Pipeline")
     print("=" * 70)
 
     # ── Ensure index is ready ──

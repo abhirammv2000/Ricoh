@@ -325,7 +325,7 @@ if __name__ == "__main__":
     import sys
 
     print("=" * 70)
-    print("  RicohLibrary - Phase 1 Ingestion Pipeline Smoke Test")
+    print("  Citera - Phase 1 Ingestion Pipeline Smoke Test")
     print("=" * 70)
 
     # ── Create a sample PDF in data/ for testing ──

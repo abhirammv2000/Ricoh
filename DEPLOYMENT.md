@@ -1,6 +1,6 @@
 # 🚀 Deployment Guide
 
-RicohLibrary ships three deployment paths. All of them need two things at
+Citera ships three deployment paths. All of them need two things at
 runtime: an `ANTHROPIC_API_KEY`, and the Ricoh PDFs available in `data/`
 (the app ingests them and builds the ChromaDB + BM25 index on first boot).
 
@@ -15,14 +15,14 @@ runtime: an `ANTHROPIC_API_KEY`, and the Ricoh PDFs available in `data/`
 
 ```bash
 # Build
-docker build -t ricohlibrary .
+docker build -t citera .
 
 # Run (mount the PDFs, pass the API key)
 docker run --rm -p 8501:8501 \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   -v "$PWD/data:/app/data" \
   -v "$PWD/chroma_db:/app/chroma_db" \
-  ricohlibrary
+  citera
 ```
 
 Open http://localhost:8501. Mounting `chroma_db` persists the index so
