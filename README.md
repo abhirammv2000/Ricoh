@@ -6,6 +6,24 @@
 
 ---
 
+## ⭐ TL;DR
+
+**RicohLibrary** is an **agentic RAG** technical-support assistant. Ask a natural-language question about Ricoh ProcessDirector; it retrieves from **733 product documents**, reasons through a self-verifying *retrieve → verify → retry* loop, and answers with page-level citations — **refusing when the docs don't contain the answer** instead of hallucinating.
+
+**Measured on the 10-question benchmark** (full corpus, LLM-as-judge — details in [§7](#7️⃣-evaluation--metrics)):
+
+> **0.98** groundedness · **0.97** answer correctness · **1.00** citation precision (zero fabricated citations) · **100%** answer-vs-refuse accuracy
+
+**Stack:** Python · LangGraph · Claude · ChromaDB (dense) + BM25 + Reciprocal Rank Fusion · Streamlit · pytest + GitHub Actions CI · Docker.
+
+```bash
+pip install -r requirements.txt
+echo "ANTHROPIC_API_KEY=sk-ant-your-key" > .env   # then add PDFs to data/
+streamlit run app/main.py
+```
+
+---
+
 ## 1️⃣ Problem Statement
 
 **Which company problem did we choose?**
@@ -22,7 +40,7 @@ Field technicians and support engineers waste significant time searching through
 
 ## 2️⃣ Why We Chose This Problem
 
-- **Real-world impact:** Technical support is a multi-billion dollar industry; AI-assisted retrieval can cut resolution times by 60%+.
+- **Real-world impact:** Technical support is a multi-billion dollar industry; AI-assisted retrieval meaningfully cuts the time engineers spend searching documentation.
 - **Technical depth:** The problem demands a full agentic pipeline - ingestion, hybrid retrieval, reasoning, and grounded generation - not just a simple chatbot.
 - **RAG + Agentic challenges:** Handling multi-part questions, entity extraction (error codes, model numbers), and strict hallucination control pushed us to build a retry-capable reasoning loop.
 - **Measurable evaluation:** The 10 official test questions gave us a concrete benchmark to optimise against.
@@ -122,20 +140,18 @@ Cited Answer + Glass Box Visualisation
 ## 7️⃣ Evaluation & Metrics
 
 ### Test Set: 10 Official Hackathon Questions
-| # | Question | Latency |
-|---|---|---|
-| 1 | What property do I set if I want the printers to enable after a restart? | ~11s |
-| 2 | How much RAM does the primary server need for document-level processing? | ~17s |
-| 3 | How much hard drive space should I allocate for DB2 logs? | ~19s |
-| 4 | Does RPD work with FusionPro? | ~15s |
-| 5 | What operating system does RPD run on? | ~15s |
-| 6 | How do I create a workflow? | ~14s |
-| 7 | What programs does RPD integrate with? | ~16s |
-| 8 | What is the command to shut down RPD? | ~14s |
-| 9 | How do I use locations? | ~11s |
-| 10 | What inserters does RPD support? | ~10s |
+1. What property do I set if I want the printers to enable after a restart?
+2. How much RAM does the primary server need for document-level processing?
+3. How much hard drive space should I allocate for DB2 logs?
+4. Does RPD work with FusionPro?
+5. What operating system does RPD run on?
+6. How do I create a workflow?
+7. What programs does RPD integrate with?
+8. What is the command to shut down RPD?
+9. How do I use locations?
+10. What inserters does RPD support?
 
-**Total:** ~139s | **Average:** ~13.9s per question
+_(Per-question latency and scores are in the measured-results table below and in [eval/eval_report.md](eval/eval_report.md).)_
 
 ### Two levels of evaluation
 
@@ -204,7 +220,7 @@ Questions **2 (RAM for document-level processing)** and **3 (DB2 log disk space)
 ## 8️⃣ Business Impact & Actionability
 
 ### How this helps decision-makers
-- **Support engineers:** Get instant, cited answers instead of manually searching 100+ page manuals → estimated 60% reduction in resolution time.
+- **Support engineers:** Get instant, cited answers instead of manually searching hundreds of separate documentation articles — faster time-to-answer.
 - **Help desk managers:** Glass Box transparency lets supervisors verify answer quality before sending to customers.
 - **Training:** New technicians can learn by exploring the agent's reasoning process.
 
@@ -243,8 +259,8 @@ Questions **2 (RAM for document-level processing)** and **3 (DB2 log disk space)
 ### Setup
 ```bash
 # 1. Clone the repository
-git clone <repo-link>
-cd RicohLibrary-Ricoh
+git clone https://github.com/abhirammv2000/Ricoh_Neural_Ninjas.git
+cd Ricoh_Neural_Ninjas
 
 # 2. Create virtual environment
 python -m venv venv
@@ -273,9 +289,14 @@ python -m streamlit run app/main.py
 
 ### Run the Evaluation
 ```bash
-python -m src.evaluate
-# Outputs: evaluation_results.csv + evaluation_report.md
+# Quality harness — groundedness, correctness, recall@k, citation precision
+python -m src.eval_harness            # full run, uses the LLM judge (needs API key)
+python -m src.eval_harness --no-judge # objective metrics only, no API calls
+
+# Legacy latency/citation smoke test
+python -m src.evaluate                # outputs evaluation_results.csv + evaluation_report.md
 ```
+Results and methodology are in [§7 Evaluation & Metrics](#7️⃣-evaluation--metrics).
 
 ### Run Individual Components
 ```bash
@@ -366,7 +387,8 @@ RicohLibrary-Ricoh/
 │   └── eval_harness.py          # Quality eval harness (recall@k, groundedness, correctness)
 ├── eval/
 │   ├── ground_truth.json        # Curated expected answers/sources
-│   ├── metrics.json             # Harness output (generated)
+│   ├── metrics.json             # Harness output — default config (generated)
+│   ├── metrics_enhanced.json    # Harness output — bge + reranker A/B (generated)
 │   └── eval_report.md           # Harness output (generated)
 ├── tests/                       # pytest suite (offline, LLM mocked)
 │   ├── test_ingest.py
@@ -385,6 +407,7 @@ RicohLibrary-Ricoh/
 ├── requirements.txt             # Runtime deps
 ├── requirements-dev.txt         # + pytest (CI)
 ├── requirements-reranker.txt    # Optional cross-encoder extra
+├── requirements-enhanced.txt    # Optional stronger embeddings + reranker
 ├── LICENSE                      # MIT
 ├── evaluation_results.csv       # Smoke-test output
 ├── evaluation_report.md         # Smoke-test output
@@ -401,8 +424,8 @@ RicohLibrary-Ricoh/
 | **Data & System Design** | Metadata-preserving chunking, persistent hybrid index, modular architecture |
 | **Technical Depth** | 4-node agentic state machine, hybrid retrieval fusion, conditional retry logic |
 | **Modeling Strategy** | Specialised prompt engineering per node, temperature=0.0, entity extraction |
-| **Evaluation** | 10 official test questions, citation accuracy, hallucination control, latency benchmarks |
-| **Business Actionability** | 60%+ estimated time savings, Glass Box transparency for supervisors, modular LLM swapping |
+| **Evaluation** | LLM-as-judge harness on 10 questions — 0.98 groundedness, 1.00 citation precision, 100% answer/refuse accuracy — plus a pytest suite and CI |
+| **Business Actionability** | Faster time-to-answer for support staff, Glass Box transparency for supervisors, modular LLM swapping |
 | **Visualisation** | Streamlit Glass Box dashboard showing full reasoning pipeline |
 | **Innovation** | Verify-and-retry agentic loop with Glass Box transparency - not just RAG, but *reasoned* RAG. **Multi-lingual Support:** Agent detects and answers in user's native language. **Glass Box UX:** Full transparency into reasoning with JSON-formatted plan and evidence. |
 
