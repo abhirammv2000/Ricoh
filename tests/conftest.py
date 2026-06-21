@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the RicohLibrary test suite."""
+"""Shared pytest fixtures for the Citera test suite."""
 
 from __future__ import annotations
 

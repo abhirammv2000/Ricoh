@@ -1,7 +1,7 @@
 """
 src/agent.py - LangGraph Agentic State Machine.
 
-This is the **brain** of RicohLibrary.  It orchestrates a
+This is the **brain** of Citera.  It orchestrates a
 Plan → Retrieve → Verify → Synthesize loop that:
 
 1. **Plans** - decomposes a user question into focused sub-queries
@@ -434,7 +434,7 @@ if __name__ == "__main__":
     from src.retriever import HybridRetriever
 
     print("=" * 70)
-    print("  RicohLibrary - Phase 3 Agent Smoke Test")
+    print("  Citera - Phase 3 Agent Smoke Test")
     print("=" * 70)
 
     # ── Step 1: Ensure the retrieval index is populated ──

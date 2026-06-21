@@ -1,14 +1,13 @@
-# 🚀 HackVerse 2026 | RicohLibrary
+# 🚀 HackVerse 2026 | Citera
 
 **Company Track:** Ricoh Modern AI Solutions
-**Team Name:** Neural Ninjas
-**Team Members:** Abhiram ([@ABHIRAM1234](https://github.com/ABHIRAM1234)) — _add remaining team members_
+**Author:** Abhiram ([@ABHIRAM1234](https://github.com/ABHIRAM1234)) — solo project
 
 ---
 
 ## ⭐ TL;DR
 
-**RicohLibrary** is an **agentic RAG** technical-support assistant. Ask a natural-language question about Ricoh ProcessDirector; it retrieves from **733 product documents**, reasons through a self-verifying *retrieve → verify → retry* loop, and answers with page-level citations — **refusing when the docs don't contain the answer** instead of hallucinating.
+**Citera** is an **agentic RAG** technical-support assistant. Ask a natural-language question about Ricoh ProcessDirector; it retrieves from **733 product documents**, reasons through a self-verifying *retrieve → verify → retry* loop, and answers with page-level citations — **refusing when the docs don't contain the answer** instead of hallucinating.
 
 **Measured on the 10-question benchmark** (full corpus, LLM-as-judge — details in [§7](#7️⃣-evaluation--metrics)):
 
@@ -49,7 +48,7 @@ Field technicians and support engineers waste significant time searching through
 
 ## 3️⃣ Solution Overview
 
-**RicohLibrary** is an agentic AI technical support system that:
+**Citera** is an agentic AI technical support system that:
 
 1. **Ingests** Ricoh PDF manuals using PyMuPDF with metadata-preserving chunking (500 words, 50-word overlap).
 2. **Retrieves** relevant passages via a **hybrid engine** combining semantic vector search (ChromaDB + MiniLM) and keyword search (BM25), fused with Reciprocal Rank Fusion.
@@ -356,8 +355,8 @@ It fuses a larger candidate pool, re-scores with `cross-encoder/ms-marco-MiniLM-
 Beyond the local Ngrok demo, the project ships a reproducible container path. See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Docker, Render (one-click `render.yaml`), and Streamlit Cloud instructions.
 
 ```bash
-docker build -t ricohlibrary .
-docker run -p 8501:8501 -e ANTHROPIC_API_KEY=sk-ant-... -v "$PWD/data:/app/data" ricohlibrary
+docker build -t citera .
+docker run -p 8501:8501 -e ANTHROPIC_API_KEY=sk-ant-... -v "$PWD/data:/app/data" citera
 ```
 
 ## ✅ Project Status: Demo vs. Production
@@ -418,7 +417,7 @@ Ricoh_Neural_Ninjas/
 
 ## 1️⃣2️⃣ Alignment with HackVerse Rubric
 
-| Rubric Category | How RicohLibrary Satisfies It |
+| Rubric Category | How Citera Satisfies It |
 |---|---|
 | **Problem Understanding** | Clear identification of Ricoh support inefficiencies; solution grounded in real technician workflows |
 | **Data & System Design** | Metadata-preserving chunking, persistent hybrid index, modular architecture |

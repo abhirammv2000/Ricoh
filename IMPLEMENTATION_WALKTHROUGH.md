@@ -1,8 +1,8 @@
-# RicohLibrary - Implementation Walkthrough
+# Citera - Implementation Walkthrough
 
 ## Overview
 
-RicohLibrary is an agentic AI technical support system built in 6 phases over a single development sprint. It ingests Ricoh PDF manuals, indexes them with a hybrid retrieval engine, and answers questions using a LangGraph state machine with verify-and-retry logic.
+Citera is an agentic AI technical support system built in 6 phases over a single development sprint. It ingests Ricoh PDF manuals, indexes them with a hybrid retrieval engine, and answers questions using a LangGraph state machine with verify-and-retry logic.
 
 **Stack:** Python 3.11 · PyMuPDF · ChromaDB · BM25 · LangGraph · Claude Sonnet · Streamlit
 

@@ -1,1 +1,1 @@
-# src/__init__.py — Core backend package for RicohLibrary
+# src/__init__.py — Core backend package for Citera
