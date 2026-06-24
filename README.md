@@ -258,8 +258,8 @@ Questions **2 (RAM for document-level processing)** and **3 (DB2 log disk space)
 ### Setup
 ```bash
 # 1. Clone the repository
-git clone https://github.com/abhirammv2000/Ricoh_Neural_Ninjas.git
-cd Ricoh_Neural_Ninjas
+git clone https://github.com/abhirammv2000/Ricoh.git
+cd Ricoh
 
 # 2. Create virtual environment
 python -m venv venv
@@ -370,7 +370,7 @@ Being straight about what this is:
 ## 1️⃣1️⃣ Repository Structure
 
 ```
-Ricoh_Neural_Ninjas/
+Ricoh/
 ├── app/
 │   └── main.py                  # Streamlit Glass Box dashboard
 ├── data/
