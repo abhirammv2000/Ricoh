@@ -173,6 +173,17 @@ class HybridRetriever:
         self._persist_dir = Path(persist_dir)
         self._persist_dir.mkdir(parents=True, exist_ok=True)
 
+        # BM25 lives beside the Chroma store it belongs to.
+        #
+        # These were previously module-level constants, so a retriever pointed
+        # at a different persist_dir got an EMPTY vector store paired with the
+        # DEFAULT BM25 index — two halves of different indexes, reporting
+        # bm25_ready=True while holding no vectors. Deriving the paths keeps a
+        # retriever internally consistent, and is identical to the old
+        # behaviour for the default directory.
+        self._bm25_index_path = self._persist_dir / BM25_INDEX_PATH.name
+        self._bm25_chunks_path = self._persist_dir / BM25_CHUNKS_PATH.name
+
         # Persistent client → data survives process restarts
         self._client = chromadb.PersistentClient(
             path=str(self._persist_dir),
@@ -213,25 +224,25 @@ class HybridRetriever:
 
     def _save_bm25(self) -> None:
         """Persist the BM25 index and chunk list to disk as pickle."""
-        BM25_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+        self._bm25_index_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(BM25_INDEX_PATH, "wb") as f:
+        with open(self._bm25_index_path, "wb") as f:
             pickle.dump(self._bm25, f)
 
-        with open(BM25_CHUNKS_PATH, "wb") as f:
+        with open(self._bm25_chunks_path, "wb") as f:
             pickle.dump(self._bm25_chunks, f)
 
         logger.info(
-            "BM25 index + chunks saved to '%s'.", BM25_INDEX_PATH.parent
+            "BM25 index + chunks saved to '%s'.", self._bm25_index_path.parent
         )
 
     def _load_bm25(self) -> None:
         """Load previously pickled BM25 index + chunks from disk."""
-        if BM25_INDEX_PATH.exists() and BM25_CHUNKS_PATH.exists():
-            with open(BM25_INDEX_PATH, "rb") as f:
+        if self._bm25_index_path.exists() and self._bm25_chunks_path.exists():
+            with open(self._bm25_index_path, "rb") as f:
                 self._bm25 = pickle.load(f)
 
-            with open(BM25_CHUNKS_PATH, "rb") as f:
+            with open(self._bm25_chunks_path, "rb") as f:
                 self._bm25_chunks = pickle.load(f)
 
             logger.info(
@@ -329,9 +340,17 @@ class HybridRetriever:
             ``id``, ``text``, ``source_document``, ``page_number``,
             ``chunk_index``, ``score`` (cosine distance → similarity).
         """
+        count = self._collection.count()
+        if count == 0:
+            # Chroma raises an opaque "requested results 0" TypeError here.
+            # An empty collection is an operational state (index not built
+            # yet), not a programming error, so report it as one.
+            logger.warning("Vector store is empty; returning no vector hits.")
+            return []
+
         results = self._collection.query(
             query_texts=[query],
-            n_results=min(top_k, self._collection.count()),
+            n_results=min(top_k, count),
             include=["documents", "metadatas", "distances"],
         )
 
