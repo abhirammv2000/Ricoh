@@ -16,10 +16,40 @@ Supported providers
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from src.config import DEFAULT_LLM_PROVIDER
+
+
+def response_text(response: Any) -> str:
+    """Extract the plain text from a LangChain chat response.
+
+    ``AIMessage.content`` is a plain ``str`` on most models, but becomes a
+    **list of typed blocks** (``thinking`` / ``text`` / ``tool_use``) on any
+    model that returns thinking blocks — which includes models where
+    thinking is enabled by default (e.g. claude-opus-5).  Calling
+    ``.strip()`` directly on that list raises ``AttributeError``, so every
+    call site goes through this helper instead.
+
+    Thinking blocks are dropped; only ``text`` content is returned.
+    """
+    content = getattr(response, "content", response)
+
+    if isinstance(content, str):
+        return content.strip()
+
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return "".join(parts).strip()
+
+    return str(content).strip()
 
 
 # ── Default model names per provider ──
@@ -34,11 +64,38 @@ _DEFAULT_MODELS: dict[str, str] = {
     "google": "gemini-1.5-pro",
 }
 
+# ── Models that removed the sampling parameters ────────────────────
+# temperature / top_p / top_k were removed on the Opus 4.7+ and Sonnet 5
+# generations: sending them returns a 400.  Sonnet 4.6 and Opus 4.6 still
+# accept them.  We therefore apply `temperature` conditionally rather than
+# unconditionally — passing temperature=0.0 to e.g. claude-opus-5 (which we
+# use as the eval judge) would fail the request outright.
+#
+# Note also that temperature=0.0 never guaranteed identical outputs on any
+# model; it reduces variance, it does not make sampling deterministic.
+_NO_SAMPLING_PARAMS: frozenset[str] = frozenset(
+    {
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-sonnet-5",
+        "claude-fable-5",
+        "claude-mythos-5",
+    }
+)
+
+# ChatAnthropic defaults max_tokens to 1024, which is tight for a
+# step-by-step procedural answer and can silently truncate mid-sentence.
+# It also has to cover thinking tokens on models where thinking is on by
+# default (e.g. claude-opus-5), since max_tokens caps thinking + text.
+_DEFAULT_MAX_TOKENS: int = 4096
+
 
 def get_llm(
     provider: str | None = None,
     model: str | None = None,
     temperature: float = 0.0,
+    max_tokens: int = _DEFAULT_MAX_TOKENS,
     **kwargs,
 ) -> BaseChatModel:
     """Return a LangChain-compatible chat model.
@@ -48,8 +105,12 @@ def get_llm(
                      Falls back to ``DEFAULT_LLM_PROVIDER``.
         model:       Model identifier override.  If *None*, uses the
                      sensible default for the chosen provider.
-        temperature: Sampling temperature. 0.0 = deterministic
-                     (ideal for factual tech-support answers).
+        temperature: Sampling temperature, applied only on models that
+                     still accept it (see ``_NO_SAMPLING_PARAMS``).  Low
+                     temperature reduces variance; it does **not** make
+                     output deterministic.
+        max_tokens:  Output cap.  On models with thinking enabled by
+                     default this budget covers thinking *and* text.
         **kwargs:    Forwarded to the underlying model constructor.
 
     Returns:
@@ -72,11 +133,13 @@ def get_llm(
 
         from langchain_anthropic import ChatAnthropic  # lazy import
 
-        return ChatAnthropic(
-            model=model,
-            temperature=temperature,
-            **kwargs,
-        )
+        kwargs.setdefault("max_tokens", max_tokens)
+        # Only send `temperature` to models that still accept it — newer
+        # models reject sampling parameters with a 400.
+        if model not in _NO_SAMPLING_PARAMS:
+            kwargs.setdefault("temperature", temperature)
+
+        return ChatAnthropic(model=model, **kwargs)
 
     # ── OpenAI (stub - activate when needed) ──────────────────────
     elif provider == "openai":

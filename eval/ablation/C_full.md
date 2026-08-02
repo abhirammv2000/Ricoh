@@ -1,6 +1,6 @@
 # 📊 Citera — Quality Evaluation Report
 
-**Generated:** 2026-08-01 15:07:24  
+**Generated:** 2026-08-01 15:17:31  
 **Agent model:** `claude-sonnet-4-6`  
 **Judge model:** `claude-opus-5`  
 **Questions:** 10  
@@ -17,9 +17,9 @@
 | Behaviour-match rate | 1.00 | — | Answered vs. refused as expected |
 | Evidence recall | 0.88 | [0.69, 1.00] | Expected doc reached the synthesizer, across ALL passes/retries (n=8) |
 | Citation precision | 1.00 | [1.00, 1.00] | Cited docs exist in the evidence (catches fabricated filenames only) (n=8) |
-| Groundedness | 0.97 | [0.95, 0.99] | Claims supported by evidence (n=10) |
+| Groundedness | 0.98 | [0.95, 0.99] | Claims supported by evidence (n=10) |
 | Correctness | 0.98 | [0.94, 1.00] | Conveys expected facts / refuses correctly (n=10) |
-| Mean latency | 15.77s | — | Per-question wall-clock (max 23.68s) |
+| Mean latency | 15.61s | — | Per-question wall-clock (max 21.58s) |
 
 ### Retriever in isolation
 
@@ -40,15 +40,15 @@ Prices are a dated snapshot (2026-08-01); token counts are
 the ground truth and cost is derived from them. Agent cost is what serving
 a query costs; judge cost is eval overhead and is never folded into it.
 
-- **Mean cost per query: $0.05155** (max $0.14623)
-- Mean 3.4 LLM calls, 14,448 in / 547 out tokens
-- Whole-benchmark agent cost $0.5155; judge overhead $0.5274
+- **Mean cost per query: $0.04902** (max $0.13534)
+- Mean 3.4 LLM calls, 13,609 in / 546 out tokens
+- Whole-benchmark agent cost $0.4902; judge overhead $0.4901
 
 | Stage | Calls | LLM seconds | % of time | Cost | % of cost |
 |---|---|---|---|---|---|
-| synthesizer | 10 | 102.74s | 67.7% | $0.26544 | 51.5% |
-| planner | 12 | 30.28s | 20.0% | $0.01900 | 3.7% |
-| verifier | 12 | 18.72s | 12.3% | $0.23108 | 44.8% |
+| synthesizer | 10 | 103.53s | 68.5% | $0.25310 | 51.6% |
+| planner | 12 | 24.62s | 16.3% | $0.01858 | 3.8% |
+| verifier | 12 | 22.97s | 15.2% | $0.21848 | 44.6% |
 
 ### Worst case (what the means hide)
 
@@ -60,13 +60,13 @@ a query costs; judge cost is eval overhead and is never folded into it.
 
 | # | Behaviour ✓ | Evid. recall | Retr.@5 | Cite prec. | Grounded | Correct | Latency | Flags |
 |---|---|---|---|---|---|---|---|---|
-| 1 | ✅ | 0.50 | 1.00 | 1.00 | 0.90 | 1.00 | 11.67s | — |
-| 2 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 23.68s | — |
-| 3 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 15.2s | — |
-| 4 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 18.74s | — |
-| 5 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 12.99s | — |
-| 6 | ✅ | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 19.35s | — |
-| 7 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 21.44s | — |
-| 8 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 15.55s | — |
-| 9 | ✅ | 0.50 | 1.00 | 1.00 | 0.95 | 0.80 | 9.95s | — |
-| 10 | ✅ | 1.00 | 1.00 | 1.00 | 0.93 | 1.00 | 9.11s | — |
+| 1 | ✅ | 0.50 | 1.00 | 1.00 | 0.90 | 1.00 | 14.43s | — |
+| 2 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 17.01s | — |
+| 3 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 12.49s | — |
+| 4 | ✅ | 1.00 | 1.00 | 1.00 | 0.98 | 1.00 | 18.11s | — |
+| 5 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 12.64s | — |
+| 6 | ✅ | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 21.58s | — |
+| 7 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 19.44s | — |
+| 8 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 15.39s | — |
+| 9 | ✅ | 0.50 | 1.00 | 1.00 | 0.95 | 0.80 | 14.77s | — |
+| 10 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 10.21s | — |

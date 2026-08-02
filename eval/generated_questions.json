@@ -1,0 +1,1766 @@
+{
+  "_description": "Auto-generated evaluation questions. expected_sources is known by construction (each question was written from a chunk of that document). Tune on split=='dev' only; 'holdout' exists so a final number can be reported that no decision was fitted to. Run `python -m eval.generate_questions --audit` before trusting these.",
+  "seed": 20260801,
+  "generation_cost_usd": 0.42924,
+  "counts": {
+    "total": 100,
+    "dev": 70,
+    "holdout": 30
+  },
+  "questions": [
+    {
+      "question": "When setting up to retrieve orders from a MarcomCentral store, what does the SOAP web service input device need to be based on, and what web service does it call?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Copy the MarcomReceiveOrders SOAP web service input device",
+        "Calls the Order MarcomCentral web service",
+        "Retrieves orders by date"
+      ],
+      "expected_sources": [
+        "mcc_c_configformcc.pdf"
+      ],
+      "source_chunk_id": "c42d8d2a8eee8841",
+      "provenance": "generated",
+      "id": 1,
+      "split": "holdout"
+    },
+    {
+      "question": "What are the steps to download a data collector's records from the Reports database into a CSV file?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Administration tab → Reports → Data Collectors",
+        "select the data collector and click Download data",
+        "specify a time range then click OK"
+      ],
+      "expected_sources": [
+        "reportsPostgresql_w_ExportReportData.pdf"
+      ],
+      "source_chunk_id": "a0fb68529f62e6e5",
+      "provenance": "generated",
+      "id": 2,
+      "split": "holdout"
+    },
+    {
+      "question": "When setting up a workflow to handle PDF files with individual documents, which step template do I need to include to build the initial inventory of all documents in the job, and what file does it produce?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "IdentifyPDFDocuments step template",
+        "builds a document properties file",
+        "represents an inventory of all documents in the job"
+      ],
+      "expected_sources": [
+        "pdfw_c_scen_concepts.pdf"
+      ],
+      "source_chunk_id": "62bd626e8d073281",
+      "provenance": "generated",
+      "id": 3,
+      "split": "holdout"
+    },
+    {
+      "question": "When I install a new feature using Feature Manager, does it start working right away or do I need to buy a license first? What happens if I never buy it?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "feature starts in trial mode when installed via Feature Manager",
+        "must purchase and install a license key to continue after trial period",
+        "feature stops working at end of trial period without a license key"
+      ],
+      "expected_sources": [
+        "aiwi0_basefeatures.pdf"
+      ],
+      "source_chunk_id": "5021a65ed45b5cd5",
+      "provenance": "generated",
+      "id": 4,
+      "split": "holdout"
+    },
+    {
+      "question": "What tool can I use to connect directly to the Reports database and run SQL queries without needing a separate BI tool?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "psql is the interactive terminal program used to connect directly",
+        "SQL statements can be used to extract or query data after connecting",
+        "no business intelligence tool is required when using psql"
+      ],
+      "expected_sources": [
+        "reportsPostgresql_w_WorkingWithReports.pdf"
+      ],
+      "source_chunk_id": "bc746972739f7426",
+      "provenance": "generated",
+      "id": 5,
+      "split": "holdout"
+    },
+    {
+      "question": "What is the difference between a document property mapping and an order property mapping in ProcessDirector?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Document property mappings link headings in a preferences file to document properties and are used by the ApplyPreferences step to update the DPF",
+        "Order property mappings are added by the Order Management feature and define which XML elements the CreateOrdersFromFile step uses to identify orders, jobs, and set properties"
+      ],
+      "expected_sources": [
+        "aiw_propmapping.pdf"
+      ],
+      "source_chunk_id": "017f93d1296160b7",
+      "provenance": "generated",
+      "id": 6,
+      "split": "holdout"
+    },
+    {
+      "question": "When setting up a second SMTP server in ProcessDirector, which types of emails will use it versus which ones are stuck going through the default server?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Notifications must use the default email server and cannot use the alternate",
+        "Jobs (SendEmail step) and documents (EmailDocuments step) can use the alternate SMTP server",
+        "EmailDocuments step requires the PDF Document Support feature to be installed"
+      ],
+      "expected_sources": [
+        "aiw_c_alternatesmtp.pdf"
+      ],
+      "source_chunk_id": "671c7ee5d38b43a4",
+      "provenance": "generated",
+      "id": 7,
+      "split": "holdout"
+    },
+    {
+      "question": "When setting up AFP Download Plus to send jobs to RICOH ProcessDirector, what two parameters must be included when defining the JES work-selection criteria for each FSA?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "IPADDR parameter must specify the TCP/IP address of the parent server running the target input devices",
+        "PORTNO parameter must specify the port numbers of the target input devices"
+      ],
+      "expected_sources": [
+        "aiw00c35.pdf"
+      ],
+      "source_chunk_id": "131c230f8d26de88",
+      "provenance": "generated",
+      "id": 8,
+      "split": "holdout"
+    },
+    {
+      "question": "What operating systems does RICOH ProcessDirector run on, and how do users access it?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "runs on Linux or Windows",
+        "accessed via web browser-based interface",
+        "database-driven print workflow system"
+      ],
+      "expected_sources": [
+        "cac_Servers.pdf"
+      ],
+      "source_chunk_id": "da7035f75321165f",
+      "provenance": "generated",
+      "id": 9,
+      "split": "holdout"
+    },
+    {
+      "question": "After editing repository.cfg to tune Archive search performance, do I need to restart RICOH ProcessDirector for the changes to take effect?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "No restart of RICOH ProcessDirector is required",
+        "Changes to repository.cfg take effect without restarting"
+      ],
+      "expected_sources": [
+        "rep_t_TuningForSearchAndStorage.pdf"
+      ],
+      "source_chunk_id": "ff20e8fbdd82a69b",
+      "provenance": "generated",
+      "id": 10,
+      "split": "holdout"
+    },
+    {
+      "question": "When a job ticket includes both a product ID and a media name, which one does RICOH ProcessDirector check first when setting the Media property for a job?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Product ID is checked first",
+        "If no product ID match is found, it then looks for a media object matching the media name from the JDF job ticket",
+        "The matching media object's name is placed in the Media property for the job"
+      ],
+      "expected_sources": [
+        "aiw_o_mediamatching.pdf",
+        "aiw_sdk_jdfjobprops.pdf"
+      ],
+      "source_chunk_id": "8deeddc728ce637e",
+      "provenance": "generated",
+      "id": 11,
+      "split": "holdout",
+      "label_expansions": [
+        {
+          "added": "aiw_sdk_jdfjobprops.pdf",
+          "why": "Document B explicitly states that RICOH ProcessDirector first checks whether the job ticket specifies a media product ID before falling back to the media name when Media Matching is set to 'Use media product ID or media name'."
+        }
+      ]
+    },
+    {
+      "question": "When two page-level media options conflict for the same page, which one wins — the one higher or lower in the list?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "The option lower on the list takes precedence over the one higher on the list",
+        "Options are applied top to bottom, so the last matching option wins",
+        "The order of media options does not affect how finishing options are applied, and vice versa"
+      ],
+      "expected_sources": [
+        "pdfw_c_plugin_managemediafinish.pdf"
+      ],
+      "source_chunk_id": "d03310bba748f80b",
+      "provenance": "generated",
+      "id": 12,
+      "split": "holdout"
+    },
+    {
+      "question": "When using EFI Fiery controllers with Ricoh PDF printers, what does the % Printed property actually indicate, and at what point does it show as complete?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "% Printed shows job transmission status for EFI Fiery controllers",
+        "Print progress is complete when EFI Fiery has queued the entire job for printing",
+        "This differs from Ricoh controllers where % Printed shows percentage of pages printed"
+      ],
+      "expected_sources": [
+        "aiw00c_Define_RicohPDF.pdf"
+      ],
+      "source_chunk_id": "659b08c20809f594",
+      "provenance": "generated",
+      "id": 13,
+      "split": "holdout"
+    },
+    {
+      "question": "Which specific RICOH Pro 8400 series printer models are supported in ProcessDirector, and what digital front end do they require?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Fiery EB-36 digital front end is required",
+        "Supported models include Pro 8400S, Pro 8410, Pro 8410S, Pro 8420, Pro 8420S, Pro 8420Y",
+        "Pro 8420Y is Japan only"
+      ],
+      "expected_sources": [
+        "aiwi_whatsnew.pdf"
+      ],
+      "source_chunk_id": "0fc3c0cc80f4c29f",
+      "provenance": "generated",
+      "id": 14,
+      "split": "holdout"
+    },
+    {
+      "question": "If I enable the 'Edit first' option in the fill white space step, do I still need to keep the EditAFP step in my workflow?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Edit first and EditAFP step provide the same function, so EditAFP step should be removed",
+        "Using Edit first is more efficient than running a separate EditAFP step",
+        "Edit first only works if AFP Editor is installed; otherwise the job is not edited"
+      ],
+      "expected_sources": [
+        "addingfillwsstep2.pdf"
+      ],
+      "source_chunk_id": "3cb2e5430c66c9e8",
+      "provenance": "generated",
+      "id": 15,
+      "split": "holdout"
+    },
+    {
+      "question": "At what point does RICOH ProcessDirector change a job's predicted outcome to 'May miss' if the PrintJobs step hasn't started, given a 35-minute deadline and a 10-minute estimated step duration?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "26 minutes after job submission without starting PrintJobs triggers 'May miss'",
+        "System estimates total job duration will be 36 minutes, exceeding the 35-minute deadline",
+        "An orange dot is added to the Schedule risk column when predicted outcome is 'May miss'"
+      ],
+      "expected_sources": [
+        "dt_o_scen_deadlineandduration.pdf"
+      ],
+      "source_chunk_id": "acb0784f0b14b802",
+      "provenance": "generated",
+      "id": 16,
+      "split": "holdout"
+    },
+    {
+      "question": "What are the valid output color space types I can assign to a target group in a color mapping table?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Valid output color spaces are RGB, CMYK, Highlight, and CIELAB",
+        "Target group IDs range from 1 through 127",
+        "Available choices depend on what the actual printer hardware supports"
+      ],
+      "expected_sources": [
+        "aiw02cmttrggrp.pdf"
+      ],
+      "source_chunk_id": "2d6088305c4c617e",
+      "provenance": "generated",
+      "id": 17,
+      "split": "holdout"
+    },
+    {
+      "question": "When a job was created on a monitor or camera and the colors don't match what the printer outputs, what setting can be used to tell the printer how to handle colors it can't reproduce?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "rendering intent tells the printer how to adjust colors outside its gamut",
+        "printer gamut is almost always significantly smaller than monitor/camera/scanner gamut",
+        "each rendering intent has different benefits and trade-offs"
+      ],
+      "expected_sources": [
+        "cac_GamutAndRenderingIntent.pdf",
+        "cac_ColorMgmt.pdf"
+      ],
+      "source_chunk_id": "21e7557328579db7",
+      "provenance": "generated",
+      "id": 18,
+      "split": "holdout",
+      "label_expansions": [
+        {
+          "added": "cac_ColorMgmt.pdf",
+          "why": "Document B explicitly states that 'Rendering intents indicate what you want a printer to do with colors that are outside its gamut,' which directly answers the question about the setting used to tell the printer how to handle colors it can't reproduce."
+        }
+      ]
+    },
+    {
+      "question": "If I need to modify the definition of a custom property after it's already been set up and in use, what steps do I have to take, and is there any extra work after reactivating it?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "You must deactivate the custom property before changing its definition",
+        "After reactivating, you must reconnect it to all objects it was previously connected with"
+      ],
+      "expected_sources": [
+        "aiw_customprops.pdf"
+      ],
+      "source_chunk_id": "e373e36963743a21",
+      "provenance": "generated",
+      "id": 19,
+      "split": "holdout"
+    },
+    {
+      "question": "In AFP Editor, when I set the barcode area's X and Y origin, what is the reference point used — is it measured from the physical sheet edge or something else?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "measured from the left/top of the logical page, not the physical sheet of paper",
+        "X is horizontal distance from left side of logical page",
+        "Y is vertical distance from top of logical page"
+      ],
+      "expected_sources": [
+        "barcode_position_tab.pdf",
+        "barcode_IMBreplaceposition_tab.pdf"
+      ],
+      "source_chunk_id": "8b108605ad84a5df",
+      "provenance": "generated",
+      "id": 20,
+      "split": "holdout",
+      "label_expansions": [
+        {
+          "added": "barcode_IMBreplaceposition_tab.pdf",
+          "why": "Document B explicitly states that the X and Y origin of the barcode area is measured from the left side / top of the logical page, not the physical sheet of paper."
+        }
+      ]
+    },
+    {
+      "question": "When setting up page inserts in the Acrobat plug-in, what step in ProcessDirector actually applies those inserts to documents in a job?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "BuildPDFFromDocuments step applies the inserts",
+        "Inserts Manager dialog is used to add, edit, delete, and order page inserts",
+        "inserts are added to documents in a job"
+      ],
+      "expected_sources": [
+        "pdfw_c_enhancingpdffiles.pdf",
+        "pdfw_c_plugin_workwithinserts.pdf"
+      ],
+      "source_chunk_id": "27b396359f9f466a",
+      "provenance": "generated",
+      "id": 21,
+      "split": "holdout",
+      "label_expansions": [
+        {
+          "added": "pdfw_c_plugin_workwithinserts.pdf",
+          "why": "Document B explicitly states that the BuildPDFFromDocuments step is what applies the inserts to documents in a job."
+        }
+      ]
+    },
+    {
+      "question": "When building a color mapping table to render AFP pie chart horizontal lines in green, what RGB values should I use for red, green, and blue, and what GOCA ColorValue corresponds to those horizontal lines?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Red=12, Green=252, Blue=42",
+        "GOCA ColorValue (hexadecimal 0B) is 11",
+        "ColorSpace source is GOCA mapped to target RGB"
+      ],
+      "expected_sources": [
+        "aiw02cmtex.pdf"
+      ],
+      "source_chunk_id": "318164e411b687de",
+      "provenance": "generated",
+      "id": 22,
+      "split": "holdout"
+    },
+    {
+      "question": "When setting up a connector rule to route jobs that fail to an alternate workflow path, what property, comparison operator, and value do I need to configure to detect the error condition?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Property must be set to 'Current job state'",
+        "Comparison must be set to 'is (=)'",
+        "Value must be set to 'Error'"
+      ],
+      "expected_sources": [
+        "aiw_c_seterrorpath.pdf"
+      ],
+      "source_chunk_id": "117df6f77dd75dfc",
+      "provenance": "generated",
+      "id": 23,
+      "split": "holdout"
+    },
+    {
+      "question": "When setting up Slingshot to send jobs to ProcessDirector, what URL format should I enter for the JMF HTTP URL on the Connection Options tab?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "http://yourserver:15080/aiwservices/v1/jmf",
+        "replace 'yourserver' with the IP address or host name of the RICOH ProcessDirector server"
+      ],
+      "expected_sources": [
+        "avanti_c_configSlingshot.pdf",
+        "avanti_r_SendingInfoToAvanti.pdf"
+      ],
+      "source_chunk_id": "a92b11725783e4a6",
+      "provenance": "generated",
+      "id": 24,
+      "split": "holdout",
+      "label_expansions": [
+        {
+          "added": "avanti_r_SendingInfoToAvanti.pdf",
+          "why": "Document B explicitly states that in the JMF HTTP URL field you should enter 'http://yourserver:15080/aiwservices/v1/jmf', replacing 'yourserver' with the IP address or host name of the RICOH ProcessDirector server."
+        }
+      ]
+    },
+    {
+      "question": "When setting up inserter control file rules, where should I copy the sample rules files to, and why is that location recommended?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "/aiw/aiw1/config/fbi/",
+        "files in this directory are backed up during aiwbackup"
+      ],
+      "expected_sources": [
+        "CreatingControlRules.pdf"
+      ],
+      "source_chunk_id": "0438d07c38617927",
+      "provenance": "generated",
+      "id": 25,
+      "split": "holdout"
+    },
+    {
+      "question": "When sorting an AFP job by customer last name, does RICOH ProcessDirector require the document database to be set up, and which step templates are involved in the sort process?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "The document database is NOT required because the same input file is used for both the original and production job",
+        "IdentifyDocuments step template creates the document properties file",
+        "SortDocuments and BuildAFPFromDocuments step templates handle the sorting and updating of the AFP file"
+      ],
+      "expected_sources": [
+        "aiwdoc_c_doc_scen_one_one.pdf"
+      ],
+      "source_chunk_id": "ff9990dbfff57a2e",
+      "provenance": "generated",
+      "id": 26,
+      "split": "holdout"
+    },
+    {
+      "question": "What type of database does RICOH ProcessDirector use to store data collected by data collectors and WritePropsToReportsDatabase steps?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "PostgreSQL database",
+        "data collectors and WritePropsToReportsDatabase steps store data",
+        "Reports database"
+      ],
+      "expected_sources": [
+        "reportsPostgresql_c_ConfigReports.pdf",
+        "reportsPostgresql_datacollObj.pdf"
+      ],
+      "source_chunk_id": "e213cc3a29f15a8c",
+      "provenance": "generated",
+      "id": 27,
+      "split": "holdout",
+      "label_expansions": [
+        {
+          "added": "reportsPostgresql_datacollObj.pdf",
+          "why": "Document B explicitly states that data collector objects store property values in 'a PostgreSQL database created by the Reports feature,' directly answering the question about the type of database used."
+        }
+      ]
+    },
+    {
+      "question": "If I want to reuse a printer or input device configuration on a different RICOH ProcessDirector system, what's the process to move it over?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "export the object from the source system",
+        "import the object on the destination system",
+        "examples of exportable objects include input devices and printers"
+      ],
+      "expected_sources": [
+        "aiw00ao.pdf"
+      ],
+      "source_chunk_id": "9148d09fdf20569c",
+      "provenance": "generated",
+      "id": 28,
+      "split": "holdout"
+    },
+    {
+      "question": "Why do printed colors look different from what I see on the monitor even after the printer is properly calibrated?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "a printer's gamut is much smaller than any monitor's gamut",
+        "images do not look the same printed as displayed on a monitor even when calibration is correct"
+      ],
+      "expected_sources": [
+        "cac_MixingAndCalibration.pdf",
+        "cac_ColorMgmt.pdf"
+      ],
+      "source_chunk_id": "3970d7c2f6277341",
+      "provenance": "generated",
+      "id": 29,
+      "split": "holdout",
+      "label_expansions": [
+        {
+          "added": "cac_ColorMgmt.pdf",
+          "why": "Document B explicitly states that it is virtually impossible to accurately reproduce monitor colors in print because printers have smaller color gamuts, requiring color adjustments even after calibration."
+        }
+      ]
+    },
+    {
+      "question": "What does the Archive sample workflow include out of the box so I can test how the feature works before setting up my own?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "repository",
+        "hot folder input device with a pre-submitted PDF file",
+        "supplied history record notification and a workflow with StoreInRepository step"
+      ],
+      "expected_sources": [
+        "rep_c_configforFileCabinet.pdf"
+      ],
+      "source_chunk_id": "fd4c547d4c514e74",
+      "provenance": "generated",
+      "id": 30,
+      "split": "holdout"
+    },
+    {
+      "question": "When converting line data to AFP, what information does a page definition control during composition?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Page definitions specify printable area, max lines per page, beginning print position, printing direction, page presentation (portrait/landscape), and fonts",
+        "The transform uses a page definition when composing data",
+        "You can use a provided page definition or supply your own"
+      ],
+      "expected_sources": [
+        "aiw00o18.pdf"
+      ],
+      "source_chunk_id": "b9edf9cefef981a4",
+      "provenance": "generated",
+      "id": 31,
+      "split": "dev"
+    },
+    {
+      "question": "How do I open the property notebook for a printer or input device from the Administration page in RICOH ProcessDirector?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "click the object type in the left pane",
+        "click the name of the object in the table",
+        "use tabs or Show all tabs to view properties"
+      ],
+      "expected_sources": [
+        "aiw00a17.pdf"
+      ],
+      "source_chunk_id": "a93d9e29e45098fb",
+      "provenance": "generated",
+      "id": 32,
+      "split": "dev"
+    },
+    {
+      "question": "If a customer sends a PDF 2.0 file through ProcessDirector with banner pages enabled, what happens to the file format?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "PDF 2.0 file is converted to PDF 1.7 format",
+        "conversion happens because PDF 1.7 is required for banner pages"
+      ],
+      "expected_sources": [
+        "aiw_pdfbanners.pdf"
+      ],
+      "source_chunk_id": "3a6cc0742d862a4c",
+      "provenance": "generated",
+      "id": 33,
+      "split": "dev"
+    },
+    {
+      "question": "A job went into an error state and the printer threw an error — what's the likely cause and how do I fix it when working with character sets and code pages in AFP?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Mismatch between character set and code page names causes the error",
+        "Fix by changing to a valid character set and code page pair and reprocessing the job"
+      ],
+      "expected_sources": [
+        "insertingtext.pdf",
+        "modifyingtextstrings.pdf"
+      ],
+      "source_chunk_id": "1767690c19050846",
+      "provenance": "generated",
+      "id": 34,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "modifyingtextstrings.pdf",
+          "why": "Document B explicitly states that mismatched character names between a character set and code page cause the job to go into an error state and the printer to issue an error, and instructs the user to fix it by changing the character set and code page to a valid pair and reprocessing the job."
+        }
+      ]
+    },
+    {
+      "question": "When setting up a Kodak PDF printer for banner pages, what happens if the Header copies and Trailer copies job properties are set to 0, even if banner pages are enabled on the printer?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Header and trailer pages will not print if Header copies/Trailer copies are set to 0",
+        "Banner pages must be enabled on the printer AND the job copies value must be 1 or greater",
+        "Setting copies to 0 overrides the printer-level banner page enable setting"
+      ],
+      "expected_sources": [
+        "kdk_kodakpdfptr_bannerpgs.pdf"
+      ],
+      "source_chunk_id": "c87e3208d8b650fa",
+      "provenance": "generated",
+      "id": 35,
+      "split": "dev"
+    },
+    {
+      "question": "When setting up an inserter that doesn't produce any results files, what should I set the Completion method to, and why?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Completion method should be set to Manual",
+        "RICOH ProcessDirector cannot automatically determine when a job has finished insertion without results files",
+        "Default insert status should be set to OK so operators only mark documents needing reprint"
+      ],
+      "expected_sources": [
+        "UsingSuppliedInserterControllers.pdf",
+        "InserterCompletionMethods.pdf"
+      ],
+      "source_chunk_id": "519c096425949074",
+      "provenance": "generated",
+      "id": 36,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "InserterCompletionMethods.pdf",
+          "why": "Document B explicitly states to use 'Manual completion' when the inserter controller does not create a job-specific results file, and explains that an operator must select the Complete Insertion action to start reconciliation."
+        }
+      ]
+    },
+    {
+      "question": "When setting up a PCLOut printer on Linux SLES 12.0 using YaST, what value do I enter in the Queue Name field and what protocol should I select?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Type PASS in the Queue Name field",
+        "Select Line Printer Daemon (LPD) Protocol"
+      ],
+      "expected_sources": [
+        "aiw00c_Define_PCLOut.pdf"
+      ],
+      "source_chunk_id": "28bcbcdf1efb8c9f",
+      "provenance": "generated",
+      "id": 37,
+      "split": "dev"
+    },
+    {
+      "question": "What barcode type can only be created in AFP Editor and not in AFP Enhancer mode?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "PDF417 (Portable Data File 417)",
+        "AFP Editor exclusive",
+        "two-dimensional barcode with multiple rows each like a small linear barcode"
+      ],
+      "expected_sources": [
+        "vwb_barcodes_overview.pdf",
+        "vwb_barcodes_overview_data.pdf"
+      ],
+      "source_chunk_id": "a65cecdc29d6f246",
+      "provenance": "generated",
+      "id": 38,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "vwb_barcodes_overview_data.pdf",
+          "why": "Document B explicitly states that PDF417 is 'AFP Editor only', directly answering which barcode type can only be created in AFP Editor and not in AFP Enhancer mode."
+        }
+      ]
+    },
+    {
+      "question": "In RICOH Visual Workbench, how do I remove a condition that controls which barcode gets selected in AFP Editor?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Open the sample AFP file and control file, then go to Mode > AFP Editor",
+        "Use Tools > Modify Definitions to open the Modify and Delete Definitions window",
+        "Select the condition and click Delete or press the Delete key"
+      ],
+      "expected_sources": [
+        "deletingoperators.pdf"
+      ],
+      "source_chunk_id": "7f0c7f3f996ebdac",
+      "provenance": "generated",
+      "id": 39,
+      "split": "dev"
+    },
+    {
+      "question": "What control file does an LPD input device use for PDF jobs to map LPD parameters to job properties?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "receive_lpd_pdf_jobtype.cfg",
+        "LPD control file parameters mapped to property name=value format",
+        "PDF jobs specifically"
+      ],
+      "expected_sources": [
+        "aiw00o34.pdf"
+      ],
+      "source_chunk_id": "a02b9568bc601be9",
+      "provenance": "generated",
+      "id": 40,
+      "split": "dev"
+    },
+    {
+      "question": "When replacing POSTNET barcodes with IMBs in AFP Editor, how many total digits must the Mailer ID and Serial number fields combine to contain, and what happens if the Mailer ID value is shorter than expected?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Mailer ID and Serial number together must contain 15 digits",
+        "AFP Editor automatically adds leading zeroes to the Mailer ID field to reach the 15-digit combined total"
+      ],
+      "expected_sources": [
+        "barcode_IMBreplacedata_tab.pdf"
+      ],
+      "source_chunk_id": "6a73ef879c3f0bd9",
+      "provenance": "generated",
+      "id": 41,
+      "split": "dev"
+    },
+    {
+      "question": "If I turn on a data collector but data collection itself is still disabled, will it start capturing anything?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "data collectors do nothing if data collection is disabled",
+        "data collection must be enabled for collectors to store information",
+        "enabled collectors only start capturing when a data collection event occurs after data collection is enabled"
+      ],
+      "expected_sources": [
+        "reportsPostgresql_c_CaptureDataForPostgreSQL.pdf"
+      ],
+      "source_chunk_id": "92edbda7299ab4cd",
+      "provenance": "generated",
+      "id": 42,
+      "split": "dev"
+    },
+    {
+      "question": "If I update the folder path on a repository that already has stored job history, does RICOH ProcessDirector automatically migrate the existing data to the new location?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Existing data is NOT automatically moved to the new folder location",
+        "You must manually move the contents of the repository to the new location",
+        "If no full path is specified, the directory is created under /var/aiw on Linux or drive:\\Program Files\\Ricoh\\ProcessDirector on Windows"
+      ],
+      "expected_sources": [
+        "rep_ChangeFolder.pdf"
+      ],
+      "source_chunk_id": "a2d02f0a296e2cc0",
+      "provenance": "generated",
+      "id": 43,
+      "split": "dev"
+    },
+    {
+      "question": "Which AFP-related feature do I need to install first before I can use any of the other AFP features in RICOH ProcessDirector?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "AFP Support is a prerequisite for the other AFP features",
+        "AFP Support must be installed before features like AFP Editor, Whitespace Manager, or WPM Connect"
+      ],
+      "expected_sources": [
+        "aiwi0_afpfeat.pdf"
+      ],
+      "source_chunk_id": "31a1a08cdac5a5b5",
+      "provenance": "generated",
+      "id": 44,
+      "split": "dev"
+    },
+    {
+      "question": "When checking the Avanti Slingshot Integration Log to confirm a job was successfully picked up by RICOH ProcessDirector, what specific values should I see in the Method, Purpose, and Result Details columns for the Import entries?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Method column should show HTTP",
+        "Purpose column should show 'Updating Job'",
+        "Result Details column should show 'Processing inbound JMF Status File for job'"
+      ],
+      "expected_sources": [
+        "avanti_c_ModifyWorkflow.pdf"
+      ],
+      "source_chunk_id": "1d4c4cc2a765d2b0",
+      "provenance": "generated",
+      "id": 45,
+      "split": "dev"
+    },
+    {
+      "question": "When using a CopyToFolder step to send jobs to a printer hot folder, what functionality is lost compared to using a Passthrough printer?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Cannot use the Schedule Jobs action to assign jobs to a printer",
+        "CopyToFolder step does not use the Requested printer property that Schedule Jobs sets"
+      ],
+      "expected_sources": [
+        "aiw00o3.pdf"
+      ],
+      "source_chunk_id": "964f0c22ced78168",
+      "provenance": "generated",
+      "id": 46,
+      "split": "dev"
+    },
+    {
+      "question": "What's the difference between a Kodak PDF printer device and a Passthrough printer device, and which one should I use if my printer model is supported by both?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Both types can print PDF or Postscript, but Kodak PDF supports additional functions like sending media and finishing values to the printer",
+        "Kodak PDF printer device is recommended over Passthrough if the printer model is supported"
+      ],
+      "expected_sources": [
+        "kdk_c_Define_KodakPDF.pdf"
+      ],
+      "source_chunk_id": "578a23c642a8e54b",
+      "provenance": "generated",
+      "id": 47,
+      "split": "dev"
+    },
+    {
+      "question": "What does an inserter controller object actually define or control in RICOH ProcessDirector — like what settings or behaviors does it govern?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "defines scripts/commands for sending control files and receiving results files",
+        "defines rules for writing/interpreting control files and results files, default insert status, completion method, and reprint method",
+        "controls how RICOH ProcessDirector communicates with the inserter controller and how it reprints damaged documents"
+      ],
+      "expected_sources": [
+        "InserterControllerObject.pdf",
+        "DefiningInserterControllers.pdf"
+      ],
+      "source_chunk_id": "0a64bdfc5a27e18f",
+      "provenance": "generated",
+      "id": 48,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "DefiningInserterControllers.pdf",
+          "why": "Document B explicitly lists the settings and behaviors an inserter controller object governs, including reprint method (open-loop or closed-loop), control file format (FLR, DEL, or XML), encoding, header records, scripts for sending/receiving files, rules file paths, and results file handling."
+        }
+      ]
+    },
+    {
+      "question": "We're using a third-party program to modify PDF content during workflow processing, and now IdentifyPDFDocuments is giving wrong results. What's the rule about where in the workflow that modification step needs to go?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Steps that change PDF data must occur before the IdentifyPDFDocuments step",
+        "If unexpected results occur with PDF 2.0, either update the control file using the Plug-in for Adobe Acrobat or place an OptimizePDF step before IdentifyPDFDocuments",
+        "Altering PDF data can cause control files built with the Plug-in for Adobe Acrobat to not function as expected"
+      ],
+      "expected_sources": [
+        "pdfw_i_c_stepschangedata.pdf",
+        "pdfw_t_configuringidentstep.pdf"
+      ],
+      "source_chunk_id": "d47a72823a9342b4",
+      "provenance": "generated",
+      "id": 49,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "pdfw_t_configuringidentstep.pdf",
+          "why": "Document B explicitly states the rule: place the IdentifyPDFDocuments step after all steps that alter the PDF file, and that placing it before a step that alters the file causes unexpected results — directly answering the question about where a third-party PDF modification step must go relative to IdentifyPDFDocuments."
+        }
+      ]
+    },
+    {
+      "question": "When I add comments in the AFP Indexer section of Visual Workbench, where exactly do they get stored in the control file and what XML tags wrap them?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "comments are placed inside <Comment></Comment> tags",
+        "they appear near the top of the AFP Indexer portion of the control file"
+      ],
+      "expected_sources": [
+        "managecomments.pdf"
+      ],
+      "source_chunk_id": "d4b3ac0f9cc463ec",
+      "provenance": "generated",
+      "id": 50,
+      "split": "dev"
+    },
+    {
+      "question": "When setting up the FusionPro sample workflow, what group name and template name do I need to enter in the FusionPro Server Dashboard Template Manager before uploading the zip file?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Group name must be set to Ricoh Sample Group",
+        "Template name must be set to Ricoh Sample Template",
+        "The zip file is Ricoh Sample Template.zip located in /aiw/aiw1/samples/fusionpro"
+      ],
+      "expected_sources": [
+        "fusionpro_o_runsamplewf.pdf"
+      ],
+      "source_chunk_id": "7c24b2ed29708e64",
+      "provenance": "generated",
+      "id": 51,
+      "split": "dev"
+    },
+    {
+      "question": "When a job is made up of multiple input files, which workflow does the parent job use versus the child jobs on an input device?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Parent job uses the workflow set by the Workflow property on the input device",
+        "Child jobs use the workflow set by the Child workflow property on the input device",
+        "Multiple input file jobs are processed as child jobs under a parent job"
+      ],
+      "expected_sources": [
+        "aiw00c19.pdf",
+        "aiw00c12.pdf"
+      ],
+      "source_chunk_id": "7a57fe445f625e16",
+      "provenance": "generated",
+      "id": 52,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "aiw00c12.pdf",
+          "why": "Document B explicitly states that the parent job uses the 'ParentNoPrint' workflow (step 8) and the child jobs use the workflow containing the WaitForGroup step template (step 9), directly answering which workflow each uses on an input device."
+        }
+      ]
+    },
+    {
+      "question": "When using local RICOH ProcessDirector credentials instead of LDAP, what password-related settings can I configure through the Security feature?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Minimum length, maximum age before expiration, and password complexity rules can be specified",
+        "Settings are found under Administration tab > Settings > Security",
+        "LDAP passwords follow rules set by the LDAP server, not RPD"
+      ],
+      "expected_sources": [
+        "sec_c_advancedfunctions.pdf"
+      ],
+      "source_chunk_id": "82eb358807a0eb8d",
+      "provenance": "generated",
+      "id": 53,
+      "split": "dev"
+    },
+    {
+      "question": "Which printer types in ProcessDirector can report back job status while printing, and how does it handle status monitoring for Passthrough and PCLOut printers?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "AFP printers and Ricoh PDF printers support direct job status communication",
+        "For Passthrough and PCLOut printers, a command defined for the printer is run and the response is monitored",
+        "ProcessDirector cannot report the status of jobs sent to Passthrough and PCLOut printers"
+      ],
+      "expected_sources": [
+        "aiw00c4.pdf",
+        "aiw00o3.pdf"
+      ],
+      "source_chunk_id": "1daa822494a30a9f",
+      "provenance": "generated",
+      "id": 54,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "aiw00o3.pdf",
+          "why": "Document B explicitly states that AFP/IPDS printers can report back job status while printing, and that both PCLOut printers and Passthrough printers cannot receive status information from the printer, with Passthrough printers only able to receive requests to the software queue representing the printer (not the printer itself)."
+        }
+      ]
+    },
+    {
+      "question": "If I don't point the IdentifyDocuments step to a control file, what happens when it runs against an AFP file?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "IdentifyDocuments uses existing page group information in the AFP file to identify documents",
+        "No index tags in the AFP file are mapped to document properties"
+      ],
+      "expected_sources": [
+        "configuringidentifystep.pdf"
+      ],
+      "source_chunk_id": "87aa5f8f23bab745",
+      "provenance": "generated",
+      "id": 55,
+      "split": "dev"
+    },
+    {
+      "question": "What are the two example use cases described for extracting documents out of a PDF print job before it prints?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Suppressing reminder notices for customers who made late payments by pulling them from the job before 3:00 PM",
+        "Removing policies for customers in flood-affected postal codes and emailing them instead of printing"
+      ],
+      "expected_sources": [
+        "doc_o_scenarios_pull.pdf"
+      ],
+      "source_chunk_id": "8f72360d7c887c0f",
+      "provenance": "generated",
+      "id": 56,
+      "split": "dev"
+    },
+    {
+      "question": "When setting up manual reconciliation, where exactly in the workflow should the SetPropertiesForReconcile step be placed, and what does it actually do?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Place SetPropertiesForReconcile after WriteDocumentsToDatabase and after any step that changes document position, but before BuildPDFFromDocuments or BuildAFPFromDocuments",
+        "It sets the Insert sequence property for each document in the job",
+        "Operators use the Insert sequence value on the Reconcile Job dialog to find documents, e.g. by range or by properties"
+      ],
+      "expected_sources": [
+        "doc_c_SetUpManualReconciliation.pdf"
+      ],
+      "source_chunk_id": "0ffa3581f7eb9781",
+      "provenance": "generated",
+      "id": 57,
+      "split": "dev"
+    },
+    {
+      "question": "After finishing the page group and document property definitions in the Acrobat plug-in, where does the control file need to be sent, and what permission is required for that location?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Send the control file to the RICOH ProcessDirector server",
+        "The directory must be accessible by the RICOH ProcessDirector system user",
+        "The control file name/location must be specified in steps based on IdentifyPDFDocuments or BuildPDFFromDocuments step templates"
+      ],
+      "expected_sources": [
+        "rep_c_EnhancePDF.pdf"
+      ],
+      "source_chunk_id": "86915ed60924b2f4",
+      "provenance": "generated",
+      "id": 58,
+      "split": "dev"
+    },
+    {
+      "question": "When using the Number batching method for a hot folder input device, what workflow should be set and what determines whether files are submitted as child jobs versus a single ZIP job?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Workflow should be set to ParentNoPrint",
+        "The 'Create .zip file' property controls whether files are combined into one ZIP job (Yes) or submitted as child jobs (No)",
+        "Only files matching the Data patterns property are counted toward the batch number"
+      ],
+      "expected_sources": [
+        "aiw_sdk_number.pdf"
+      ],
+      "source_chunk_id": "c2d6b0e426dea120",
+      "provenance": "generated",
+      "id": 59,
+      "split": "dev"
+    },
+    {
+      "question": "What is the purpose of Pipeline Manager in RICOH Visual Workbench and what does it allow you to do with AFP files?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Pipeline Manager lets you configure and run a set of filters in a specific order",
+        "It is designed to process large AFP files quickly and efficiently"
+      ],
+      "expected_sources": [
+        "workbenchoverview.pdf",
+        "vwb_PipelineMgrOverview.pdf"
+      ],
+      "source_chunk_id": "1c6a2a6d10f36fd1",
+      "provenance": "generated",
+      "id": 60,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "vwb_PipelineMgrOverview.pdf",
+          "why": "Document B directly explains that Pipeline Manager lets you configure and run a set of filters in a specific order to process large AFP files quickly and efficiently, and gives concrete examples of what you can do (generate page groups and indexes, add bar codes, write output AFP), fully answering the question."
+        }
+      ]
+    },
+    {
+      "question": "When setting up a connection to send data to RICOH Predictive Insight, what two objects do I need to create, and what does the authentication code do during that process?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "You must create a credential and a data transmitter",
+        "The authentication code generates a certificate that authenticates ProcessDirector with RICOH Account Administration for Ricoh cloud access"
+      ],
+      "expected_sources": [
+        "aiw_supervisor.pdf"
+      ],
+      "source_chunk_id": "2bc1c04d5a1e403f",
+      "provenance": "generated",
+      "id": 61,
+      "split": "dev"
+    },
+    {
+      "question": "When setting up a Custom PDF printer in ProcessDirector for a PostScript printer not on the supported Ricoh list, what file do I need to get before I can create the printer object, and where do I get it?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "You must obtain a custom printer definition file before defining the printer object",
+        "The file must be obtained from your Ricoh support representative",
+        "The file allows ProcessDirector to create device-specific PostScript for the printer"
+      ],
+      "expected_sources": [
+        "aiw_c_DefineCustomPrinterDevice.pdf",
+        "aiw_c_DefineCustomPrinter.pdf"
+      ],
+      "source_chunk_id": "2234a27681c7b76b",
+      "provenance": "generated",
+      "id": 62,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "aiw_c_DefineCustomPrinter.pdf",
+          "why": "Document B explicitly states that before defining a Custom PDF printer, you need a 'custom printer definition file' and that you get it by talking to your 'Ricoh support representative' who then sends it to you."
+        }
+      ]
+    },
+    {
+      "question": "When editing AFP banner page control files to include barcodes, which fields in the barcode line format are optional and can be left out?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "ModuleWidth, WideNarrowRatio, RowSize, and NumberOfRows are the only fields that can be omitted",
+        "All other fields are required and cannot be omitted",
+        "Fields are separated by semicolons"
+      ],
+      "expected_sources": [
+        "aiw00bannerbcode.pdf"
+      ],
+      "source_chunk_id": "3d663541c36ee0a8",
+      "provenance": "generated",
+      "id": 63,
+      "split": "dev"
+    },
+    {
+      "question": "What dot gain percentage does the 'Accutone' appearance value compensate for on a 50% dot when using generic tone transfer curve CMRs in AFP color management?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Accutone adjusts output to show a dot gain of 22% for a 50% dot",
+        "Generic tone transfer curve CMRs define multiple appearance values for dot gain control",
+        "AFP Resource Installer automatically installs generic tone transfer curve CMRs"
+      ],
+      "expected_sources": [
+        "cac_CMRToneTransfer.pdf"
+      ],
+      "source_chunk_id": "5720473924806b39",
+      "provenance": "generated",
+      "id": 64,
+      "split": "dev"
+    },
+    {
+      "question": "When working with AFP files, do I need to link custom document properties to index tags if I only want to split a job based on the number of sheets per document?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "No linking to index tags is required if using only standard properties like splitting by number of sheets",
+        "Linking custom properties to index tags (TLEs) is needed when you want to sort, split, or group by custom values such as postal code",
+        "Index tags in AFP files are also known as Tagged Logical Elements (TLEs)"
+      ],
+      "expected_sources": [
+        "designingproperties.pdf"
+      ],
+      "source_chunk_id": "b1945e344edaf3de",
+      "provenance": "generated",
+      "id": 65,
+      "split": "dev"
+    },
+    {
+      "question": "When using the Pages batching method, what happens if a single PDF file has more pages than the configured batch threshold and the 'Exceed pages to batch' setting is turned off?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "The file cannot be submitted and processing stops for the input device",
+        "Processing resumes only if the file is deleted, the page threshold is raised to at least the file's page count, or the Exceed pages to batch property is changed to Yes"
+      ],
+      "expected_sources": [
+        "aiw_sdk_pages.pdf"
+      ],
+      "source_chunk_id": "e3b0e2931efcdc34",
+      "provenance": "generated",
+      "id": 66,
+      "split": "dev"
+    },
+    {
+      "question": "When using IBM DB2 as the main database and wanting to use the built-in PostgreSQL for Reports, what extra software do I need to install on the primary computer?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Docker Engine must be installed on the primary computer",
+        "The bundled PostgreSQL for Reports runs inside a Docker container"
+      ],
+      "expected_sources": [
+        "reportsPostgresql_c_SetUpRPDconnectToPostgreSQL.pdf"
+      ],
+      "source_chunk_id": "9d64f4be6c3e9267",
+      "provenance": "generated",
+      "id": 67,
+      "split": "dev"
+    },
+    {
+      "question": "When a JDF job ticket uses absolute path names for files, how does RICOH ProcessDirector locate those files, and where is the configuration stored that maps those paths?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "A mapping file matches file paths in the job ticket to file paths on mounted file systems",
+        "The mapping file is stored on the primary server",
+        "Only one mapping file is needed per primary server and it can list as many file paths as needed"
+      ],
+      "expected_sources": [
+        "aiw_sdk_fileloc.pdf"
+      ],
+      "source_chunk_id": "27b20fb6917d6d8b",
+      "provenance": "generated",
+      "id": 68,
+      "split": "dev"
+    },
+    {
+      "question": "A customer has InfoPrint 4100 printers and wants to add agent photos to letterhead but the black and white images look too dark and flat. What specific hardware/software upgrades does Ricoh recommend to get better grayscale image quality on those printers?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Upgrade printer controller to InfoPrint POWER architecture with microcode release 15.4 or later",
+        "Purchase and install the AFP Color Emulation feature on the printer",
+        "Use AFP Resource Installer to manage images and associate them with halftones and tone transfer curves"
+      ],
+      "expected_sources": [
+        "cac_Halftone_4100.pdf",
+        "cac_IP4100.pdf"
+      ],
+      "source_chunk_id": "14efb6711d3584cb",
+      "provenance": "generated",
+      "id": 69,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "cac_IP4100.pdf",
+          "why": "Document B specifically recommends upgrading to InfoPrint POWER architecture with microcode release 15.4 or later, installing the AFP Color Emulation feature for high-quality grayscale image printing, and optionally installing the Image Enhancement feature (for Models MS1, MD1, MD2) with enhanced fusing technology and optimized developer unit to improve grayscale image quality."
+        }
+      ]
+    },
+    {
+      "question": "When using the Time batching method, what happens to files that were already sitting in the hot folder before the configured start date and time kicks in?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Files present before the initial start date/time are included in the first batch submitted",
+        "The batching start time uses the browser's time zone but is stored in a generic format interpreted by the parent server's time zone"
+      ],
+      "expected_sources": [
+        "aiw_sdk_time.pdf"
+      ],
+      "source_chunk_id": "c66a25ec79958dda",
+      "provenance": "generated",
+      "id": 70,
+      "split": "dev"
+    },
+    {
+      "question": "When using a PCLOut printer, does it save AFP resources like fonts or overlays from one job so they can be reused in the next job?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "PCLOut printers convert jobs on a job-by-job basis",
+        "they do not create and save AFP resources from previous jobs",
+        "reusing printer resources including fonts from one job to the next is not supported"
+      ],
+      "expected_sources": [
+        "aiw00c_PCLOutLimitations.pdf"
+      ],
+      "source_chunk_id": "688fa77fb23afdbd",
+      "provenance": "generated",
+      "id": 71,
+      "split": "dev"
+    },
+    {
+      "question": "What tools do I use to define page groups for PDF versus AFP files when setting up jobs for an inserter?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "PDF files use Define Page Group function in RICOH ProcessDirector Plug-in for Adobe Acrobat",
+        "AFP files use AFP Indexer mode of RICOH Visual Workbench",
+        "page groups identify individual documents/mailpieces within a print job"
+      ],
+      "expected_sources": [
+        "IdentifyingMailPiecesForInsertion.pdf"
+      ],
+      "source_chunk_id": "a5d21c09a3b8614d",
+      "provenance": "generated",
+      "id": 72,
+      "split": "dev"
+    },
+    {
+      "question": "When setting up a workflow for the Advanced Transform feature that handles jobs in multiple datastream formats, what should I set the input stream property to?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Set Transform input stream to 'Use current' when the workflow processes jobs in various datastreams",
+        "'Use current' is also appropriate for jobs containing multiple data types like AFP print jobs with embedded images or PDF files",
+        "The step must be based on the TransformWithAdvancedFeature step template"
+      ],
+      "expected_sources": [
+        "cpt_c_WorkflowsForAdvTransforms.pdf"
+      ],
+      "source_chunk_id": "a5202d3fedc5f594",
+      "provenance": "generated",
+      "id": 73,
+      "split": "dev"
+    },
+    {
+      "question": "If I define a custom document property name in the Acrobat plug-in instead of picking one from the RICOH ProcessDirector list, what functionality do I lose?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Cannot be integrated into RICOH ProcessDirector functions that save properties to the database",
+        "Cannot be used for document processing features or as markup content in barcodes or text",
+        "Only safe to use if extracting properties to a file or if the property already exists in RICOH ProcessDirector at processing time"
+      ],
+      "expected_sources": [
+        "pdfw_over_plugin_docprops.pdf"
+      ],
+      "source_chunk_id": "ad77cf8896a249c8",
+      "provenance": "generated",
+      "id": 74,
+      "split": "dev"
+    },
+    {
+      "question": "When setting up a Xerox PDF printer for banner pages, what happens if the Header copies and Trailer copies job properties are set to 0, even if banner pages are turned on at the printer level?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Header/trailer pages will not print for that job if copies properties are set to 0",
+        "Both the printer-level enable setting AND the job-level copies value (1 or greater) are required for banner pages to print",
+        "Setting Merge banner pages into PDF print file to Yes prevents another job from printing between the job and its banner pages"
+      ],
+      "expected_sources": [
+        "xrx_xeroxpdfptr_bannerpgs.pdf"
+      ],
+      "source_chunk_id": "33e9fb464264ee4b",
+      "provenance": "generated",
+      "id": 75,
+      "split": "dev"
+    },
+    {
+      "question": "When setting up a barcode in AFP Editor, what kinds of data sources can I combine to encode into the barcode symbol?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Index tag values, job properties, and static text can be combined",
+        "Index tag barcode data can vary per page group; job property and text data is the same in every page group",
+        "AFP Editor also supports human-readable interpretation (HRI) and code page encoding"
+      ],
+      "expected_sources": [
+        "vwb_barcodes_overview_data.pdf"
+      ],
+      "source_chunk_id": "9723a3ecd1f78b5c",
+      "provenance": "generated",
+      "id": 76,
+      "split": "dev"
+    },
+    {
+      "question": "When using AFP format, do I need a separate control file to define documents within a job's data stream?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "No separate control file is required",
+        "AFP carries document definition information within the data stream itself",
+        "The document boundaries are defined inside the AFP job data stream"
+      ],
+      "expected_sources": [
+        "aiw_o_afpsupport_featov.pdf"
+      ],
+      "source_chunk_id": "1acd49b458015da4",
+      "provenance": "generated",
+      "id": 77,
+      "split": "dev"
+    },
+    {
+      "question": "Can I configure a second SMTP server for sending job emails, and if so, can it also handle system notification emails?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "You can configure both a default SMTP server and an Alternate SMTP server",
+        "The Alternate SMTP server cannot be used for email notifications",
+        "Notifications are always sent through the default SMTP server"
+      ],
+      "expected_sources": [
+        "aiw_emailjobs.pdf",
+        "aiw_workflownotifications.pdf"
+      ],
+      "source_chunk_id": "a4d9b38884fa8d37",
+      "provenance": "generated",
+      "id": 78,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "aiw_workflownotifications.pdf",
+          "why": "Document B explicitly states that an alternate SMTP server can be configured for SendEmail steps, but that all notifications (system notification emails) are sent through the default SMTP server — directly answering both parts of the question."
+        }
+      ]
+    },
+    {
+      "question": "When adding a JPEG or GIF image to white space in Visual Workbench, what are the default dimensions if I don't specify a size?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Default width is 0.5 inches (12.7 millimeters)",
+        "Default height is 0.5 inches (12.7 millimeters)",
+        "Size must be specified for JPEG or GIF file types"
+      ],
+      "expected_sources": [
+        "insertingimages.pdf",
+        "modifyingimages.pdf"
+      ],
+      "source_chunk_id": "3d6007faf9eacd43",
+      "provenance": "generated",
+      "id": 79,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "modifyingimages.pdf",
+          "why": "Document B explicitly states that for JPEG or GIF images in Visual Workbench, the default width is 0.5 inches (12.7 mm) and the default height is 0.5 inches (12.7 mm)."
+        }
+      ]
+    },
+    {
+      "question": "When setting up a workflow to send jobs to an InfoPrint 5000 hot folder, what step do I need to delete and how do I wire up the remaining steps so the job flows correctly to the CopyToFolder step?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Delete the TransformJobIntoPDF step",
+        "Connect DetectInputDataStream step to the CopyToFolder step",
+        "Start by copying the OutputPDF workflow"
+      ],
+      "expected_sources": [
+        "ip5khfippdsubmit.pdf"
+      ],
+      "source_chunk_id": "9599b374a2dfa7bf",
+      "provenance": "generated",
+      "id": 80,
+      "split": "dev"
+    },
+    {
+      "question": "When adding an external program step to a workflow, how do I rename that step after dragging it into the workflow editor?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Right-click the step and select Properties, then click General",
+        "Type a new name in the Step name property field and click OK"
+      ],
+      "expected_sources": [
+        "aiwcjtextstep.pdf"
+      ],
+      "source_chunk_id": "cc8a468753a22095",
+      "provenance": "generated",
+      "id": 81,
+      "split": "dev"
+    },
+    {
+      "question": "When I customize an AFP banner page control file, where should I save my edited copy so it doesn't get overwritten during a product update?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "/aiw/aiw1/control_files/banner_pages/",
+        "updates may overwrite files in /aiw/aiw1/samples/banner_pages/ but not the control_files directory",
+        "copy the sample file before editing"
+      ],
+      "expected_sources": [
+        "aiw00c31.pdf"
+      ],
+      "source_chunk_id": "145b60c9f9569024",
+      "provenance": "generated",
+      "id": 82,
+      "split": "dev"
+    },
+    {
+      "question": "If a job misses its first deadline but then finishes within the second deadline, does the red dot stay in the Deadlines portlet or get cleared?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "The red dot is removed if the job meets its second deadline after missing the first",
+        "Missing the first deadline adds a red dot to the Deadlines portlet and Schedule risk column"
+      ],
+      "expected_sources": [
+        "dt_o_scen_deadlineworkflow.pdf"
+      ],
+      "source_chunk_id": "a791da9c2fed024a",
+      "provenance": "generated",
+      "id": 83,
+      "split": "dev"
+    },
+    {
+      "question": "What are the steps to change which barcode gets selected based on a condition in AFP Editor?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Open the AFP file and control file in RICOH Visual Workbench, then switch to AFP Editor mode",
+        "Go to Tools > Modify Definitions, then select or double-click the condition to open the Modify Conditions between Definitions window",
+        "Select the Definition 1, Condition, and Definition 2 values to change, then click OK"
+      ],
+      "expected_sources": [
+        "modifyingoperators.pdf"
+      ],
+      "source_chunk_id": "ef4fba35828a96aa",
+      "provenance": "generated",
+      "id": 84,
+      "split": "dev"
+    },
+    {
+      "question": "When I install a new color conversion CMR using AFP Resource Installer, what does the software automatically do, and how does that help the printer?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Automatically creates link (LK) CMRs between the new color conversion CMR and existing color conversion CMRs",
+        "The print server downloads the matching link CMRs and sends them to the printer with the job",
+        "The printer can use an existing link CMR instead of spending extra time creating one itself"
+      ],
+      "expected_sources": [
+        "cac_ResInst.pdf",
+        "cac_CMRCreateInstall.pdf"
+      ],
+      "source_chunk_id": "53a58a06f3163387",
+      "provenance": "generated",
+      "id": 85,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "cac_CMRCreateInstall.pdf",
+          "why": "Document B explicitly states that when you use AFP Resource Installer to create (install) a CMR, the software automatically installs the CMR in a resource library, which helps the printer by making the CMR available in a resource library for use."
+        }
+      ]
+    },
+    {
+      "question": "When multiple text edit options are applied together in the AFP indexing tool, what order are they processed in?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Strip characters is applied first",
+        "Delimiter editing is applied second",
+        "Character position editing is applied last"
+      ],
+      "expected_sources": [
+        "editingtext.pdf",
+        "editingdpdindex.pdf"
+      ],
+      "source_chunk_id": "2efd732475bf5a96",
+      "provenance": "generated",
+      "id": 86,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "editingdpdindex.pdf",
+          "why": "Document B explicitly states 'The editing rules in the table below are applied top to bottom; for example, first editing by stripping of characters, then editing on delimiters, and finally editing on characters,' directly answering the order in which multiple text edit options are processed."
+        }
+      ]
+    },
+    {
+      "question": "When setting up a history record notification to track job processing, what property can it monitor on the Event tab?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "History record notifications can monitor only the Current job state property",
+        "Events are combined with OR logic",
+        "A history record is written when any one of the events occurs"
+      ],
+      "expected_sources": [
+        "rep_c_DefineHRN2.pdf",
+        "rep_c_DefineHRN.pdf"
+      ],
+      "source_chunk_id": "35789fe2349ab993",
+      "provenance": "generated",
+      "id": 87,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "rep_c_DefineHRN.pdf",
+          "why": "Document B explicitly states that history record notifications can monitor only the 'Current job state' property on the Event tab."
+        }
+      ]
+    },
+    {
+      "question": "When building widgets in Predictive Insight using Job Step Progress data, why would summing Cumulative pages stacked across all steps give wrong totals, and how do you fix it?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Job Step Progress records data at the beginning and end of each step, so cumulative values repeat across multiple rows",
+        "Predictive Insight adds the repeated values together producing incorrect results",
+        "Use a formula or filter to include values from only one row in the database table"
+      ],
+      "expected_sources": [
+        "aiw_c_hintssupervisorconnect.pdf"
+      ],
+      "source_chunk_id": "0f2110a2610aec63",
+      "provenance": "generated",
+      "id": 88,
+      "split": "dev"
+    },
+    {
+      "question": "When I shut down a Passthrough printer in RICOH ProcessDirector while a job is actively printing, what status does that job end up in?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Job status changes to Complete if the printer command returned successfully before shutdown was processed",
+        "Otherwise the job status changes to Error",
+        "This applies to PCLOut, Passthrough, Kodak PDF, and Xerox PDF printers"
+      ],
+      "expected_sources": [
+        "aiw00pshutdown.pdf"
+      ],
+      "source_chunk_id": "43acf8d35f608882",
+      "provenance": "generated",
+      "id": 89,
+      "split": "dev"
+    },
+    {
+      "question": "What are the steps to import a custom PDF printer definition file in RICOH ProcessDirector? Specifically, which tab and menu path do I follow, and where does the actual file import happen?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Navigate to Administration > Devices > Printers, then Add > Custom PDF Printer",
+        "Click Import file on the General tab to open the RICOH Printer Connector page in a new browser tab",
+        "On the RICOH Printer Connector page, click Import Custom Printer Definition File and select the file"
+      ],
+      "expected_sources": [
+        "aiw_c_ImportCustomPrinterFile.pdf"
+      ],
+      "source_chunk_id": "cb270a7274e8b79c",
+      "provenance": "generated",
+      "id": 90,
+      "split": "dev"
+    },
+    {
+      "question": "When RICOH ProcessDirector reports print volume to Avanti Slingshot, what units can it use?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "pages or sheets",
+        "print volume reported to Avanti Slingshot",
+        "Print unit to report property controls this"
+      ],
+      "expected_sources": [
+        "avanti_o_featov.pdf"
+      ],
+      "source_chunk_id": "01635dd9b82fb168",
+      "provenance": "generated",
+      "id": 91,
+      "split": "dev"
+    },
+    {
+      "question": "What steps do I follow in RICOH Visual Workbench to remove a hidden area that was set up through AFP Editor?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Open the AFP file and control file, then go to Mode > AFP Editor",
+        "Use Tools > Modify Definitions to open the Modify and Delete Definitions window",
+        "Select the hidden area and click Delete or press the Delete key"
+      ],
+      "expected_sources": [
+        "deletinghiddenareas.pdf"
+      ],
+      "source_chunk_id": "5e6697a84e4830c4",
+      "provenance": "generated",
+      "id": 92,
+      "split": "dev"
+    },
+    {
+      "question": "If I set up a Download input device and want the daemon messages to come through in a different language than what was selected during server installation, what property do I need to configure?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Set the Device language property on the input device",
+        "The language must differ from the one chosen during RICOH ProcessDirector server installation",
+        "This applies specifically to Download input devices receiving messages from the Download daemon"
+      ],
+      "expected_sources": [
+        "aiw00c3.pdf"
+      ],
+      "source_chunk_id": "ff503dc01517e484",
+      "provenance": "generated",
+      "id": 93,
+      "split": "dev"
+    },
+    {
+      "question": "Where do I put custom JRXML files for PDF banner pages on the primary server, and what job properties need to be updated to use them?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Copy JRXML files to /aiw/aiw1/control_files/banner_pages/ on the primary computer",
+        "Update the Header page configuration file and Trailer page configuration file properties for the jobs"
+      ],
+      "expected_sources": [
+        "aiw_formatting.pdf"
+      ],
+      "source_chunk_id": "45c685168fdf8c1f",
+      "provenance": "generated",
+      "id": 94,
+      "split": "dev"
+    },
+    {
+      "question": "Which data formats does the REST implementation in ProcessDirector's web services feature support, and how does that compare to what SOAP supports?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "REST supports both XML and JSON",
+        "SOAP supports only XML",
+        "Web Services Enablement feature enables REST and SOAP communication"
+      ],
+      "expected_sources": [
+        "aiwi0_advwffeat.pdf",
+        "ws-inputdevice_o_featov.pdf"
+      ],
+      "source_chunk_id": "240cfb3a6f3058b5",
+      "provenance": "generated",
+      "id": 95,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "ws-inputdevice_o_featov.pdf",
+          "why": "Document B explicitly states that both REST and SOAP support XML, and that REST also supports JSON, directly answering the comparison question."
+        }
+      ]
+    },
+    {
+      "question": "In Visual Workbench, if I remove every condition from a whitespace rule, what happens to that rule's condition setting?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "The rule defaults to Always when all conditions are deleted",
+        "Conditions are deleted via the Manage Campaigns window in Whitespace Manager mode"
+      ],
+      "expected_sources": [
+        "deletingcontent.pdf"
+      ],
+      "source_chunk_id": "564a45d050c44e11",
+      "provenance": "generated",
+      "id": 96,
+      "split": "dev"
+    },
+    {
+      "question": "When setting up a hot folder to accept a WFD and PDF file together for reformatting in Quadient Inspire Designer, what batching method and spool file usage value should I configure?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "Batching method: Pattern",
+        "Spool file usage: gmc",
+        "File pattern required: Yes"
+      ],
+      "expected_sources": [
+        "aiw_gmc_configforprintnetPDF.pdf"
+      ],
+      "source_chunk_id": "87560be137dd8dfa",
+      "provenance": "generated",
+      "id": 97,
+      "split": "dev"
+    },
+    {
+      "question": "If a PDF 2.0 file goes through a workflow where no steps modify the PDF, does it get converted to PDF 1.7, and what happens if banner pages are enabled when sending to a Ricoh PDF printer?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "PDF 2.0 passes through unchanged if no workflow steps modify it",
+        "Steps that modify PDF files convert PDF 2.0 to PDF 1.7",
+        "PDF 2.0 files sent to Ricoh PDF, TASKalfa, or Ricoh TotalFlow printers with banner pages enabled are converted to PDF 1.7"
+      ],
+      "expected_sources": [
+        "aiw00o2.pdf",
+        "aiw_ricohpdfptr_bannerpgs.pdf"
+      ],
+      "source_chunk_id": "6c7beb2e39642e8e",
+      "provenance": "generated",
+      "id": 98,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "aiw_ricohpdfptr_bannerpgs.pdf",
+          "why": "Document B explicitly states that a PDF 2.0 file printed with banner pages on a Ricoh PDF printer is converted to PDF 1.7 format, and also clarifies that without modification the file would not be converted (conversion only happens when banner pages are enabled)."
+        }
+      ]
+    },
+    {
+      "question": "If I deactivate a custom property to change its settings and then reactivate it, do I need to manually re-add it to the objects it was previously connected to?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "When deactivated, the custom property is removed from all objects it was connected to and those connections are lost",
+        "After reactivation, the property is NOT automatically added back to jobs it was removed from",
+        "You need to manually add the custom property back to the objects it was removed from"
+      ],
+      "expected_sources": [
+        "aiw_creating_customprop.pdf",
+        "aiw_customprops.pdf"
+      ],
+      "source_chunk_id": "b53b6656a1884d7a",
+      "provenance": "generated",
+      "id": 99,
+      "split": "dev",
+      "label_expansions": [
+        {
+          "added": "aiw_customprops.pdf",
+          "why": "Document B explicitly states that when you reactivate a custom property, you must reconnect it to all the objects it was connected with before, directly answering the question."
+        }
+      ]
+    },
+    {
+      "question": "If we add a color printing line using an InfoPrint 5000, can we still run those color jobs on our existing InfoPrint 4100 or InfoPrint 4000 printers as a fallback?",
+      "expected_behavior": "answer",
+      "key_facts": [
+        "InfoPrint 4100 and InfoPrint 4000 printers cannot print the required color elements",
+        "Color jobs from the InfoPrint 5000 line cannot be run on InfoPrint 4100 or InfoPrint 4000 printers",
+        "InfoPrint 5000 line throughput is less than that of an InfoPrint 4100 line"
+      ],
+      "expected_sources": [
+        "cac_ReplacePrintedForms.pdf"
+      ],
+      "source_chunk_id": "c42b618f547f9f10",
+      "provenance": "generated",
+      "id": 100,
+      "split": "dev"
+    }
+  ],
+  "label_expansion": {
+    "expanded_questions": 25,
+    "cost_usd": 0.174711,
+    "method": "For questions whose top retrieval hit differed from the generated label, a strict adjudicator judged whether that document also answers the question. Only confirmed cases were added."
+  }
+}
