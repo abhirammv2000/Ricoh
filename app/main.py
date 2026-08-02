@@ -33,7 +33,12 @@ import time
 import streamlit as st
 
 # ── Ensure config.py logging setup runs ──
-from src.config import DEFAULT_LLM_PROVIDER, USE_PLANNER  # noqa: F401
+from src.config import (  # noqa: F401
+    CHROMA_DIR,
+    DEFAULT_LLM_PROVIDER,
+    DEMO_MODE,
+    USE_PLANNER,
+)
 
 # Suppress noisy loggers in Streamlit context
 for _quiet in ("src.ingest", "src.retriever", "chromadb", "httpx", "httpcore"):
@@ -356,10 +361,35 @@ with st.sidebar:
 st.markdown(
     '<div class="main-header">'
     "<h1>📚 Citera</h1>"
-    "<p>Agentic AI Technical Support - Ask anything about Ricoh products</p>"
+    "<p>Grounded technical support over RICOH ProcessDirector documentation</p>"
     "</div>",
     unsafe_allow_html=True,
 )
+
+# ── Demo-subset disclosure ──
+# The hosted demo answers from a small subset while the published metrics were
+# measured on the full 733-document corpus. Letting a visitor assume the two
+# are the same would overstate what they are looking at.
+if DEMO_MODE:
+    _n = "a reduced subset"
+    try:
+        import json as _json
+
+        _manifest = CHROMA_DIR / "manifest.json"
+        if _manifest.exists():
+            _m = _json.loads(_manifest.read_text(encoding="utf-8"))
+            _n = f"{_m['document_count']} of 733 documents"
+    except Exception:  # pragma: no cover - display-only
+        pass
+    st.info(
+        f"**Demo deployment.** This instance searches **{_n}** so the image "
+        "stays small and limits redistribution of RICOH's documentation. "
+        "The published evaluation metrics were measured on the **full "
+        "733-document corpus** — this demo shows the system working, it does "
+        "not reproduce the benchmark. Questions outside the subset will be "
+        "correctly refused.",
+        icon="ℹ️",
+    )
 
 # ── Render chat history ──
 for msg in st.session_state.messages:

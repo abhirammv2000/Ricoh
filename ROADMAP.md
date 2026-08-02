@@ -24,7 +24,8 @@ The project is **finished** when all five of these are true. It is explicitly
 - [x] **3. Cost and latency are measured per stage**, not estimated.
 - [x] **4a. It is observable.** Request-level traces with per-stage spans and
       chunk attribution, persisted and queryable (`python -m src.trace_view`).
-- [ ] **4b. It is deployed.** A live URL a reviewer can open.
+- [x] **4b. Deployable, verified locally.** Self-contained image builds, serves,
+      and answers a real query; the final `git push` + Render click is manual.
 - [ ] **5. Every constant and component is defensible.** No magic numbers, no
       claim the linked artifact does not support, no contradiction between the
       README and the code.
@@ -42,10 +43,10 @@ When these are checked, the project ships. Remaining ideas move to
 | **1** | Eval set to ~100 questions + judge calibration | 🟡 Set built; κ needs your labels |
 | **2** | Improve retrieval | ✅ Done — no work needed, see D-4 |
 | **3** | Cut cost and latency | ✅ Done — see D-6 |
-| **4** | Tracing + live deployment | 🟡 Tracing done; deploy remains |
+| **4** | Tracing + live deployment | ✅ Tracing done; image verified, awaiting your push |
 | **5** | Final consistency pass, commit, ship | ⬜ Last |
 
-**Estimated remaining: 2 work sessions** (κ labelling, then tracing + deploy).
+**Remaining: your `git push` + Render deploy. Optionally ~15 human labels for κ.**
 
 ---
 
@@ -178,6 +179,28 @@ threshold-based (70% of content words, crude stemming).
 **Still missing:** an external, non-Claude judgment. Nothing above closes that.
 → `python -m eval.label_for_kappa --cross-judge --spot-check`
 
+### D-13 · The deployment served nothing, and two things had to be baked in
+The previous blueprint told you to upload 223MB of PDFs to a Render disk and
+let the app ingest on boot. Until you did, the container came up **healthy and
+refused every question** — the synthesizer correctly declines with no evidence,
+so a broken deploy looked like a working one.
+
+Two fixes, both verified on the built image rather than assumed:
+
+* **A pre-built index is baked in** (`demo_index/`, 46 documents, 87 chunks,
+  3.8MB) — chosen deterministically as every document the curated benchmark
+  references plus a seeded sample. `DEMO_MODE=true` makes the UI state that it
+  serves a subset, because the published metrics were measured on all 733 and
+  conflating the two would overstate the demo.
+* **The ONNX embedding model is baked in.** ChromaDB lazily downloads it
+  (~79MB) on the *first embedding call*, so the first user request paid for a
+  network fetch and would fail outright without egress. Confirmed fixed by
+  running retrieval with `--network none`.
+
+Measured: image 1.13GB, peak RSS ~282MB per query, health endpoint 200 in ~20s,
+one real in-container query = 1 LLM call at $0.0215.
+→ `python -m src.build_demo_index && docker build -t citera:demo .`
+
 ---
 
 ## Corrections made (kept deliberately)
@@ -210,6 +233,12 @@ Recorded because the failure modes are more instructive than the fixes.
 - **A validation check that was wrong about the thing it validated.** Exact
   word matching flagged 17 correct answers as defective. Every "failure" the
   tool reports has to be read before it is believed.
+- **A retriever that mixed two different indexes.** BM25 paths were module
+  constants, so a retriever pointed at a fresh directory paired an EMPTY vector
+  store with the DEFAULT BM25 index and reported `bm25_ready=True`. Paths now
+  derive from the persist directory.
+- **An empty index raised an opaque ChromaDB `TypeError`** ("requested results
+  0") instead of reporting the operational state it actually was.
 - **A UI bug that the ablation would have shipped.** `app/main.py` hand-rolled its
   initial state; with the planner off, every answer would have become a refusal.
 
