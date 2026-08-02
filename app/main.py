@@ -33,13 +33,13 @@ import time
 import streamlit as st
 
 # ── Ensure config.py logging setup runs ──
-from src.config import DEFAULT_LLM_PROVIDER  # noqa: F401
+from src.config import DEFAULT_LLM_PROVIDER, USE_PLANNER  # noqa: F401
 
 # Suppress noisy loggers in Streamlit context
 for _quiet in ("src.ingest", "src.retriever", "chromadb", "httpx", "httpcore"):
     logging.getLogger(_quiet).setLevel(logging.WARNING)
 
-from src.agent import AgentState, build_agent_graph
+from src.agent import get_agent_graph, initial_state
 from src.ingest import ingest_all
 from src.retriever import HybridRetriever
 from src.llm_factory import _DEFAULT_MODELS
@@ -215,19 +215,12 @@ def run_agent_full(query: str) -> dict:
     this returns the entire ``AgentState`` so we can visualise
     sub-queries, evidence, verification status, etc.
     """
-    agent = build_agent_graph()
-
-    initial_state: AgentState = {
-        "user_query": query,
-        "sub_queries": [],
-        "entities": [],
-        "retrieved_evidence": [],
-        "verification_status": "",
-        "final_answer": "",
-        "iterations": 0,
-    }
-
-    final_state = agent.invoke(initial_state)
+    # Use the shared seeding helper rather than hand-rolling the state dict.
+    # With the planner disabled, sub_queries must be seeded with the raw
+    # question — a hard-coded empty list would give the retriever nothing to
+    # search and turn every answer into a refusal.
+    agent = get_agent_graph()
+    final_state = agent.invoke(initial_state(query))
     return dict(final_state)
 
 
@@ -245,22 +238,36 @@ def render_glass_box(state: dict, latency: float) -> None:
         with col1:
             st.metric("⏱️ Latency", f"{latency:.1f}s")
         with col2:
-            st.metric("🔄 Iterations", state.get("iterations", "?"))
+            st.metric("🔄 Retrieval passes", state.get("iterations", "?"))
         with col3:
-            status = state.get("verification_status", " - ")
+            # An empty verification status means the verifier stage is off,
+            # not that verification failed. Say which, rather than render a
+            # blank metric the viewer has to guess about.
+            status = state.get("verification_status") or "off"
             st.metric("✅ Verification", status)
 
         st.divider()
 
-        # -- Plan: sub-queries (JSON formatted) --
-        sub_queries = state.get("sub_queries", [])
-        entities = state.get("entities", [])
-        st.markdown("#### 🧠 Plan")
-        plan_json = {
-            "sub_queries": sub_queries,
-            "entities": entities,
-        }
-        st.json(plan_json, expanded=True)
+        # -- Plan: only meaningful when the planner stage is enabled --
+        if USE_PLANNER:
+            st.markdown("#### 🧠 Plan")
+            st.json(
+                {
+                    "sub_queries": state.get("sub_queries", []),
+                    "entities": state.get("entities", []),
+                },
+                expanded=True,
+            )
+        else:
+            st.markdown("#### 🧠 Plan")
+            st.caption(
+                "Planner and verifier stages are **disabled by default**. A "
+                "progressive-removal ablation found the single-retrieval path "
+                "matched or beat the full agentic pipeline on every quality "
+                "metric at 3.1× lower cost and 1.6× lower latency — so the "
+                "query is sent to retrieval unchanged. Set `USE_PLANNER=true` "
+                "/ `USE_VERIFIER=true` to re-enable. See §7 of the README."
+            )
 
         st.divider()
 
@@ -337,7 +344,7 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.caption("Built for HackVerse 2026")
+    st.caption("Citera — agentic RAG over RICOH ProcessDirector docs")
     st.caption("by Abhiram")
 
 

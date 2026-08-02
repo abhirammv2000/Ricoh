@@ -1,0 +1,15 @@
+{
+  "primary_judge": "claude-opus-5",
+  "secondary_judge": "claude-opus-4-8",
+  "threshold": 0.8,
+  "cost_usd": 0.75089,
+  "caveat": "Consistency check only. Both judges are Claude models, so a shared bias yields high agreement while both are wrong. This does not substitute for human labels.",
+  "n": 30,
+  "raw_agreement": 1.0,
+  "chance_agreement": 0.936,
+  "cohens_kappa": 1.0,
+  "human_positive_rate": 0.967,
+  "judge_positive_rate": 0.967,
+  "kappa_drop_if_one_item_flipped": 0.521,
+  "fragility_note": "Derived from the stored n / observed / chance values, not a re-run. At this base rate a single disagreement would move kappa by the amount above, so the headline kappa is far less informative than its value suggests."
+}

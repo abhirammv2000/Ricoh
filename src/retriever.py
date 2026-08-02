@@ -57,13 +57,50 @@ logger = logging.getLogger(__name__)
 # Module-level cache so the (expensive) cross-encoder loads at most once.
 _RERANKER = None
 
+# Module-level cache for the retriever itself.  Constructing a
+# HybridRetriever re-opens the Chroma client AND unpickles the entire
+# BM25 index from disk (see __init__), so building a fresh one on every
+# retrieval pass is pure waste.  get_retriever() returns a single shared
+# instance instead.  Loads are idempotent, so reuse is behaviour-preserving.
+_RETRIEVER: "HybridRetriever | None" = None
+
+
+def get_retriever() -> "HybridRetriever":
+    """Return a process-wide shared HybridRetriever (constructed once).
+
+    The instance is cached at module level, so repeated calls avoid
+    re-opening ChromaDB and re-unpickling the BM25 index from disk.
+    Call ``reset_retriever()`` after (re)building the index to force a
+    reload on the next access.
+    """
+    global _RETRIEVER
+    if _RETRIEVER is None:
+        _RETRIEVER = HybridRetriever()
+    return _RETRIEVER
+
+
+def reset_retriever() -> None:
+    """Clear the cached retriever so the next get_retriever() reloads.
+
+    Used after build_index() writes a fresh index to disk, so callers
+    never see a stale in-memory index.
+    """
+    global _RETRIEVER
+    _RETRIEVER = None
+
 
 def _get_embedding_function():
     """Return the ChromaDB embedding function for the configured model.
 
-    ``None`` → ChromaDB uses its built-in default (all-MiniLM-L6-v2 via
-    onnxruntime, no torch).  When ``EMBEDDING_MODEL`` is set, use a
-    stronger sentence-transformers model (requires the optional extra).
+    ``None`` means "caller should omit the argument entirely" so ChromaDB
+    applies its own default (all-MiniLM-L6-v2 via onnxruntime, no torch).
+    Note this is *not* the same as passing ``embedding_function=None``:
+    that explicitly overrides the default with nothing and makes every
+    upsert fail with "You must provide an embedding function".  See
+    ``HybridRetriever.__init__`` for the omit-the-kwarg handling.
+
+    When ``EMBEDDING_MODEL`` is set, use a stronger sentence-transformers
+    model instead (requires the optional extra).
     """
     if not EMBEDDING_MODEL:
         return None
@@ -142,13 +179,19 @@ class HybridRetriever:
         )
 
         # get_or_create → idempotent; safe to call multiple times.
-        # embedding_function=None makes ChromaDB use its onnx MiniLM default;
-        # a configured EMBEDDING_MODEL swaps in a stronger sentence-transformer.
-        self._collection = self._client.get_or_create_collection(
-            name=collection_name,
-            metadata={"hnsw:space": "cosine"},  # cosine similarity
-            embedding_function=_get_embedding_function(),
-        )
+        # The embedding_function kwarg is OMITTED (not passed as None) when no
+        # EMBEDDING_MODEL is configured, so ChromaDB applies its own onnx
+        # MiniLM default.  Passing None explicitly overrides that default and
+        # makes every upsert raise "You must provide an embedding function".
+        collection_kwargs: dict[str, Any] = {
+            "name": collection_name,
+            "metadata": {"hnsw:space": "cosine"},  # cosine similarity
+        }
+        embedding_fn = _get_embedding_function()
+        if embedding_fn is not None:
+            collection_kwargs["embedding_function"] = embedding_fn
+
+        self._collection = self._client.get_or_create_collection(**collection_kwargs)
 
         # BM25 index + backing store - try loading from disk first
         self._bm25: BM25Okapi | None = None
@@ -440,27 +483,49 @@ class HybridRetriever:
         """
         logger.info("Retrieving for query: '%s'", query[:80])
 
-        vector_results = self._vector_search(query, top_k=top_k)
-        bm25_results = self._bm25_search(query, top_k=top_k)
+        # Traced so a stored request can answer "which chunks produced this
+        # answer?" after the fact.  Import is local to avoid a module-level
+        # cycle (instrumentation imports llm_factory, which imports config).
+        from src.instrumentation import span as _span
 
-        logger.info(
-            "  Vector hits: %d | BM25 hits: %d",
-            len(vector_results),
-            len(bm25_results),
-        )
+        with _span("retrieval", query=query[:200], top_k=top_k, final_k=final_k) as sp:
+            vector_results = self._vector_search(query, top_k=top_k)
+            bm25_results = self._bm25_search(query, top_k=top_k)
 
-        reranker = _get_reranker()
+            logger.info(
+                "  Vector hits: %d | BM25 hits: %d",
+                len(vector_results),
+                len(bm25_results),
+            )
 
-        # With a reranker, fuse a LARGER pool first so the cross-encoder
-        # has more candidates to reorder, then trim to final_k.
-        fuse_k = max(final_k, RERANK_CANDIDATE_POOL) if reranker else final_k
-        fused = self._rrf_fuse(vector_results, bm25_results, final_k=fuse_k)
+            reranker = _get_reranker()
 
-        if reranker is not None and fused:
-            fused = self._rerank(reranker, query, fused, final_k)
-            logger.info("  Reranked to top %d.", len(fused))
-        else:
-            logger.info("  Fused results: %d", len(fused))
+            # With a reranker, fuse a LARGER pool first so the cross-encoder
+            # has more candidates to reorder, then trim to final_k.
+            fuse_k = max(final_k, RERANK_CANDIDATE_POOL) if reranker else final_k
+            fused = self._rrf_fuse(vector_results, bm25_results, final_k=fuse_k)
+
+            if reranker is not None and fused:
+                fused = self._rerank(reranker, query, fused, final_k)
+                logger.info("  Reranked to top %d.", len(fused))
+            else:
+                logger.info("  Fused results: %d", len(fused))
+
+            sp.set(
+                vector_hits=len(vector_results),
+                bm25_hits=len(bm25_results),
+                reranked=reranker is not None,
+                # Chunk attribution: the exact chunks handed to the LLM.
+                chunks=[
+                    {
+                        "id": d["id"],
+                        "doc": d["source_document"],
+                        "page": d["page_number"],
+                        "rrf": round(d.get("rrf_score", 0.0), 5),
+                    }
+                    for d in fused
+                ],
+            )
 
         return fused
 
