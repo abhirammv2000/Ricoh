@@ -21,7 +21,9 @@ Design decisions
 • We use LangGraph's StateGraph for explicit, auditable control
   flow - no hidden chains or prompt-chaining magic.
 • ``iterations`` is capped at 2 to prevent runaway API costs.
-• Temperature is 0.0 everywhere for deterministic, factual output.
+• Temperature is 0.0 to reduce variance — NOT to make output
+  deterministic, which temperature 0 has never guaranteed. The
+  planner's sub-queries do vary run to run; retrieval does not.
 • All prompts are defined as module-level constants for easy tuning.
 """
 
@@ -34,9 +36,15 @@ from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
 
-from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K  # noqa: F401 - triggers config.py logging setup
+from src.config import (  # noqa: F401 - triggers config.py logging setup
+    RETRIEVAL_FINAL_K,
+    RETRIEVAL_TOP_K,
+    USE_PLANNER,
+    USE_VERIFIER,
+)
+from src.instrumentation import invoke as instrumented_invoke
 from src.llm_factory import get_llm
-from src.retriever import HybridRetriever
+from src.retriever import get_retriever
 
 # ── Logging (configured centrally in config.py) ──
 logger = logging.getLogger(__name__)
@@ -120,8 +128,13 @@ filenames or citation format).
 2. Provide clear, step-by-step instructions where applicable.
 3. For EVERY factual claim, append a citation in this exact format: \
 [Document Name, Page X].
-4. If the evidence does not contain the answer, state: \
-"Information unavailable in provided documents." (in the user's language).
+4. If the evidence does not contain the answer, your reply MUST contain \
+the following sentence verbatim, in English, exactly as written:
+"Information unavailable in provided documents."
+You may add a translation of that sentence into the user's language \
+immediately afterwards, but the English sentence itself must always be \
+present and unaltered — it is the machine-readable refusal marker. Never \
+emit this sentence when the evidence does let you answer.
 5. Do NOT invent information.  Do NOT guess.
 
 User question:
@@ -185,8 +198,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
         retry_context=retry_context,
     )
 
-    response = llm.invoke(prompt)
-    content = response.content.strip()
+    content = instrumented_invoke(llm, prompt, stage="planner")
 
     # ── Parse the JSON response ──
     # Strip markdown fences if the LLM wraps them despite instructions
@@ -224,7 +236,7 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
 
     De-duplicates results by chunk ID across both passes.
     """
-    retriever = HybridRetriever()
+    retriever = get_retriever()
 
     # Collect existing IDs to avoid duplicates
     seen_ids: set[str] = {
@@ -287,8 +299,7 @@ def verifier_node(state: AgentState) -> dict[str, Any]:
         evidence_block=evidence_block,
     )
 
-    response = llm.invoke(prompt)
-    verdict = response.content.strip().upper()
+    verdict = instrumented_invoke(llm, prompt, stage="verifier").upper()
 
     # Normalise: accept partial matches
     if "SUFFICIENT" in verdict and "INSUFFICIENT" not in verdict:
@@ -319,8 +330,7 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
         evidence_block=evidence_block,
     )
 
-    response = llm.invoke(prompt)
-    answer = response.content.strip()
+    answer = instrumented_invoke(llm, prompt, stage="synthesizer")
 
     print(f"\n💬  SYNTHESIZER - Answer generated ({len(answer)} chars)")
 
@@ -356,61 +366,121 @@ def should_retry_or_synthesize(state: AgentState) -> str:
 # 6. GRAPH ASSEMBLY
 # ====================================================================
 
-def build_agent_graph() -> Any:
+def build_agent_graph(
+    use_planner: bool = True,
+    use_verifier: bool = True,
+) -> Any:
     """Construct and compile the LangGraph state machine.
 
-    Graph topology::
+    Full topology (both flags on — the production default)::
 
         START → planner → retriever → verifier ─┬─→ synthesizer → END
                    ↑                             │
                    └──── (INSUFFICIENT & <2) ────┘
+
+    Why the flags exist
+    ───────────────────
+    Every node here costs an LLM call, and a component that costs money has
+    to be shown to earn it.  These flags let the *same* code path run as a
+    reduced pipeline so the contribution of each stage can be measured by
+    progressive removal rather than argued about:
+
+        use_planner=False, use_verifier=False   retrieve → synthesize
+        use_planner=True,  use_verifier=False   + query decomposition
+        use_planner=True,  use_verifier=True    + verify/retry (production)
+
+    This is deliberately the real graph rather than a separate "simple
+    pipeline" implementation: a benchmark that compares two different code
+    paths measures the difference between the implementations as much as the
+    difference between the designs.
+
+    Args:
+        use_planner:  Run the query-decomposition node.  When False, the
+                      caller must seed ``sub_queries`` with the raw question
+                      (``run_agent`` and the harness do this).
+        use_verifier: Run the sufficiency check and the retry loop.
+
+    Note: with ``use_planner=False`` there is no retry target — the retry
+    edge loops back to the planner — so the verifier, if enabled, always
+    routes forward to the synthesizer.  That combination measures the
+    verifier's cost without its retry benefit and is reported as such.
     """
     graph = StateGraph(AgentState)
 
-    # ── Add nodes ──
-    graph.add_node("planner", planner_node)
     graph.add_node("retriever", retriever_node)
-    graph.add_node("verifier", verifier_node)
     graph.add_node("synthesizer", synthesizer_node)
 
-    # ── Add edges ──
-    graph.set_entry_point("planner")
-    graph.add_edge("planner", "retriever")
-    graph.add_edge("retriever", "verifier")
+    if use_planner:
+        graph.add_node("planner", planner_node)
+        graph.set_entry_point("planner")
+        graph.add_edge("planner", "retriever")
+    else:
+        graph.set_entry_point("retriever")
 
-    # Conditional edge: verifier → planner (retry) OR synthesizer
-    graph.add_conditional_edges(
-        "verifier",
-        should_retry_or_synthesize,
-        {
-            "planner": "planner",
-            "synthesizer": "synthesizer",
-        },
-    )
+    if use_verifier:
+        graph.add_node("verifier", verifier_node)
+        graph.add_edge("retriever", "verifier")
+        if use_planner:
+            graph.add_conditional_edges(
+                "verifier",
+                should_retry_or_synthesize,
+                {"planner": "planner", "synthesizer": "synthesizer"},
+            )
+        else:
+            graph.add_edge("verifier", "synthesizer")
+    else:
+        graph.add_edge("retriever", "synthesizer")
 
     graph.add_edge("synthesizer", END)
 
     return graph.compile()
 
 
+# Compiled graph is stateless (all run state is passed to .invoke()), so
+# it can be built once and reused across queries instead of recompiling
+# on every call.  Cached at module level for that reason.
+# Keyed by (use_planner, use_verifier) so an ablation run does not silently
+# reuse a graph compiled for a different configuration — a bug that would
+# make every ablation result identical and look like "no effect".
+_COMPILED_GRAPHS: dict[tuple[bool, bool], Any] = {}
+
+
+def get_agent_graph(
+    use_planner: bool | None = None,
+    use_verifier: bool | None = None,
+) -> Any:
+    """Return a process-wide compiled agent graph for this configuration.
+
+    Defaults come from ``config.USE_PLANNER`` / ``config.USE_VERIFIER`` so
+    production composition is a documented configuration decision backed by
+    the ablation, not a hard-coded literal buried in a call site.
+    """
+    use_planner = USE_PLANNER if use_planner is None else use_planner
+    use_verifier = USE_VERIFIER if use_verifier is None else use_verifier
+    key = (use_planner, use_verifier)
+    if key not in _COMPILED_GRAPHS:
+        _COMPILED_GRAPHS[key] = build_agent_graph(
+            use_planner=use_planner, use_verifier=use_verifier
+        )
+    return _COMPILED_GRAPHS[key]
+
+
 # ====================================================================
 # 7. PUBLIC API - convenience runner
 # ====================================================================
 
-def run_agent(query: str) -> str:
-    """Run the full agentic pipeline on a single query.
+def initial_state(query: str, use_planner: bool | None = None) -> AgentState:
+    """Build the starting state for a run.
 
-    Args:
-        query: Natural-language technical support question.
-
-    Returns:
-        The final synthesised answer string with citations.
+    When the planner is disabled nothing else will populate ``sub_queries``,
+    so it is seeded with the raw question.  That is exactly what the planner
+    already falls back to when its JSON fails to parse, so the disabled path
+    is a real configuration rather than a special case.
     """
-    agent = build_agent_graph()
-
-    initial_state: AgentState = {
+    use_planner = USE_PLANNER if use_planner is None else use_planner
+    return {
         "user_query": query,
-        "sub_queries": [],
+        "sub_queries": [] if use_planner else [query],
         "entities": [],
         "retrieved_evidence": [],
         "verification_status": "",
@@ -418,8 +488,24 @@ def run_agent(query: str) -> str:
         "iterations": 0,
     }
 
-    # LangGraph's invoke runs the graph to completion
-    final_state = agent.invoke(initial_state)
+
+def run_agent(
+    query: str,
+    use_planner: bool | None = None,
+    use_verifier: bool | None = None,
+) -> str:
+    """Run the agentic pipeline on a single query.
+
+    Args:
+        query:        Natural-language technical support question.
+        use_planner:  See :func:`build_agent_graph`.
+        use_verifier: See :func:`build_agent_graph`.
+
+    Returns:
+        The final synthesised answer string with citations.
+    """
+    agent = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
+    final_state = agent.invoke(initial_state(query, use_planner=use_planner))
     return final_state["final_answer"]
 
 

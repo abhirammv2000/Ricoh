@@ -135,3 +135,50 @@ RERANK_CANDIDATE_POOL: int = 20
 # ── LLM provider (overridden at runtime / via .env) ──
 # Accepted values: "anthropic" | "google"
 DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
+
+# ── Pipeline composition ───────────────────────────────────────────
+# Which agentic stages run in production.
+#
+# Both default to FALSE as of 2026-08-01, on evidence.  A three-config
+# progressive-removal ablation (eval/ablation.py, results in
+# eval/ablation/comparison.json) compared:
+#
+#   A  retrieve -> synthesize           1.0 calls  $0.0159/q   9.9s
+#   B  + planner                        2.0 calls  $0.0207/q  13.9s
+#   C  + verifier/retry  (old default)  3.4 calls  $0.0490/q  15.6s
+#
+# Config A matched or beat the full pipeline on every quality metric —
+# evidence recall 1.00 vs 0.88, correctness 1.00 vs 0.98, groundedness and
+# behaviour-match tied within judge noise — while costing 3.1x less and
+# running 1.6x faster.  No question was measurably better under C.
+#
+# Notably, behaviour-match stays 1.00 without the verifier: the synthesizer
+# prompt's own refusal rule already handles insufficient evidence, so the
+# verifier was duplicating work the synthesizer does anyway.
+#
+# Scope of that claim: it holds for THIS corpus (733 mostly single-page
+# help articles, where a single retrieval already achieves recall@5 = 1.00)
+# and THIS 10-question benchmark, which contains no genuinely multi-hop
+# questions.  On a corpus where retrieval is weak, the planner's ability to
+# re-query is exactly the mechanism that would earn its cost — which is why
+# the stages are disabled by config rather than deleted from the codebase.
+USE_PLANNER: bool = os.getenv("USE_PLANNER", "false").lower() in ("1", "true", "yes")
+USE_VERIFIER: bool = os.getenv("USE_VERIFIER", "false").lower() in ("1", "true", "yes")
+
+# ── Evaluation judge ───────────────────────────────────────────────
+# The LLM-as-judge MUST NOT be the same model as the one generating the
+# answers.  A model scoring its own output exhibits self-preference bias,
+# which makes groundedness/correctness scores uninterpretable — you cannot
+# tell a genuinely grounded answer from one the judge simply likes because
+# it wrote it.  Published evaluations of LLM judges also find that raw
+# agreement badly overstates chance-corrected agreement, so a single judge
+# grading itself is the weakest possible configuration.
+#
+# We therefore default the judge to a *stronger, different* model than the
+# agent (which runs Sonnet).  Override with JUDGE_MODEL to run a second
+# judge and compare — cross-judge disagreement is itself a useful signal.
+JUDGE_MODEL: str = os.getenv("JUDGE_MODEL", "claude-opus-5")
+
+# Judge output is a small JSON object, but on models with thinking enabled
+# by default max_tokens covers thinking + text, so leave real headroom.
+JUDGE_MAX_TOKENS: int = int(os.getenv("JUDGE_MAX_TOKENS", "8192"))

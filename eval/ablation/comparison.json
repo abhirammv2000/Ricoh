@@ -1,0 +1,260 @@
+{
+  "A": {
+    "questions": 10,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 8
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.438,
+      "recall@3": 0.938,
+      "recall@5": 1.0
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 8
+    },
+    "mean_latency_seconds": 9.89,
+    "max_latency_seconds": 16.59,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.015931,
+      "max_cost_per_query_usd": 0.021648,
+      "total_agent_cost_usd": 0.159306,
+      "eval_judge_cost_usd": 0.26643,
+      "mean_llm_calls_per_query": 1.0,
+      "mean_input_tokens": 2850,
+      "mean_output_tokens": 492,
+      "by_stage": {
+        "synthesizer": {
+          "calls": 10,
+          "seconds": 95.7,
+          "cost_usd": 0.159306,
+          "pct_of_llm_seconds": 100.0,
+          "pct_of_cost": 100.0
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.984,
+      "ci95": [
+        0.971,
+        0.997
+      ],
+      "scored_n": 10
+    },
+    "correctness": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 10
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 1,
+        "question": "What property do I set if I want the printers to enable after a restart?",
+        "evidence_recall": 1.0
+      },
+      "groundedness": {
+        "id": 1,
+        "question": "What property do I set if I want the printers to enable after a restart?",
+        "groundedness": 0.95
+      },
+      "correctness": {
+        "id": 1,
+        "question": "What property do I set if I want the printers to enable after a restart?",
+        "correctness": 1.0
+      }
+    }
+  },
+  "B": {
+    "questions": 10,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 0.875,
+      "ci95": [
+        0.688,
+        1.0
+      ],
+      "scored_n": 8
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.438,
+      "recall@3": 0.938,
+      "recall@5": 1.0
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 8
+    },
+    "mean_latency_seconds": 13.92,
+    "max_latency_seconds": 20.08,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.020709,
+      "max_cost_per_query_usd": 0.035064,
+      "total_agent_cost_usd": 0.207087,
+      "eval_judge_cost_usd": 0.368485,
+      "mean_llm_calls_per_query": 2.0,
+      "mean_input_tokens": 4475,
+      "mean_output_tokens": 486,
+      "by_stage": {
+        "planner": {
+          "calls": 10,
+          "seconds": 27.92,
+          "cost_usd": 0.012882,
+          "pct_of_llm_seconds": 21.5,
+          "pct_of_cost": 6.2
+        },
+        "synthesizer": {
+          "calls": 10,
+          "seconds": 102.23,
+          "cost_usd": 0.194205,
+          "pct_of_llm_seconds": 78.5,
+          "pct_of_cost": 93.8
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.988,
+      "ci95": [
+        0.971,
+        1.0
+      ],
+      "scored_n": 10
+    },
+    "correctness": {
+      "mean": 0.97,
+      "ci95": [
+        0.925,
+        1.0
+      ],
+      "scored_n": 10
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 1,
+        "question": "What property do I set if I want the printers to enable after a restart?",
+        "evidence_recall": 0.5
+      },
+      "groundedness": {
+        "id": 10,
+        "question": "What inserters does RPD support?",
+        "groundedness": 0.93
+      },
+      "correctness": {
+        "id": 7,
+        "question": "What programs does RPD integrate with?",
+        "correctness": 0.85
+      }
+    }
+  },
+  "C": {
+    "questions": 10,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 0.875,
+      "ci95": [
+        0.688,
+        1.0
+      ],
+      "scored_n": 8
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.438,
+      "recall@3": 0.938,
+      "recall@5": 1.0
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 8
+    },
+    "mean_latency_seconds": 15.61,
+    "max_latency_seconds": 21.58,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.049016,
+      "max_cost_per_query_usd": 0.135336,
+      "total_agent_cost_usd": 0.490164,
+      "eval_judge_cost_usd": 0.49009,
+      "mean_llm_calls_per_query": 3.4,
+      "mean_input_tokens": 13609,
+      "mean_output_tokens": 546,
+      "by_stage": {
+        "planner": {
+          "calls": 12,
+          "seconds": 24.62,
+          "cost_usd": 0.018579,
+          "pct_of_llm_seconds": 16.3,
+          "pct_of_cost": 3.8
+        },
+        "verifier": {
+          "calls": 12,
+          "seconds": 22.97,
+          "cost_usd": 0.218481,
+          "pct_of_llm_seconds": 15.2,
+          "pct_of_cost": 44.6
+        },
+        "synthesizer": {
+          "calls": 10,
+          "seconds": 103.53,
+          "cost_usd": 0.253104,
+          "pct_of_llm_seconds": 68.5,
+          "pct_of_cost": 51.6
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.978,
+      "ci95": [
+        0.955,
+        0.995
+      ],
+      "scored_n": 10
+    },
+    "correctness": {
+      "mean": 0.98,
+      "ci95": [
+        0.94,
+        1.0
+      ],
+      "scored_n": 10
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 1,
+        "question": "What property do I set if I want the printers to enable after a restart?",
+        "evidence_recall": 0.5
+      },
+      "groundedness": {
+        "id": 1,
+        "question": "What property do I set if I want the printers to enable after a restart?",
+        "groundedness": 0.9
+      },
+      "correctness": {
+        "id": 9,
+        "question": "How do I use locations?",
+        "correctness": 0.8
+      }
+    }
+  }
+}
