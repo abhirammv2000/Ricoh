@@ -8,11 +8,14 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
-# Large binaries + local indices — mounted at runtime, never baked in.
+# Large binaries + the full local index — never baked in.
+# demo_index/ is the deliberate exception: it is the small pre-built subset
+# the container serves, without which the app has nothing to retrieve from.
 data/
 RPD-en-US/
 chroma_db/
 .chroma/
+traces/
 
 # Secrets
 .env
@@ -21,6 +24,7 @@ chroma_db/
 # Docs / notebooks not needed at runtime
 notebooks/
 *.md
+!demo_index/manifest.json
 evaluation_results.csv
 
 # OS / editor junk
