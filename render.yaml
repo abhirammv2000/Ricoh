@@ -1,24 +1,48 @@
 # Render.com blueprint — one-click deploy of the Citera dashboard.
 # Render injects $PORT, which the Dockerfile CMD already respects.
 #
+# The image is self-contained: it bakes a small pre-built index
+# (demo_index/, ~46 documents) and the ONNX embedding model. So there is no
+# persistent disk, no PDF upload step, and nothing fetched over the network on
+# the first request — the previous blueprint required uploading 223MB of PDFs
+# to a disk, and until you did, the app came up healthy and refused every
+# question.
+#
+# Measured on the built image, not estimated:
+#   image size       1.13 GB
+#   peak RSS         ~282 MB for a full query (plus Streamlit overhead)
+#   health endpoint  HTTP 200 roughly 20s after start
+#   cold start       verified with `--network none` — nothing downloads at boot
+#
+# 512MB is therefore workable but not roomy. Move to standard if the service is
+# OOM-killed under concurrent use.
+#
 # Setup:
 #   1. Push this repo to GitHub.
 #   2. In Render: New → Blueprint → point at this repo.
 #   3. Set the ANTHROPIC_API_KEY secret in the dashboard.
-#   4. Attach a disk and upload the Ricoh PDFs to /app/data (or bake an
-#      index into a persistent disk) — the app ingests them on boot.
+#
+# To change what the demo can answer, rebuild the index and redeploy:
+#   python -m src.build_demo_index --extra 60
 services:
   - type: web
     name: citera
     runtime: docker
-    plan: starter            # 512MB is tight for the index; bump if needed
+    plan: starter
     healthCheckPath: /_stcore/health
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false          # set as a secret in the Render dashboard
       - key: ANONYMIZED_TELEMETRY
         value: "False"
-    disk:
-      name: ricoh-data
-      mountPath: /app/data
-      sizeGB: 1
+      # Both agentic stages are off by default on evidence (ROADMAP.md, D-6):
+      # the single-retrieval path matched or beat the full pipeline on every
+      # quality metric at 3.1x lower cost. Set "true" to run the full loop.
+      - key: USE_PLANNER
+        value: "false"
+      - key: USE_VERIFIER
+        value: "false"
+      # Discloses in the UI that this instance serves a document subset, not
+      # the 733-document corpus the published metrics were measured on.
+      - key: DEMO_MODE
+        value: "true"

@@ -61,9 +61,18 @@ PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 # ingestion source is never hardcoded-brittle (e.g. pointing at an
 # external export folder).  Defaults to the in-repo ``data/`` dir.
 DATA_DIR: Path = Path(os.getenv("RICOH_DATA_DIR", PROJECT_ROOT / "data"))  # Raw Ricoh PDFs go here
-CHROMA_DIR: Path = PROJECT_ROOT / "chroma_db"   # Local ChromaDB persistence
-BM25_INDEX_PATH: Path = PROJECT_ROOT / "chroma_db" / "bm25_index.pkl"
-BM25_CHUNKS_PATH: Path = PROJECT_ROOT / "chroma_db" / "bm25_chunks.pkl"
+# CHROMA_DIR is overridable so a deployment can ship a pre-built index instead
+# of ingesting PDFs on boot. The container has no data/ directory, so building
+# at startup is not an option there — it would produce an empty index and the
+# app would refuse every question while looking healthy.
+CHROMA_DIR: Path = Path(os.getenv("CHROMA_DIR", PROJECT_ROOT / "chroma_db"))
+BM25_INDEX_PATH: Path = CHROMA_DIR / "bm25_index.pkl"
+BM25_CHUNKS_PATH: Path = CHROMA_DIR / "bm25_chunks.pkl"
+
+# Set when serving a reduced corpus so the UI can say so. A demo that quietly
+# answers from 40 documents while the README reports metrics measured on 733
+# would be misleading about what the live system is.
+DEMO_MODE: bool = os.getenv("DEMO_MODE", "false").lower() in ("1", "true", "yes")
 
 # ── ChromaDB settings ──
 CHROMA_COLLECTION_NAME: str = "ricoh_manuals"
