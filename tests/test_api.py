@@ -1,0 +1,55 @@
+"""API contract tests for the FastAPI backend.
+
+The agent is mocked, so these run offline and deterministically. They check the
+endpoint shapes, the streaming format, and input validation, not answer quality.
+"""
+
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+import api.main as apimod
+from api.main import api
+
+client = TestClient(api)
+
+
+def test_health_ok():
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+
+
+def test_query_returns_answer_and_trace(monkeypatch):
+    monkeypatch.setattr(apimod, "run_agent", lambda q: "shut it down with stopaiw [a.pdf, Page 1]")
+    r = client.post("/query", json={"query": "how do I shut it down?"})
+    assert r.status_code == 200
+    body = r.json()
+    assert "stopaiw" in body["answer"]
+    assert set(body) == {"answer", "cost_usd", "llm_calls", "latency_seconds"}
+
+
+def test_query_rejects_empty_input():
+    # Fails pydantic min_length at the edge, before any LLM call is made.
+    r = client.post("/query", json={"query": ""})
+    assert r.status_code == 422
+
+
+def test_query_rejects_oversized_input():
+    r = client.post("/query", json={"query": "x" * 5000})
+    assert r.status_code == 422
+
+
+def test_stream_emits_tokens_then_done(monkeypatch):
+    def fake_stream(q, result):
+        result.ttft_seconds = 0.1
+        yield "hel"
+        yield "lo"
+
+    monkeypatch.setattr(apimod, "stream_agent", fake_stream)
+    r = client.post("/query/stream", json={"query": "hi"})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert '"token": "hel"' in r.text
+    assert '"token": "lo"' in r.text
+    assert '"done": true' in r.text
