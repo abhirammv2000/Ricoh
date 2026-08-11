@@ -44,7 +44,7 @@ from src.config import (  # noqa: F401
 for _quiet in ("src.ingest", "src.retriever", "chromadb", "httpx", "httpcore"):
     logging.getLogger(_quiet).setLevel(logging.WARNING)
 
-from src.agent import get_agent_graph, initial_state
+from src.agent import stream_agent, StreamResult
 from src.ingest import ingest_all
 from src.instrumentation import record_run
 from src.retriever import HybridRetriever
@@ -211,38 +211,6 @@ def ensure_index() -> None:
 
 
 # ====================================================================
-# 5. AGENT RUNNER - returns full state for Glass Box
-# ====================================================================
-
-def run_agent_full(query: str) -> dict:
-    """Run the agentic pipeline and return the FULL state dict.
-
-    Unlike ``agent.run_agent()`` which only returns the answer,
-    this returns the entire ``AgentState`` so we can visualise
-    sub-queries, evidence, verification status, etc.
-    """
-    # Use the shared seeding helper rather than hand-rolling the state dict.
-    # With the planner disabled, sub_queries has to be seeded with the raw
-    # question, since a hard-coded empty list would give the retriever nothing
-    # to search and turn every answer into a refusal.
-    agent = get_agent_graph()
-    with record_run(query=query) as rec:
-        final_state = agent.invoke(initial_state(query))
-
-    state = dict(final_state)
-    # Attach a small trace summary so the Glass Box can show live cost and token
-    # counts, not just latency. record_run also appends the full span trace to
-    # traces/traces.jsonl for after-the-fact debugging.
-    state["trace"] = {
-        "cost_usd": rec.total_cost_usd,
-        "llm_calls": rec.llm_calls,
-        "input_tokens": rec.total_input_tokens,
-        "output_tokens": rec.total_output_tokens,
-    }
-    return state
-
-
-# ====================================================================
 # 6. GLASS BOX RENDERER
 # ====================================================================
 
@@ -264,11 +232,14 @@ def render_glass_box(state: dict, latency: float) -> None:
             status = state.get("verification_status") or "off"
             st.metric("✅ Verification", status)
 
-        # Live cost and token usage for this request, from the recorded trace.
+        # Live latency, cost, and token usage for this request, from the trace.
         trace = state.get("trace")
         if trace:
+            ttft = trace.get("ttft_seconds")
+            ttft_str = f"⚡ {ttft:.1f}s to first token  |  " if ttft else ""
             st.caption(
-                f"💰 ${trace['cost_usd']:.4f} for this query  |  "
+                f"{ttft_str}"
+                f"💰 ${trace['cost_usd']:.4f}  |  "
                 f"{trace['llm_calls']} LLM calls  |  "
                 f"{trace['input_tokens']:,} in / {trace['output_tokens']:,} out tokens"
             )
@@ -430,27 +401,28 @@ if user_input := st.chat_input("Ask a Ricoh technical support question..."):
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Run the agent with visual status indicator
+    # Stream the answer token by token, so output appears as soon as the
+    # synthesizer starts writing rather than after the whole response is ready.
     with st.chat_message("assistant"):
-        with st.status("🤖 Agent is thinking...", expanded=True) as status_box:
-            status_box.update(label="🧠 Planning sub-queries...", state="running")
-            t0 = time.perf_counter()
-            try:
-                state = run_agent_full(user_input)
-                answer = state.get("final_answer", "No answer generated.")
-                status_box.update(
-                    label=f"✅ Done in {time.perf_counter() - t0:.1f}s",
-                    state="complete",
-                    expanded=False,
-                )
-            except Exception as e:
-                logger.error("Agent error: %s", e)
-                answer = f"⚠️ An error occurred: {e}"
-                state = {}
-                status_box.update(label="❌ Error", state="error")
-            latency = time.perf_counter() - t0
-
-        st.markdown(answer)
+        t0 = time.perf_counter()
+        result = StreamResult()
+        try:
+            with record_run(query=user_input) as rec:
+                answer = st.write_stream(stream_agent(user_input, result))
+            state = dict(result.final_state or {})
+            state["trace"] = {
+                "cost_usd": rec.total_cost_usd,
+                "llm_calls": rec.llm_calls,
+                "input_tokens": rec.total_input_tokens,
+                "output_tokens": rec.total_output_tokens,
+                "ttft_seconds": result.ttft_seconds,
+            }
+        except Exception as e:
+            logger.error("Agent error: %s", e)
+            answer = "Sorry, something went wrong while answering. Please try again."
+            st.markdown(answer)
+            state = {}
+        latency = time.perf_counter() - t0
 
         if state:
             render_glass_box(state, latency)

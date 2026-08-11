@@ -32,6 +32,9 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
+from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -503,6 +506,79 @@ def run_agent(
     agent = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
     final_state = agent.invoke(initial_state(query, use_planner=use_planner))
     return final_state["final_answer"]
+
+
+@dataclass
+class StreamResult:
+    """Carries the final state and timing out of stream_agent.
+
+    A generator cannot easily return a value next to the items it yields, so the
+    caller passes one of these in and reads it once the stream is exhausted.
+    """
+
+    final_state: dict[str, Any] | None = None
+    ttft_seconds: float | None = None
+    total_seconds: float | None = None
+
+
+def _chunk_text(message: Any) -> str:
+    """Text of one streamed chunk, without stripping.
+
+    This deliberately does not strip, unlike response_text. A chunk boundary
+    often falls on a space, so stripping each chunk would delete the spaces
+    between words once the chunks are joined back together.
+    """
+    content = getattr(message, "content", "")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return "".join(parts)
+    return ""
+
+
+def stream_agent(
+    query: str,
+    result: StreamResult,
+    use_planner: bool | None = None,
+    use_verifier: bool | None = None,
+) -> Iterator[str]:
+    """Run the agent and stream the synthesizer's answer token by token.
+
+    Yields answer text as it is generated. The upstream stages (planning,
+    retrieval, verification) run first and do not stream, since the synthesizer
+    output is the only text the user reads. We stream only the synthesizer node,
+    filtered by the node name in the message metadata, so enabling the planner
+    or verifier does not leak their internal LLM output into the answer.
+
+    Grounding is not weakened by streaming: verification already happened
+    upstream and gates whether we synthesize at all, so streaming the final
+    answer only changes how it is delivered, not what it is based on.
+
+    Once the generator is exhausted, `result` holds the full final state, the
+    time to first token, and the total time.
+    """
+    graph = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
+    init = initial_state(query, use_planner=use_planner)
+
+    started = time.perf_counter()
+    for mode, data in graph.stream(init, stream_mode=["messages", "values"]):
+        if mode == "messages":
+            message, meta = data
+            if meta.get("langgraph_node") == "synthesizer":
+                text = _chunk_text(message)
+                if text:
+                    if result.ttft_seconds is None:
+                        result.ttft_seconds = time.perf_counter() - started
+                    yield text
+        elif mode == "values":
+            result.final_state = dict(data)
+    result.total_seconds = time.perf_counter() - started
 
 
 # ====================================================================
