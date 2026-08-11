@@ -1,39 +1,34 @@
-"""src/instrumentation.py - Per-stage cost, token, and latency accounting.
+"""Per-stage cost, token, and latency accounting.
 
-Why this exists
-───────────────
-"It takes about 19 seconds" is not an engineering statement — it does not say
-*where* the time goes, and it says nothing at all about money.  Without that
-breakdown you cannot answer the two questions any reviewer will ask first:
+"It takes about 19 seconds" is not much of an engineering statement. It does
+not say where the time goes, and it says nothing about money. Without that
+breakdown you cannot answer the two questions a reviewer asks first: what does
+one query cost, and which stage would you optimise and how do you know.
 
-    "What does one query cost you?"
-    "Which stage would you optimise, and how do you know?"
+This module records one span per LLM call (stage, model, tokens in and out,
+cache hits, latency, derived cost) and aggregates them per question. Every
+optimisation claim elsewhere in the project is expected to cite these numbers
+rather than assert an improvement.
 
-This module records one **span** per LLM call — stage, model, tokens in/out,
-cache hits, latency, derived cost — and aggregates them per question.  Every
-optimisation claim elsewhere in this project is expected to cite these
-numbers rather than assert an improvement.
+A few decisions worth noting:
 
-Design decisions
-────────────────
-• **Token counts are ground truth; cost is derived.**  We record the tokens
-  the API actually reported (``usage_metadata``) and multiply by a price
-  table.  Prices drift, so the table is a dated snapshot and is treated as
-  configuration, not fact — if it is stale, the token counts remain correct
-  and only the dollar figure needs recomputing.
+Token counts are ground truth and cost is derived. We record the tokens the API
+actually reported (usage_metadata) and multiply by a price table. Prices drift,
+so the table is a dated snapshot treated as configuration. If it goes stale the
+token counts are still correct and only the dollar figure needs recomputing.
 
-• **contextvars, not a global.**  A module-level mutable would break the
-  moment anything runs concurrently (and parallelising retrieval is on the
-  roadmap).  A ContextVar keeps each run's spans isolated without threading
-  a recorder object through every function signature.
+We use contextvars, not a global. A module-level mutable would break the moment
+anything runs concurrently, and parallelising retrieval is on the roadmap. A
+ContextVar keeps each run's spans isolated without threading a recorder object
+through every function signature.
 
-• **Failures are recorded, not swallowed.**  A call that raises still emits a
-  span with ``error`` set, so a crash loop shows up as cost rather than as a
-  gap in the data.
+Failures are recorded, not swallowed. A call that raises still emits a span
+with error set, so a crash loop shows up as cost rather than as a gap in the
+data.
 
-• **Instrumentation must not change behaviour.**  If usage metadata is
-  missing, the span records zero tokens rather than raising: an accounting
-  bug should never take down the pipeline it is measuring.
+Instrumentation must not change behaviour. If usage metadata is missing, the
+span records zero tokens rather than raising. An accounting bug should never
+take down the pipeline it is measuring.
 """
 
 from __future__ import annotations
@@ -50,23 +45,22 @@ from typing import Any
 from src.config import PROJECT_ROOT
 from src.llm_factory import response_text
 
-# Traces are append-only JSONL: cheap to write, greppable, and requiring no
-# service to run the repo. A hosted backend (Langfuse / Phoenix) would give a
-# UI, but would also make reproducing this project depend on someone else's
-# account — so local-first is the default and export is left as an option.
+# Traces are append-only JSONL: cheap to write, easy to grep, and needing no
+# service to run the repo. A hosted backend like Langfuse or Phoenix would give
+# a UI, but it would also make reproducing this project depend on someone else's
+# account, so local files are the default and exporting is left as an option.
 TRACE_PATH: Path = PROJECT_ROOT / "traces" / "traces.jsonl"
 
 
-# ── Price table ────────────────────────────────────────────────────
-# USD per million tokens. Snapshot date: 2026-08-01.
+# Price table, USD per million tokens. Snapshot date: 2026-08-01.
 #
-# This is deliberately a plain dict rather than a live lookup: an eval run
-# must be reproducible, and a price that changes underneath a stored result
-# would make two runs incomparable. Update it explicitly and note the date.
+# This is a plain dict rather than a live lookup on purpose: an eval run has to
+# be reproducible, and a price that changes underneath a stored result would
+# make two runs incomparable. Update it by hand and note the date.
 #
-# cache_read is billed at ~0.1x input; cache_creation at ~1.25x input for the
-# default 5-minute TTL. We model both so that adding prompt caching later
-# shows up as a cost *reduction* rather than as untracked spend.
+# cache_read is billed at about 0.1x input and cache_creation at about 1.25x
+# input for the default five-minute TTL. We model both so that adding prompt
+# caching later shows up as a cost reduction rather than as untracked spend.
 @dataclass(frozen=True)
 class ModelPrice:
     input_per_mtok: float
@@ -96,11 +90,11 @@ PRICING_SNAPSHOT_DATE = "2026-08-01"
 
 @dataclass
 class Span:
-    """One unit of work inside a request — an LLM call or a retrieval.
+    """One unit of work inside a request, either an LLM call or a retrieval.
 
-    Non-LLM spans (retrieval) carry zero tokens and zero cost but real
-    latency, which is the point: without them the trace shows LLM time only
-    and silently attributes retrieval latency to nothing.
+    Retrieval spans carry zero tokens and zero cost but real latency, which is
+    the point. Without them the trace shows LLM time only and silently
+    attributes retrieval latency to nothing.
     """
 
     stage: str
@@ -113,9 +107,9 @@ class Span:
     latency_seconds: float = 0.0
     cost_usd: float = 0.0
     error: str | None = None
-    # Free-form per-stage detail. For retrieval this carries the chunk IDs
-    # and documents that fed the answer — "chunk attribution", i.e. the
-    # ability to ask of any answer: which sources produced this?
+    # Free-form per-stage detail. For retrieval this carries the chunk IDs and
+    # documents that fed the answer, so you can ask of any answer which sources
+    # produced it.
     attributes: dict[str, Any] = field(default_factory=dict)
     started_at: str = ""
 
@@ -138,9 +132,9 @@ class RunRecord:
     def llm_spans(self) -> list[Span]:
         """LLM spans only.
 
-        Retrieval spans share the list but must be excluded from any
-        LLM-specific count — including them silently inflated
-        `llm_calls` from 1 to 2 the moment retrieval became traced.
+        Retrieval spans share the list but have to be excluded from any
+        LLM-specific count. Including them silently inflated llm_calls from 1
+        to 2 the moment retrieval started being traced.
         """
         return [s for s in self.spans if s.span_type == "llm"]
 
@@ -166,10 +160,10 @@ class RunRecord:
         return sum(s.output_tokens for s in self.llm_spans)
 
     def by_stage(self) -> dict[str, dict[str, Any]]:
-        """Per-stage rollup — this is what makes the numbers actionable.
+        """Per-stage rollup, which is what makes the numbers actionable.
 
-        A single total tells you the system is slow; the rollup tells you
-        which node to attack and what the ceiling on that fix is.
+        A single total tells you the system is slow. The rollup tells you which
+        node to attack and what the ceiling on that fix is.
         """
         out: dict[str, dict[str, Any]] = {}
         for s in self.spans:
@@ -211,20 +205,19 @@ _CURRENT: contextvars.ContextVar[RunRecord | None] = contextvars.ContextVar(
 
 
 class record_run:
-    """Context manager collecting every instrumented call inside it.
+    """Context manager that collects every instrumented call inside it.
 
-    Usage::
+    Usage:
 
         with record_run(query="...") as rec:
             ...                     # agent executes
         rec.total_cost_usd
 
-    When ``persist`` is true the finished trace is appended to
-    ``traces/traces.jsonl``.  Persisting is what turns instrumentation into
-    observability: a number you printed once cannot be gone back to, but a
-    stored trace lets you answer "why did *that* request behave that way?"
-    after the fact — which is the question production debugging actually
-    asks.  Inspect with ``python -m src.trace_view``.
+    When persist is true the finished trace is appended to traces/traces.jsonl.
+    Persisting is what turns instrumentation into observability: a number you
+    printed once is gone, but a stored trace lets you answer why that request
+    behaved the way it did after the fact, which is the question production
+    debugging actually asks. Inspect with python -m src.trace_view.
     """
 
     def __init__(self, query: str = "", persist: bool = True) -> None:
@@ -255,11 +248,11 @@ class record_run:
 
 
 class span:
-    """Record a non-LLM unit of work (currently: retrieval).
+    """Record a non-LLM unit of work (currently retrieval).
 
-    Without this, a trace accounts only for LLM time and silently drops
-    everything else, which makes the latency breakdown wrong in a way that
-    is invisible — the percentages still add to 100%.
+    Without this a trace accounts only for LLM time and silently drops
+    everything else, which makes the latency breakdown wrong in a way you
+    cannot see, because the percentages still add up to 100%.
     """
 
     def __init__(self, stage: str, **attributes: Any) -> None:
@@ -327,9 +320,9 @@ def _cost(model: str, usage: dict[str, Any]) -> float:
 def invoke(llm: Any, prompt: str, stage: str) -> str:
     """Invoke an LLM, record a span, and return its text.
 
-    Drop-in replacement for ``response_text(llm.invoke(prompt))``.  When no
-    ``record_run()`` is active this is exactly that call plus a timer, so
-    library use outside the harness is unaffected.
+    Drop-in replacement for response_text(llm.invoke(prompt)). When no
+    record_run() is active this is exactly that call plus a timer, so using
+    this outside the harness changes nothing.
     """
     rec = _CURRENT.get()
     model = getattr(llm, "model", None) or getattr(llm, "model_name", "unknown")

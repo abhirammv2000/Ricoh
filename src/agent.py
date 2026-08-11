@@ -46,10 +46,10 @@ from src.instrumentation import invoke as instrumented_invoke
 from src.llm_factory import get_llm
 from src.retriever import get_retriever
 
-# ── Logging (configured centrally in config.py) ──
+# Logging is configured centrally in config.py.
 logger = logging.getLogger(__name__)
 
-# ── Constants ──
+# Constants.
 MAX_ITERATIONS: int = 2  # hard cap on agentic retries
 
 
@@ -200,8 +200,8 @@ def planner_node(state: AgentState) -> dict[str, Any]:
 
     content = instrumented_invoke(llm, prompt, stage="planner")
 
-    # ── Parse the JSON response ──
-    # Strip markdown fences if the LLM wraps them despite instructions
+    # Parse the JSON response. Strip markdown fences if the model wraps them
+    # despite the instructions.
     content = re.sub(r"^```(?:json)?\s*", "", content)
     content = re.sub(r"\s*```$", "", content)
 
@@ -217,7 +217,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
     logger.info("Planner entities: %s", entities)
     logger.info("Planner sub-queries: %s", sub_queries)
 
-    # ── Pretty-print for terminal visibility ──
+    # Pretty-print for terminal visibility.
     print(f"\n🧠  PLANNER - Iteration {state['iterations'] + 1}")
     print(f"   Entities : {entities}")
     print(f"   Sub-queries:")
@@ -244,7 +244,7 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
     }
     new_evidence: list[dict[str, Any]] = list(state["retrieved_evidence"])
 
-    # ── Pass 1: Sub-query retrieval ──
+    # Pass 1: sub-query retrieval.
     for sq in state["sub_queries"]:
         results = retriever.retrieve(
             query=sq,
@@ -259,7 +259,7 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
     pass1_count = len(new_evidence)
     print(f"\n📚  RETRIEVER - Pass 1 (sub-queries): {pass1_count} chunks")
 
-    # ── Pass 2: Entity-boosted refined queries ──
+    # Pass 2: entity-boosted refined queries.
     entities = state.get("entities", [])
     if entities:
         for entity in entities:
@@ -342,23 +342,23 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
 # ====================================================================
 
 def should_retry_or_synthesize(state: AgentState) -> str:
-    """Decide whether to loop back to the Planner or proceed.
+    """Decide whether to loop back to the planner or move on.
 
-    Routes to:
-    • ``"planner"`` if INSUFFICIENT *and* iterations < MAX_ITERATIONS
-    • ``"synthesizer"`` otherwise (sufficient or exhausted retries)
+    Returns "planner" if the evidence was INSUFFICIENT and we are still under
+    MAX_ITERATIONS, otherwise "synthesizer" (evidence was sufficient, or we
+    have used up our retries).
     """
     if (
         state["verification_status"] == "INSUFFICIENT"
         and state["iterations"] < MAX_ITERATIONS
     ):
-        print(f"\n🔄  ROUTING → back to PLANNER (retry)")
+        print(f"\n🔄  ROUTING back to PLANNER (retry)")
         return "planner"
 
     if state["iterations"] >= MAX_ITERATIONS:
-        print(f"\n⚠️   ROUTING → SYNTHESIZER (max iterations reached)")
+        print(f"\n⚠️   ROUTING to SYNTHESIZER (max iterations reached)")
     else:
-        print(f"\n✅  ROUTING → SYNTHESIZER (evidence sufficient)")
+        print(f"\n✅  ROUTING to SYNTHESIZER (evidence sufficient)")
     return "synthesizer"
 
 
@@ -372,38 +372,34 @@ def build_agent_graph(
 ) -> Any:
     """Construct and compile the LangGraph state machine.
 
-    Full topology (both flags on — the production default)::
+    With both flags on (the production default) the flow is: planner, then
+    retriever, then verifier, which either loops back to the planner (when the
+    evidence is insufficient and we are under 2 iterations) or goes on to the
+    synthesizer and then END.
 
-        START → planner → retriever → verifier ─┬─→ synthesizer → END
-                   ↑                             │
-                   └──── (INSUFFICIENT & <2) ────┘
+    Why the flags exist. Every node here costs an LLM call, and anything that
+    costs money has to earn it. These flags run the same code path as a reduced
+    pipeline, so each stage's contribution can be measured by removing it rather
+    than argued about:
 
-    Why the flags exist
-    ───────────────────
-    Every node here costs an LLM call, and a component that costs money has
-    to be shown to earn it.  These flags let the *same* code path run as a
-    reduced pipeline so the contribution of each stage can be measured by
-    progressive removal rather than argued about:
+        use_planner=False, use_verifier=False   retrieve then synthesize
+        use_planner=True,  use_verifier=False   adds query decomposition
+        use_planner=True,  use_verifier=True    adds verify and retry (prod)
 
-        use_planner=False, use_verifier=False   retrieve → synthesize
-        use_planner=True,  use_verifier=False   + query decomposition
-        use_planner=True,  use_verifier=True    + verify/retry (production)
-
-    This is deliberately the real graph rather than a separate "simple
-    pipeline" implementation: a benchmark that compares two different code
-    paths measures the difference between the implementations as much as the
-    difference between the designs.
+    This is the real graph rather than a separate "simple pipeline", on purpose:
+    a benchmark that compares two different code paths measures the difference
+    between the implementations as much as the difference between the designs.
 
     Args:
-        use_planner:  Run the query-decomposition node.  When False, the
-                      caller must seed ``sub_queries`` with the raw question
-                      (``run_agent`` and the harness do this).
+        use_planner:  Run the query-decomposition node. When False, the caller
+                      has to seed sub_queries with the raw question (run_agent
+                      and the harness both do this).
         use_verifier: Run the sufficiency check and the retry loop.
 
-    Note: with ``use_planner=False`` there is no retry target — the retry
-    edge loops back to the planner — so the verifier, if enabled, always
-    routes forward to the synthesizer.  That combination measures the
-    verifier's cost without its retry benefit and is reported as such.
+    Note: with use_planner=False there is no retry target, since the retry edge
+    loops back to the planner, so the verifier (if enabled) always routes
+    forward to the synthesizer. That combination measures the verifier's cost
+    without its retry benefit, and is reported as such.
     """
     graph = StateGraph(AgentState)
 
@@ -436,12 +432,12 @@ def build_agent_graph(
     return graph.compile()
 
 
-# Compiled graph is stateless (all run state is passed to .invoke()), so
-# it can be built once and reused across queries instead of recompiling
-# on every call.  Cached at module level for that reason.
-# Keyed by (use_planner, use_verifier) so an ablation run does not silently
-# reuse a graph compiled for a different configuration — a bug that would
-# make every ablation result identical and look like "no effect".
+# The compiled graph is stateless (all run state is passed to .invoke()), so it
+# can be built once and reused across queries instead of recompiling on every
+# call. It is cached at module level for that reason, keyed by (use_planner,
+# use_verifier) so an ablation run does not silently reuse a graph compiled for
+# a different configuration, which would make every ablation result identical
+# and look like the flags had no effect.
 _COMPILED_GRAPHS: dict[tuple[bool, bool], Any] = {}
 
 
@@ -523,7 +519,7 @@ if __name__ == "__main__":
     print("  Citera - Phase 3 Agent Smoke Test")
     print("=" * 70)
 
-    # ── Step 1: Ensure the retrieval index is populated ──
+    # Step 1: make sure the retrieval index is populated.
     print("\n📄  Checking/building retrieval index…")
     retriever = HybridRetriever()
 
@@ -539,7 +535,7 @@ if __name__ == "__main__":
     else:
         print(f"   Index already populated: {retriever.index_size} docs, BM25: ready.")
 
-    # ── Step 2: Run the agent on a complex test question ──
+    # Step 2: run the agent on a complex multi-part question.
     test_query = (
         "How do I configure network settings and "
         "what paper does the bypass tray take?"
