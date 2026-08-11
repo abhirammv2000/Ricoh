@@ -12,3 +12,9 @@ python-dotenv==1.0.1
 # numpy is a transitive runtime dependency of rank_bm25 (BM25Okapi);
 # pinned here for reproducible builds.
 numpy==2.2.2
+
+# API backend: FastAPI app plus the ASGI server that runs it. chromadb happens
+# to pull these in too, but the API depends on them directly, so they are
+# declared here rather than relied on as a transitive dependency.
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
