@@ -287,6 +287,40 @@ def render_glass_box(state: dict, latency: float) -> None:
             st.caption("No evidence retrieved.")
 
 
+def render_perf_dashboard() -> None:
+    """Aggregate cost and latency across every recorded request."""
+    from src import perf
+
+    records = perf.load_traces()
+    summary = perf.summarize(records)
+    if summary["queries"] == 0:
+        st.caption("No traces yet. Ask a question to populate the dashboard.")
+        return
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Requests", summary["queries"])
+    col2.metric("Mean cost", f"${summary['cost_usd']['mean']:.4f}")
+    col3.metric("p95 latency", f"{summary['latency_seconds']['p95']:.1f}s")
+    col4.metric("Total spend", f"${summary['cost_usd']['total']:.2f}")
+
+    st.caption("Latency per request in seconds, most recent last")
+    st.bar_chart([r.get("total_traced_seconds", 0.0) for r in records])
+
+    if summary["by_stage"]:
+        st.caption("Where the time and money go, by stage")
+        st.table(
+            [
+                {
+                    "stage": stage,
+                    "calls": agg["calls"],
+                    "seconds": agg["seconds"],
+                    "cost_usd": agg["cost_usd"],
+                }
+                for stage, agg in summary["by_stage"].items()
+            ]
+        )
+
+
 # ====================================================================
 # 7. SIDEBAR
 # ====================================================================
@@ -383,6 +417,10 @@ if DEMO_MODE:
         "correctly refused.",
         icon="ℹ️",
     )
+
+# Performance and cost dashboard, aggregated across every recorded request.
+with st.expander("📊 Performance and cost dashboard", expanded=False):
+    render_perf_dashboard()
 
 # ── Render chat history ──
 for msg in st.session_state.messages:
