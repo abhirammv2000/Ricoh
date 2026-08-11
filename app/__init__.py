@@ -1,1 +1,1 @@
-# app/__init__.py — Streamlit UI package (Phase 5)
+# Streamlit UI package.
