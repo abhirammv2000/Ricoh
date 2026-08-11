@@ -1,1 +1,1 @@
-# src/__init__.py — Core backend package for Citera
+# Citera backend package.

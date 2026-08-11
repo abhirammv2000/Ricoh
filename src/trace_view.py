@@ -1,12 +1,12 @@
-"""src/trace_view.py - Inspect stored request traces.
+"""Inspect stored request traces.
 
-Observability is only real if someone can actually answer a question with it.
+Observability is only useful if you can actually answer a question with it.
 This is the read side: given a request that behaved oddly, reconstruct what
-happened — which chunks were retrieved, in what order, what each stage cost,
+happened, which chunks were retrieved, in what order, what each stage cost,
 and where the time went.
 
-Traces are written by ``record_run()`` to ``traces/traces.jsonl`` (append-only
-JSONL — no service required to run this repo).
+Traces are written by record_run() to traces/traces.jsonl, one JSON object per
+line appended as it finishes, so nothing else needs to be running to read them.
 
 Usage:
     python -m src.trace_view                    # summary of recent traces
@@ -29,7 +29,7 @@ from src.instrumentation import TRACE_PATH
 def _load() -> list[dict[str, Any]]:
     if not TRACE_PATH.exists():
         raise SystemExit(
-            f"No traces at {TRACE_PATH}. Run a query first — e.g. "
+            f"No traces at {TRACE_PATH}. Run a query first, for example "
             "`python -m src.eval_harness --no-judge` or the Streamlit app."
         )
     traces = []

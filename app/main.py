@@ -46,6 +46,7 @@ for _quiet in ("src.ingest", "src.retriever", "chromadb", "httpx", "httpcore"):
 
 from src.agent import get_agent_graph, initial_state
 from src.ingest import ingest_all
+from src.instrumentation import record_run
 from src.retriever import HybridRetriever
 from src.llm_factory import _DEFAULT_MODELS
 
@@ -221,12 +222,24 @@ def run_agent_full(query: str) -> dict:
     sub-queries, evidence, verification status, etc.
     """
     # Use the shared seeding helper rather than hand-rolling the state dict.
-    # With the planner disabled, sub_queries must be seeded with the raw
-    # question — a hard-coded empty list would give the retriever nothing to
-    # search and turn every answer into a refusal.
+    # With the planner disabled, sub_queries has to be seeded with the raw
+    # question, since a hard-coded empty list would give the retriever nothing
+    # to search and turn every answer into a refusal.
     agent = get_agent_graph()
-    final_state = agent.invoke(initial_state(query))
-    return dict(final_state)
+    with record_run(query=query) as rec:
+        final_state = agent.invoke(initial_state(query))
+
+    state = dict(final_state)
+    # Attach a small trace summary so the Glass Box can show live cost and token
+    # counts, not just latency. record_run also appends the full span trace to
+    # traces/traces.jsonl for after-the-fact debugging.
+    state["trace"] = {
+        "cost_usd": rec.total_cost_usd,
+        "llm_calls": rec.llm_calls,
+        "input_tokens": rec.total_input_tokens,
+        "output_tokens": rec.total_output_tokens,
+    }
+    return state
 
 
 # ====================================================================
@@ -250,6 +263,15 @@ def render_glass_box(state: dict, latency: float) -> None:
             # blank metric the viewer has to guess about.
             status = state.get("verification_status") or "off"
             st.metric("✅ Verification", status)
+
+        # Live cost and token usage for this request, from the recorded trace.
+        trace = state.get("trace")
+        if trace:
+            st.caption(
+                f"💰 ${trace['cost_usd']:.4f} for this query  |  "
+                f"{trace['llm_calls']} LLM calls  |  "
+                f"{trace['input_tokens']:,} in / {trace['output_tokens']:,} out tokens"
+            )
 
         st.divider()
 
