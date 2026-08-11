@@ -38,6 +38,7 @@ RUN python -c "from chromadb.utils import embedding_functions as ef; ef.ONNXMini
 #
 COPY src/ ./src/
 COPY app/ ./app/
+COPY api/ ./api/
 COPY eval/ ./eval/
 COPY demo_index/ ./demo_index/
 
