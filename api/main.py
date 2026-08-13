@@ -23,11 +23,12 @@ import threading
 import time
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.agent import StreamResult, run_agent, stream_agent
+from src.guardrails import screen_input
 from src.instrumentation import record_run
 
 api = FastAPI(title="Citera RAG API", version="1.0.0")
@@ -40,6 +41,18 @@ MAX_QUERY_CHARS = 2000
 
 class QueryRequest(BaseModel):
     query: str = Field(min_length=1, max_length=MAX_QUERY_CHARS)
+
+
+def _screen(query: str) -> None:
+    """Reject a query that fails the input guardrail, before any LLM call.
+
+    Length is already bounded by the request model. This adds the content
+    check: a known override or jailbreak pattern is turned away with 400 rather
+    than answered. Legitimate questions pass straight through.
+    """
+    verdict = screen_input(query)
+    if not verdict.allowed:
+        raise HTTPException(status_code=400, detail=verdict.reason)
 
 
 class QueryResponse(BaseModel):
@@ -61,6 +74,7 @@ def query(req: QueryRequest) -> QueryResponse:
     The whole call is wrapped in record_run, so it is traced exactly like a UI
     request and shows up in traces/traces.jsonl alongside the rest.
     """
+    _screen(req.query)
     started = time.perf_counter()
     with record_run(query=req.query) as rec:
         answer = run_agent(req.query)
@@ -87,6 +101,7 @@ def query_stream(req: QueryRequest) -> StreamingResponse:
     `data: {"done": true, ...}` event carries the cost, the call count, and the
     time to first token, so a client gets the same trace summary the UI shows.
     """
+    _screen(req.query)
     channel: queue.Queue[tuple[str, Any]] = queue.Queue()
     result = StreamResult()
     summary: dict[str, Any] = {}
