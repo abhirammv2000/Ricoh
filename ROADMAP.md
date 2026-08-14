@@ -1,4 +1,4 @@
-# Citera — Roadmap and Decision Log
+# Citera Roadmap and Decision Log
 
 **Goal:** a portfolio-grade RAG system that stands up to a technical interview.
 Every design choice must be justifiable with evidence, and every number must be
@@ -41,8 +41,8 @@ When these are checked, the project ships. Remaining ideas move to
 |---|---|---|
 | **0** | Make the evaluation trustworthy | ✅ Done |
 | **1** | Eval set to ~100 questions + judge calibration | 🟡 Set built; κ needs your labels |
-| **2** | Improve retrieval | ✅ Done — no work needed, see D-4 |
-| **3** | Cut cost and latency | ✅ Done — see D-6 |
+| **2** | Improve retrieval | ✅ Done, no work needed, see D-4 |
+| **3** | Cut cost and latency | ✅ Done, see D-6 |
 | **4** | Tracing + live deployment | ✅ Tracing done; image verified, awaiting your push |
 | **5** | Final consistency pass, commit, ship | ⬜ Last |
 
@@ -62,7 +62,7 @@ stayed empty. Now the kwarg is omitted when unset.
 → `python -m src.retriever` · 1,314 chunks from 733 PDFs
 
 ### D-2 · The judge may not grade its own output
-The harness used one model as both agent and judge — self-preference bias makes
+The harness used one model as both agent and judge: self-preference bias makes
 the scores uninterpretable. Judge is now `claude-opus-5`, agent `claude-sonnet-4-6`.
 The scores barely moved, but **that is not evidence the bias was absent**: the
 change (0.003) is far below the judge's own noise floor.
@@ -73,12 +73,12 @@ Scoring an identical answer 5× gives **0.00 spread on clear-cut answers, up to
 0.10 on borderline ones**. Any claimed improvement smaller than that is noise.
 → `python -m eval.judge_variance`
 
-### D-4 · Retrieval needs no work — it is already perfect here
+### D-4 · Retrieval needs no work: it is already perfect here
 At production settings a single retrieval on the raw question finds **every
 expected document (8/8, worst rank 5)**. The bottleneck was never retrieval.
 → `python -m eval.sweep_retrieval_depth`
 
-### D-5 · Widening the candidate pool *hurts* — RRF is not monotonic
+### D-5 · Widening the candidate pool *hurts*: RRF is not monotonic
 The standard "retrieve top-50, rerank to 5" recipe **degrades** this system
 without a reranker. RRF scores `Σ 1/(k+rank)`, so a document mediocre in both
 retrievers (`1/77 + 1/69 = 0.0275`) outranks one excellent in a single retriever
@@ -97,7 +97,7 @@ Progressive-removal ablation, decision rule committed to before the run:
 
 A matched or beat C on every metric at 3.1× lower cost. The verifier was
 duplicating the synthesizer's own refusal rule (behaviour-match stays 1.00
-without it). **Scope:** this corpus, this question set — on a corpus with weak
+without it). **Scope:** this corpus, this question set. On a corpus with weak
 retrieval the planner is the right mechanism, which is why the stages are
 disabled by config (`USE_PLANNER`, `USE_VERIFIER`) rather than deleted.
 → `python -m eval.ablation`
@@ -109,7 +109,7 @@ nothing in the data argues for moving it.
 → `python -m eval.sweep_rrf_k`
 
 ### D-8 · "Unanswerable" labels are verified against the whole corpus
-The harness structurally cannot prove a refusal is correct — it only sees its own
+The harness structurally cannot prove a refusal is correct: it only sees its own
 top-k. A full-corpus scan can. Q2 and Q3 refusals confirmed correct; a *mislabeled
 expected source* was found and fixed in the process.
 → `python -m eval.verify_unanswerable` (exits non-zero if a claim fails)
@@ -125,10 +125,10 @@ loop fires exactly when retrying cannot help.
 100 questions generated from sampled chunks, so `expected_sources` is known **by
 construction**. Two guards against the usual generated-benchmark failures:
 
-* **Too easy** — measured lexical overlap with the source chunk (68%) and recall
+* **Too easy**: measured lexical overlap with the source chunk (68%) and recall
   headroom. recall@5 = 0.94, *below* ceiling, so the set can distinguish systems.
   The original 10-question set sat at 1.00 and could not.
-* **Labels too narrow** — 47 questions initially had a different top hit. A strict
+* **Labels too narrow**: 47 questions initially had a different top hit. A strict
   adjudicator confirmed **25 of them were label errors**, not retrieval errors
   (many help topics answer the same question). Labels widened, each with a
   recorded justification. recall@1 rose 0.53 → 0.78 purely from fixing labels.
@@ -144,7 +144,7 @@ refusal claim rests on thin evidence. The generated set is all answerable.
 ### D-11 · Observability: traces, not just counters
 Instrumentation counted cost and latency but discarded it after printing. Traces
 are now persisted per request (`traces/traces.jsonl`, append-only JSONL) with a
-trace id, per-stage spans, and **chunk attribution** — for any stored answer you
+trace id, per-stage spans, and **chunk attribution**, for any stored answer you
 can ask which chunks produced it, at what rank and RRF score.
 
 Retrieval is traced as its own span type. Without it a trace accounts for LLM
@@ -159,7 +159,7 @@ traffic back into the eval set.
 
 ### D-12 · The judge was checked two ways that need no human, and both have limits
 **Cross-judge** (`--cross-judge`): `claude-opus-5` vs `claude-opus-4-8` over 30
-answers — 100% raw agreement, κ = 1.0. **This is weaker evidence than it looks.**
+answers, 100% raw agreement, κ = 1.0. **This is weaker evidence than it looks.**
 Chance agreement is 93.6% because both judges rate almost everything acceptable,
 so a single disagreement would move κ by 0.52. The tool now reports that
 fragility automatically. And both are Claude models: a shared blind spot yields
@@ -169,7 +169,7 @@ perfect agreement while both are wrong. It rules out idiosyncrasy, not error.
 bias. 92.5% mean coverage, 82/100 with every key fact present, and **zero** cases
 of the judge crediting an answer containing none of its key facts.
 
-The first version of that check reported **17 defects out of 100 — all false**.
+The first version of that check reported **17 defects out of 100, all false**.
 It required every content word of a fact to appear exactly, so an answer saying
 "you can use `psql` … to connect directly" failed a fact worded "psql is the
 interactive terminal program used to connect directly" on `use` vs `used`.
@@ -182,13 +182,13 @@ threshold-based (70% of content words, crude stemming).
 ### D-13 · The deployment served nothing, and two things had to be baked in
 The previous blueprint told you to upload 223MB of PDFs to a Render disk and
 let the app ingest on boot. Until you did, the container came up **healthy and
-refused every question** — the synthesizer correctly declines with no evidence,
+refused every question**: the synthesizer correctly declines with no evidence,
 so a broken deploy looked like a working one.
 
 Two fixes, both verified on the built image rather than assumed:
 
 * **A pre-built index is baked in** (`demo_index/`, 46 documents, 87 chunks,
-  3.8MB) — chosen deterministically as every document the curated benchmark
+  3.8MB), chosen deterministically as every document the curated benchmark
   references plus a seeded sample. `DEMO_MODE=true` makes the UI state that it
   serves a subset, because the published metrics were measured on all 733 and
   conflating the two would overstate the demo.
@@ -217,7 +217,7 @@ Recorded because the failure modes are more instructive than the fixes.
   English-only, so a translated refusal scored as an answer.
 - **The harness benchmarked a pipeline nobody runs.** `evaluate()` hard-coded
   `use_planner=True` while production shipped the single-retrieval path. A full
-  run silently measured the wrong system — the numbers look fine, they just
+  run silently measured the wrong system: the numbers look fine, they just
   describe something else. Now resolved from config, with a regression test.
 - **A stale process kept running after a failed kill.** `pkill` from Git Bash
   cannot see Windows processes; it reported success while the old run continued,
@@ -228,7 +228,7 @@ Recorded because the failure modes are more instructive than the fixes.
   metric still looked plausible, which is what made it dangerous. Split by span
   type, with tests.
 - **A judge cross-check that flattered itself.** κ = 1.0 on a base rate where
-  94% of items share a category — the statistic had almost no room to move. The
+  94% of items share a category: the statistic had almost no room to move. The
   headline number was strong and the evidence behind it was thin.
 - **A validation check that was wrong about the thing it validated.** Exact
   word matching flagged 17 correct answers as defective. Every "failure" the
@@ -249,13 +249,13 @@ Recorded because the failure modes are more instructive than the fixes.
 Listed so they are visibly *declined*, not forgotten. Each is defensible as a
 "what would you do next" answer without being built.
 
-- **Cross-encoder reranker** — only useful paired with a wider candidate pool
+- **Cross-encoder reranker**: only useful paired with a wider candidate pool
   (D-5), and retrieval is already 1.00 (D-4). No headroom to buy.
-- **Contextual Retrieval / semantic chunking** — both target long multi-page
+- **Contextual Retrieval / semantic chunking**: both target long multi-page
   documents; this corpus is single-page articles.
-- **Boilerplate stripping at ingest** — 75% of chunks carry print-to-PDF headers,
-  but only ~4–6% of words. Measured, judged not worth the ingest complexity.
-- **Multi-lingual answering** — currently a liability, not a feature. Needs a
+- **Boilerplate stripping at ingest**: 75% of chunks carry print-to-PDF headers,
+  but only ~4-6% of words. Measured, judged not worth the ingest complexity.
+- **Multi-lingual answering**: currently a liability, not a feature. Needs a
   language-aware refusal detector before it is worth advertising.
-- **Fine-tuning** — no evidence any failure here is a model-capability problem.
-- **Multi-turn conversation memory** — a different product, not this one.
+- **Fine-tuning**: no evidence any failure here is a model-capability problem.
+- **Multi-turn conversation memory**: a different product, not this one.
