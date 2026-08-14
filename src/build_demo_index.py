@@ -1,10 +1,9 @@
 """src/build_demo_index.py - Bake a small, shippable index for the live demo.
 
 Why a subset rather than the full corpus
-────────────────────────────────────────
 The deployed container has no ``data/`` directory: the 733 source PDFs are
 ~223 MB and are RICOH's documentation, not ours to republish wholesale. But
-an app that ships with no index is worse than useless — it looks healthy and
+an app that ships with no index is worse than useless, it looks healthy and
 refuses every question, because the synthesizer correctly declines to answer
 with no evidence.
 
@@ -13,17 +12,15 @@ demonstrably works end to end, small enough to bake into the image and to
 limit how much third-party documentation is republished.
 
 How the subset is chosen
-────────────────────────
 Not at random. It includes:
 
 1. Every document referenced by the curated benchmark
    (``eval/ground_truth.json``), so the demo can answer the questions the
-   README talks about — including the two it should *refuse*.
+   README talks about, including the two it should *refuse*.
 2. A deterministic sample of documents from the generated benchmark, so the
    demo is not tuned to only the questions on show.
 
 Honesty constraint
-──────────────────
 The live demo answers from ~N documents while the published metrics were
 measured on all 733. Those are different systems, and conflating them would
 overstate the demo. ``DEMO_MODE=true`` makes the UI say so, and this script
@@ -104,7 +101,7 @@ def build(extra: int, seed: int) -> int:
     chunks = []
     for name in sorted(wanted):
         # extract_pages sets source_document/page_number, which chunk_pages
-        # then carries onto every chunk — the provenance citations rely on.
+        # then carries onto every chunk, the provenance citations rely on.
         chunks.extend(chunk_pages(extract_pages(DATA_DIR / name)))
     print(f"  {len(chunks)} chunks")
 
@@ -119,7 +116,7 @@ def build(extra: int, seed: int) -> int:
         "_description": (
             "Documents baked into the deployed demo image. The published "
             "metrics in README/ROADMAP were measured on the FULL 733-document "
-            "corpus, not this subset — the demo shows the system working, it "
+            "corpus, not this subset, the demo shows the system working, it "
             "does not reproduce the benchmark."
         ),
         "document_count": len(wanted),

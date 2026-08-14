@@ -18,7 +18,7 @@ from src.agent import (
 from tests.helpers import FakeLLM
 
 
-# ── Routing logic ──────────────────────────────────────────────────
+# Routing logic
 
 def test_routes_back_to_planner_when_insufficient_and_under_cap():
     state = {"verification_status": "INSUFFICIENT", "iterations": 1}
@@ -35,7 +35,7 @@ def test_routes_to_synthesizer_when_sufficient():
     assert should_retry_or_synthesize(state) == "synthesizer"
 
 
-# ── Planner JSON parsing ───────────────────────────────────────────
+# Planner JSON parsing
 
 def _patch_llm(monkeypatch, response, fake_cls):
     monkeypatch.setattr(agent, "get_llm", lambda *a, **k: fake_cls(response))
@@ -63,7 +63,7 @@ def test_planner_falls_back_on_bad_json(monkeypatch):
     assert out["entities"] == []
 
 
-# ── Verifier verdict normalisation ─────────────────────────────────
+# Verifier verdict normalisation
 
 def test_verifier_accepts_sufficient(monkeypatch):
     _patch_llm(monkeypatch, "SUFFICIENT", FakeLLM)
@@ -84,10 +84,10 @@ def test_verifier_defaults_to_sufficient_on_garbage(monkeypatch):
     assert out["verification_status"] == "SUFFICIENT"
 
 
-# ── Pipeline configuration / ablation wiring ───────────────────────
+# Pipeline configuration / ablation wiring
 # These guard the ablation instrument itself. If graph construction or the
 # state-seeding contract silently breaks, every ablation config would run
-# the same pipeline and the comparison would read as "no effect" — a
+# the same pipeline and the comparison would read as "no effect", a
 # false negative that is invisible in the results table.
 
 import pytest
@@ -153,7 +153,7 @@ def test_harness_defaults_match_production_config():
     Regression guard: these defaults were once hard-coded to True while
     production shipped the single-retrieval path, so a full benchmark run
     silently measured a pipeline nobody uses. The failure is invisible in the
-    output — the numbers look fine, they just describe the wrong system.
+    output, the numbers look fine, they just describe the wrong system.
     """
     import inspect
 
