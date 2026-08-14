@@ -56,9 +56,12 @@ python -m src.trace_view --doc aiw00a13.pdf   # every request that used a docume
 ```
 
 Traces are append-only JSONL in `traces/`, no service required to run this
-repo. A hosted backend (Langfuse, Phoenix) would add a UI at the cost of making
-reproduction depend on an external account. **Honest gaps:** there is no trace
-UI, and production traffic is not sampled back into the eval set.
+repo. For a hosted timeline on top of that, LangSmith tracing is wired in and
+opt-in: set `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` and every agent run
+streams to LangSmith as well, with the local JSONL still written. It stays off
+by default so reproduction never depends on an external account. **Honest
+gaps:** the local traces have no web UI of their own, and production traffic is
+not sampled back into the eval set.
 
 ---
 
