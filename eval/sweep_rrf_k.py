@@ -5,7 +5,6 @@ explains where the number came from; it does not explain why it is right
 here, and the two are not the same thing.
 
 The number matters more than it looks
-─────────────────────────────────────
 RRF scores a document as  Σ 1 / (k + rank_i)  over the lists it appears in.
 
 With k = 60 and a candidate pool of 10:
@@ -16,13 +15,13 @@ With k = 60 and a candidate pool of 10:
 but a document appearing in *both* lists gets roughly **twice** the score of
 one appearing in a single list, whatever its rank.  So at this pool size the
 formula is closer to "did both retrievers vote for it" than to "how highly
-did they rank it" — k = 60 flattens rank almost entirely.
+did they rank it", k = 60 flattens rank almost entirely.
 
 That is a real design choice, and it cuts both ways:
 
   * Agreement-dominant (high k) is robust when either retriever is noisy.
   * Rank-dominant (low k) is better when one retriever is decisively right
-    and the other has no opinion — which is common on this corpus, where the
+    and the other has no opinion, which is common on this corpus, where the
     answer document is often a strong *semantic* match with no distinctive
     keyword overlap.
 

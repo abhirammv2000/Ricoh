@@ -1,4 +1,4 @@
-# 📊 Citera — Quality Evaluation Report
+# 📊 Citera: Quality Evaluation Report
 
 **Generated:** 2026-08-01 17:22:48  
 **Agent model:** `claude-sonnet-4-6`  
@@ -6,7 +6,7 @@
 **Questions:** 100  
 
 > Every mean carries a 95% percentile-bootstrap confidence interval.
-> At this sample size the intervals are wide by construction — they
+> At this sample size the intervals are wide by construction, they
 > are reported so the numbers are not read as more precise than the
 > eval set can support.
 
@@ -23,7 +23,7 @@
 
 ### Retriever in isolation
 
-Single retrieval on the raw question — no planner, no sub-queries,
+Single retrieval on the raw question, no planner, no sub-queries,
 no entity boost, no retry. Ranks counted over distinct documents.
 Comparing this against *Evidence recall* separates a retrieval
 failure from a planning failure.
@@ -50,9 +50,9 @@ a query costs; judge cost is eval overhead and is never folded into it.
 
 ### Worst case (what the means hide)
 
-- **evidence_recall** = 0.00 — Q9: What operating systems does RICOH ProcessDirector run on, and how do users access it?
-- **groundedness** = 0.55 — Q83: If a job misses its first deadline but then finishes within the second deadline, does the red dot stay in the Deadlines portlet or get cleared?
-- **correctness** = 0.15 — Q83: If a job misses its first deadline but then finishes within the second deadline, does the red dot stay in the Deadlines portlet or get cleared?
+- **evidence_recall** = 0.00, Q9: What operating systems does RICOH ProcessDirector run on, and how do users access it?
+- **groundedness** = 0.55, Q83: If a job misses its first deadline but then finishes within the second deadline, does the red dot stay in the Deadlines portlet or get cleared?
+- **correctness** = 0.15, Q83: If a job misses its first deadline but then finishes within the second deadline, does the red dot stay in the Deadlines portlet or get cleared?
 
 ## Per-question results
 

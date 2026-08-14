@@ -1,8 +1,7 @@
 """eval/label_for_kappa.py - Measure whether the LLM judge agrees with a human.
 
 The gap this closes
-───────────────────
-`eval/judge_variance.py` established the judge is *precise* — it returns the
+`eval/judge_variance.py` established the judge is *precise*, it returns the
 same score for the same input.  Precision is not accuracy.  A judge can be
 perfectly consistent and consistently wrong, and every quality number in this
 project inherits that error without ever exposing it.
@@ -10,7 +9,6 @@ project inherits that error without ever exposing it.
 The only way to find out is to grade some answers yourself and compare.
 
 Why Cohen's κ and not raw agreement
-───────────────────────────────────
 Raw agreement is inflated by the base rate.  When ~90% of answers are good, a
 judge that says "good" every single time scores ~90% agreement while carrying
 no information at all.  Cohen's κ corrects for agreement expected by chance:
@@ -31,7 +29,6 @@ Scores are binarised at a threshold because κ needs categories. The threshold
 is recorded in the output so the number is reproducible rather than tuned.
 
 Workflow
-────────
     python -m eval.label_for_kappa --sample 30    # writes a worksheet
     # ... fill in the "human_*" fields by hand ...
     python -m eval.label_for_kappa --score        # computes κ
@@ -92,7 +89,7 @@ def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
             "grounded = every claim in the answer is supported by the cited "
             "documents. correct = the answer actually answers the question "
             "(or correctly refuses, when expected_behavior is 'refuse'). "
-            "The judge's own scores are deliberately not shown here — seeing "
+            "The judge's own scores are deliberately not shown here, seeing "
             "them first would anchor your labels and inflate agreement. "
             "Then run: python -m eval.label_for_kappa --score"
         ),
@@ -147,7 +144,7 @@ def _interpret(k: float) -> str:
     if k != k:  # NaN
         return "undefined (one rater used a single category throughout)"
     if k <= 0:
-        return "no better than chance — the judge is not usable as evidence"
+        return "no better than chance, the judge is not usable as evidence"
     if k < 0.2:
         return "slight"
     if k < 0.4:
@@ -174,7 +171,7 @@ def score() -> int:
     ]
     if len(labelled) < 10:
         raise SystemExit(
-            f"Only {len(labelled)} items labelled. Label at least 10 — below that, "
+            f"Only {len(labelled)} items labelled. Label at least 10, below that, "
             "kappa is too unstable to mean anything."
         )
 
@@ -205,12 +202,12 @@ def score() -> int:
         print(f"  Cohen's kappa  : {stats['cohens_kappa']}  ({_interpret(stats['cohens_kappa'])})")
         print(f"  positives - human {stats['human_positive_rate']:.0%} / judge {stats['judge_positive_rate']:.0%}")
         if stats["raw_agreement"] - stats["chance_agreement"] < 0.1:
-            print("  ⚠ raw agreement is close to chance — the high raw number is a")
+            print("  ⚠ raw agreement is close to chance, the high raw number is a")
             print("    base-rate artifact, not evidence the judge is accurate.")
         if disagreements:
             print(f"  disagreements ({len(disagreements)}):")
             for qid, h, j, raw, q in disagreements[:8]:
-                print(f"    Q{qid}: human={h} judge={j} (raw {raw:.2f}) — {q}")
+                print(f"    Q{qid}: human={h} judge={j} (raw {raw:.2f}), {q}")
         print()
 
     out = PROJECT_ROOT / "eval" / "judge_calibration.json"
@@ -236,7 +233,7 @@ _STOP = set(
 def _stem(w: str) -> str:
     """Crude suffix stripping.
 
-    Not linguistics — just enough that "use"/"used"/"using" and
+    Not linguistics, just enough that "use"/"used"/"using" and
     "name"/"names" stop counting as different words. Without it the matcher
     reported false defects on answers that plainly stated the fact.
     """
@@ -257,7 +254,7 @@ def _content_words(text: str) -> set[str]:
 
 # A key fact counts as present when this share of its content words appear in
 # the answer. Requiring ALL of them (1.0) was the original setting and it
-# produced 17 false defects out of 100 — every one an answer that stated the
+# produced 17 false defects out of 100, every one an answer that stated the
 # fact in different words. Natural paraphrase reorders and re-inflects, so an
 # exact-set test measures wording, not meaning.
 FACT_COVERAGE_THRESHOLD = 0.7
@@ -274,10 +271,9 @@ def spot_check(metrics_path: Path) -> int:
     """Deterministic key-fact coverage, with no LLM in the loop.
 
     Why this is worth having alongside the judge
-    ────────────────────────────────────────────
     Every LLM-based check in this project shares a failure mode: the judge and
     the agent are both Claude models, so a blind spot they share is invisible
-    to cross-model agreement.  This check has no model in it at all — it asks
+    to cross-model agreement.  This check has no model in it at all, it asks
     only whether the answer literally contains the content words of each
     curated key fact.
 
@@ -337,13 +333,12 @@ def cross_judge(metrics_path: Path, n: int, seed: int) -> int:
     """Agreement between two different judge models.
 
     What this does and does not establish
-    ─────────────────────────────────────
     It catches a judge that is idiosyncratic, unstable, or reacting to
     artefacts of one prompt formulation.
 
     It does NOT establish accuracy.  Both judges are Claude models, so any
-    bias they share — over-crediting confident prose, under-penalising a
-    subtly unsupported claim — produces high agreement between two judges
+    bias they share, over-crediting confident prose, under-penalising a
+    subtly unsupported claim, produces high agreement between two judges
     that are both wrong.  A strong kappa here is therefore *weaker* evidence
     than it looks, and is reported as a consistency check rather than as
     validation.  Only human labels close that gap.
@@ -409,7 +404,7 @@ def cross_judge(metrics_path: Path, n: int, seed: int) -> int:
     if disagreements:
         print(f"\n  {len(disagreements)} disagreement(s):")
         for qid, a, b, q in disagreements[:8]:
-            print(f"    Q{qid}: {original}={a:.2f} {CROSS_JUDGE_MODEL}={b:.2f} — {q}")
+            print(f"    Q{qid}: {original}={a:.2f} {CROSS_JUDGE_MODEL}={b:.2f}, {q}")
 
     out = PROJECT_ROOT / "eval" / "judge_cross_check.json"
     out.write_text(

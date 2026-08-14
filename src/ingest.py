@@ -12,12 +12,11 @@ This is the **heart of Phase 1**.  It:
    insertion in Phase 2.
 
 Design decisions
-────────────────
-• We use PyMuPDF (``import fitz``) because it gives us precise
+- We use PyMuPDF (``import fitz``) because it gives us precise
   page-number control and handles scanned-text PDFs well.
-• "Token" is approximated by whitespace-split words - simple,
+- "Token" is approximated by whitespace-split words - simple,
   deterministic, zero extra dependencies.
-• Each chunk records the page(s) it originated from so the
+- Each chunk records the page(s) it originated from so the
   hackathon rubric's *strict citation* requirement is met.
 """
 
@@ -37,7 +36,7 @@ from src.config import (
     SUPPORTED_EXTENSIONS,
 )
 
-# ── Logging (configured centrally in config.py) ──
+# Logging (configured centrally in config.py)
 logger = logging.getLogger(__name__)
 
 
@@ -328,18 +327,18 @@ if __name__ == "__main__":
     print("  Citera - Phase 1 Ingestion Pipeline Smoke Test")
     print("=" * 70)
 
-    # ── Create a sample PDF in data/ for testing ──
+    # Create a sample PDF in data/ for testing
     sample_path = DATA_DIR / "_sample_ricoh_manual.pdf"
     _create_sample_pdf(sample_path)
 
-    # ── Run the full ingestion pipeline ──
+    # Run the full ingestion pipeline
     chunks = ingest_all(DATA_DIR)
 
     if not chunks:
         print("\n❌  No chunks produced - something went wrong.")
         sys.exit(1)
 
-    # ── Summary statistics ──
+    # Summary statistics
     print(f"\n✅  Ingestion successful!")
     print(f"   Total chunks : {len(chunks)}")
     print(f"   Source files  : {set(c['source_document'] for c in chunks)}")
@@ -350,13 +349,13 @@ if __name__ == "__main__":
         page_counts[key] = page_counts.get(key, 0) + 1
     print(f"   Chunks/page   : {page_counts}")
 
-    # ── Print first chunk as a JSON sample ──
-    print("\n── Sample chunk (first) ──")
+    # Print first chunk as a JSON sample
+    print("\nSample chunk (first)")
     sample = {k: v for k, v in chunks[0].items()}
     sample["text"] = sample["text"][:200] + "..."  # truncate for readability
     print(json.dumps(sample, indent=2))
 
-    # ── Clean up sample PDF (optional - comment out to keep it) ──
+    # Clean up sample PDF (optional - comment out to keep it)
     sample_path.unlink(missing_ok=True)
     print(f"\n🧹  Cleaned up sample PDF.")
     print("=" * 70)

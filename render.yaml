@@ -1,10 +1,10 @@
-# Render.com blueprint — one-click deploy of the Citera dashboard.
+# Render.com blueprint, one-click deploy of the Citera dashboard.
 # Render injects $PORT, which the Dockerfile CMD already respects.
 #
 # The image is self-contained: it bakes a small pre-built index
 # (demo_index/, ~46 documents) and the ONNX embedding model. So there is no
 # persistent disk, no PDF upload step, and nothing fetched over the network on
-# the first request — the previous blueprint required uploading 223MB of PDFs
+# the first request, the previous blueprint required uploading 223MB of PDFs
 # to a disk, and until you did, the app came up healthy and refused every
 # question.
 #
@@ -12,7 +12,7 @@
 #   image size       1.13 GB
 #   peak RSS         ~282 MB for a full query (plus Streamlit overhead)
 #   health endpoint  HTTP 200 roughly 20s after start
-#   cold start       verified with `--network none` — nothing downloads at boot
+#   cold start       verified with `--network none`, nothing downloads at boot
 #
 # 512MB is therefore workable but not roomy. Move to standard if the service is
 # OOM-killed under concurrent use.
