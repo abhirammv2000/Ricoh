@@ -18,18 +18,21 @@ Run locally:
 from __future__ import annotations
 
 import json
+import math
+import os
 import queue
 import threading
 import time
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.agent import StreamResult, run_agent, stream_agent
 from src.guardrails import screen_input
 from src.instrumentation import record_run
+from src.ratelimit import TokenBucketLimiter
 
 api = FastAPI(title="Citera RAG API", version="1.0.0")
 
@@ -37,6 +40,28 @@ api = FastAPI(title="Citera RAG API", version="1.0.0")
 # size (and so the cost) of a single request and rejects obviously bad input at
 # the edge instead of paying for it downstream.
 MAX_QUERY_CHARS = 2000
+
+# Per-client rate limit. A steady RATE_LIMIT_RPS requests a second with a burst
+# of RATE_LIMIT_BURST, keyed by client IP, so one caller cannot exhaust the
+# budget or starve others. The defaults suit a single demo instance; both are
+# environment tunable. Health checks are intentionally left off this limit so a
+# load balancer can always probe liveness.
+_limiter = TokenBucketLimiter(
+    rate_per_sec=float(os.getenv("RATE_LIMIT_RPS", "1")),
+    capacity=int(os.getenv("RATE_LIMIT_BURST", "10")),
+)
+
+
+def rate_limit(request: Request) -> None:
+    """Reject a client that is over its rate with 429 and a Retry-After hint."""
+    client = request.client.host if request.client else "unknown"
+    if not _limiter.allow(client):
+        wait = math.ceil(_limiter.retry_after(client)) or 1
+        raise HTTPException(
+            status_code=429,
+            detail="rate limit exceeded",
+            headers={"Retry-After": str(wait)},
+        )
 
 
 class QueryRequest(BaseModel):
@@ -67,7 +92,7 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@api.post("/query", response_model=QueryResponse)
+@api.post("/query", response_model=QueryResponse, dependencies=[Depends(rate_limit)])
 def query(req: QueryRequest) -> QueryResponse:
     """Answer one question and return the answer with its cost and latency.
 
@@ -86,7 +111,7 @@ def query(req: QueryRequest) -> QueryResponse:
     )
 
 
-@api.post("/query/stream")
+@api.post("/query/stream", dependencies=[Depends(rate_limit)])
 def query_stream(req: QueryRequest) -> StreamingResponse:
     """Stream the answer token by token as server-sent events.
 
