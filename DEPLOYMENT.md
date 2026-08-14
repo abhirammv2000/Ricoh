@@ -1,8 +1,9 @@
 # 🚀 Deployment Guide
 
-Citera ships three deployment paths. All of them need two things at
-runtime: an `ANTHROPIC_API_KEY`, and the Ricoh PDFs available in `data/`
-(the app ingests them and builds the ChromaDB + BM25 index on first boot).
+Citera ships four deployment paths. All of them need an `ANTHROPIC_API_KEY`.
+The first three also need the Ricoh PDFs in `data/` (the app ingests them and
+builds the ChromaDB + BM25 index on first boot). The Cloud Run path instead
+serves the small baked demo subset, so it needs no corpus upload at all.
 
 > **Why isn't the index in the image/repo?** The corpus is ~223 MB of
 > PDFs and the built index is large and machine-specific, so both are
@@ -56,6 +57,45 @@ Render injects `$PORT`; the Dockerfile already binds to it.
 
 ---
 
+## Option D: Google Cloud Run (public URL, serverless)
+
+Cloud Run runs the same container serverless and scales to zero when idle. This
+path serves the baked demo subset (`DEMO_MODE`, `demo_index/`), so it needs no
+PDF upload and no persistent disk: the image is self-contained.
+
+```bash
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+
+gcloud run deploy citera \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --memory 2Gi --cpu 2 \
+  --min-instances 0 --max-instances 3 \
+  --set-env-vars "ANTHROPIC_API_KEY=sk-ant-..."
+```
+
+`gcloud` builds the Dockerfile with Cloud Build (the 223 MB corpus and the local
+index are left out by `.gitignore` / `.dockerignore`), pushes to Artifact
+Registry, and deploys. Cloud Run injects `$PORT`, which the Dockerfile already
+binds. Scale-to-zero means you pay only per request, and a cold start is a few
+seconds because the embedding model is baked into the image.
+
+The key is passed as a runtime env var, never baked into the image. For a
+longer-lived setup, keep it in Secret Manager and use `--set-secrets` instead.
+To stream traces to LangSmith from the running service, add
+`--set-env-vars LANGSMITH_TRACING=true,LANGSMITH_API_KEY=...` as well.
+
+Live demo: https://citera-634289062173.us-central1.run.app
+
+> **Heads up on cost.** The Streamlit surface is public and not rate limited
+> (the token-bucket limiter guards the FastAPI in `api/`, not the UI), so an
+> open URL exposes your Anthropic spend to anyone who finds it. For a durable
+> public demo, put it behind auth or a rate limit, or take it down when not in
+> use with `gcloud run services delete citera --region us-central1`.
+
+---
+
 ## Production hardening checklist
 
 The items below are deliberately **out of scope for the hackathon build**
@@ -64,5 +104,5 @@ but are the next steps for a real deployment:
 - [ ] Authentication in front of the Streamlit app (it is currently open).
 - [ ] Secrets via a manager (Vault / AWS Secrets Manager), not `.env`.
 - [ ] LLM-call caching + Anthropic rate-limit/retry handling.
-- [ ] Request tracing (LangSmith) and metrics export.
+- [x] Request tracing via LangSmith (wired, opt-in). Metrics export still open.
 - [ ] Pin a rebuilt index artifact in CI rather than ingesting on boot.
