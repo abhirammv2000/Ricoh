@@ -11,7 +11,7 @@ import os
 import sys
 from pathlib import Path
 
-# ── Force UTF-8 stdout/stderr ──────────────────────────────────────
+# Force UTF-8 stdout/stderr
 # On Windows the console/redirected streams default to cp1252, which
 # crashes on the emoji used in our log/print output (e.g. when piping
 # to a file).  Reconfiguring to UTF-8 makes every entrypoint (app,
@@ -22,16 +22,16 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-# ── Silence ChromaDB telemetry BEFORE any chromadb import ──
+# Silence ChromaDB telemetry BEFORE any chromadb import
 # This MUST run before chromadb is ever imported in any module.
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 from dotenv import load_dotenv
 
-# ── Load .env (if present) so API keys are available via os.getenv ──
+# Load .env (if present) so API keys are available via os.getenv
 load_dotenv()
 
-# ── Centralised logging configuration ─────────────────────────────
+# Centralised logging configuration
 # We configure logging ONCE here.  All modules use
 # logging.getLogger(__name__) so this controls everything.
 #
@@ -53,17 +53,17 @@ for _noisy in (
 ):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
 
-# ── Project root = parent of the `src/` package directory ──
+# Project root = parent of the `src/` package directory
 PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 
-# ── Paths ──
+# Paths
 # DATA_DIR can be overridden via the RICOH_DATA_DIR env var so the
 # ingestion source is never hardcoded-brittle (e.g. pointing at an
 # external export folder).  Defaults to the in-repo ``data/`` dir.
 DATA_DIR: Path = Path(os.getenv("RICOH_DATA_DIR", PROJECT_ROOT / "data"))  # Raw Ricoh PDFs go here
 # CHROMA_DIR is overridable so a deployment can ship a pre-built index instead
 # of ingesting PDFs on boot. The container has no data/ directory, so building
-# at startup is not an option there — it would produce an empty index and the
+# at startup is not an option there, it would produce an empty index and the
 # app would refuse every question while looking healthy.
 CHROMA_DIR: Path = Path(os.getenv("CHROMA_DIR", PROJECT_ROOT / "chroma_db"))
 BM25_INDEX_PATH: Path = CHROMA_DIR / "bm25_index.pkl"
@@ -74,14 +74,14 @@ BM25_CHUNKS_PATH: Path = CHROMA_DIR / "bm25_chunks.pkl"
 # would be misleading about what the live system is.
 DEMO_MODE: bool = os.getenv("DEMO_MODE", "false").lower() in ("1", "true", "yes")
 
-# ── ChromaDB settings ──
+# ChromaDB settings
 CHROMA_COLLECTION_NAME: str = "ricoh_manuals"
 
-# ── Embedding model ────────────────────────────────────────────────
+# Embedding model
 # Empty string ("") = ChromaDB's built-in default: all-MiniLM-L6-v2 via
 # onnxruntime (fast, offline, NO torch).  Set EMBEDDING_MODEL to a
 # sentence-transformers model id (e.g. "BAAI/bge-small-en-v1.5") for
-# materially stronger retrieval — this pulls in torch + sentence-
+# materially stronger retrieval, this pulls in torch + sentence-
 # transformers (heavy), so it is opt-in:
 #   pip install -r requirements-enhanced.txt
 #   EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 python -m src.ingest
@@ -89,7 +89,7 @@ CHROMA_COLLECTION_NAME: str = "ricoh_manuals"
 # delete chroma_db/ and re-ingest.
 EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "")
 
-# ── Chunking hyper-parameters ──────────────────────────────────────
+# Chunking hyper-parameters
 # We approximate "tokens" as whitespace-delimited words (~1.3 tokens
 # per word on average for English text).  Using word count is simpler
 # and deterministic - no tokeniser dependency at ingest time.
@@ -103,13 +103,13 @@ EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "")
 CHUNK_SIZE: int = 500        # words per chunk
 CHUNK_OVERLAP: int = 50      # words of overlap between consecutive chunks
 
-# ── Supported file types for ingestion ──
+# Supported file types for ingestion
 SUPPORTED_EXTENSIONS: tuple[str, ...] = (".pdf",)
 
-# ── Retrieval hyper-parameters ─────────────────────────────────────
+# Retrieval hyper-parameters
 # RETRIEVAL_TOP_K: how many candidates each method (vector / BM25)
 #   returns before fusion.  More candidates → better recall but
-#   slower.  10 is a solid default for ~1 000–10 000 chunks.
+#   slower.  10 is a solid default for ~1 000-10 000 chunks.
 RETRIEVAL_TOP_K: int = 10
 
 # RETRIEVAL_FINAL_K: how many fused results the agent actually sees.
@@ -122,7 +122,7 @@ RETRIEVAL_FINAL_K: int = 5
 #   amplifies the difference between ranks; raising it flattens it.
 RRF_K: int = 60
 
-# ── Optional cross-encoder reranker ────────────────────────────────
+# Optional cross-encoder reranker
 # A reranker re-scores the fused candidates with a query-aware
 # cross-encoder, which materially improves precision@k over RRF alone.
 # It is OFF by default because it pulls in torch + sentence-transformers
@@ -141,11 +141,11 @@ RERANKER_MODEL: str = os.getenv(
 # RETRIEVAL_FINAL_K.  More candidates → better reranker headroom.
 RERANK_CANDIDATE_POOL: int = 20
 
-# ── LLM provider (overridden at runtime / via .env) ──
+# LLM provider (overridden at runtime / via .env)
 # Accepted values: "anthropic" | "google"
 DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
 
-# ── Pipeline composition ───────────────────────────────────────────
+# Pipeline composition
 # Which agentic stages run in production.
 #
 # Both default to FALSE as of 2026-08-01, on evidence.  A three-config
@@ -156,9 +156,9 @@ DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
 #   B  + planner                        2.0 calls  $0.0207/q  13.9s
 #   C  + verifier/retry  (old default)  3.4 calls  $0.0490/q  15.6s
 #
-# Config A matched or beat the full pipeline on every quality metric —
+# Config A matched or beat the full pipeline on every quality metric , 
 # evidence recall 1.00 vs 0.88, correctness 1.00 vs 0.98, groundedness and
-# behaviour-match tied within judge noise — while costing 3.1x less and
+# behaviour-match tied within judge noise, while costing 3.1x less and
 # running 1.6x faster.  No question was measurably better under C.
 #
 # Notably, behaviour-match stays 1.00 without the verifier: the synthesizer
@@ -169,15 +169,15 @@ DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
 # help articles, where a single retrieval already achieves recall@5 = 1.00)
 # and THIS 10-question benchmark, which contains no genuinely multi-hop
 # questions.  On a corpus where retrieval is weak, the planner's ability to
-# re-query is exactly the mechanism that would earn its cost — which is why
+# re-query is exactly the mechanism that would earn its cost, which is why
 # the stages are disabled by config rather than deleted from the codebase.
 USE_PLANNER: bool = os.getenv("USE_PLANNER", "false").lower() in ("1", "true", "yes")
 USE_VERIFIER: bool = os.getenv("USE_VERIFIER", "false").lower() in ("1", "true", "yes")
 
-# ── Evaluation judge ───────────────────────────────────────────────
+# Evaluation judge
 # The LLM-as-judge MUST NOT be the same model as the one generating the
 # answers.  A model scoring its own output exhibits self-preference bias,
-# which makes groundedness/correctness scores uninterpretable — you cannot
+# which makes groundedness/correctness scores uninterpretable, you cannot
 # tell a genuinely grounded answer from one the judge simply likes because
 # it wrote it.  Published evaluations of LLM judges also find that raw
 # agreement badly overstates chance-corrected agreement, so a single judge
@@ -185,7 +185,7 @@ USE_VERIFIER: bool = os.getenv("USE_VERIFIER", "false").lower() in ("1", "true",
 #
 # We therefore default the judge to a *stronger, different* model than the
 # agent (which runs Sonnet).  Override with JUDGE_MODEL to run a second
-# judge and compare — cross-judge disagreement is itself a useful signal.
+# judge and compare, cross-judge disagreement is itself a useful signal.
 JUDGE_MODEL: str = os.getenv("JUDGE_MODEL", "claude-opus-5")
 
 # Judge output is a small JSON object, but on models with thinking enabled

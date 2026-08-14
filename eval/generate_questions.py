@@ -1,22 +1,19 @@
 """eval/generate_questions.py - Build a larger, honestly-labelled eval set.
 
 Why this exists
-───────────────
 Every claim in this project currently rests on 10 questions.  At n=10 a single
 question moves any mean by 10 points, which is wider than most effects worth
-detecting — so the project's strongest result (removing the agentic pipeline)
+detecting, so the project's strongest result (removing the agentic pipeline)
 sits on its weakest evidence base.  Growing the set is the highest-value work
 remaining.
 
 How the labels are obtained without hand-labelling everything
-─────────────────────────────────────────────────────────────
 Each question is generated **from a specific chunk**, so that chunk's document
 is the expected source *by construction*.  That gives reliable retrieval labels
-for free.  It does not give free *answer* labels — those still need the judge,
+for free.  It does not give free *answer* labels, those still need the judge,
 and the judge still needs human calibration (see eval/label_for_kappa.py).
 
 The failure mode this guards against
-────────────────────────────────────
 Generated benchmarks are usually too easy.  If the question reuses distinctive
 wording from its source chunk, BM25 matches it trivially and retrieval recall
 looks perfect for reasons that have nothing to do with the system being good.
@@ -30,17 +27,15 @@ Two defences:
      and the numbers it produces are not trustworthy.
 
 A second guard: single-source assumption
-────────────────────────────────────────
 Labelling the source chunk's document as the *only* expected source assumes no
 other document answers the question equally well.  On a corpus with overlapping
 help topics that is not always true, and a wrongly-narrow label penalises
-correct retrieval — exactly the bug found in the original Q2 entry.  The
+correct retrieval, exactly the bug found in the original Q2 entry.  The
 generator is therefore asked to reject questions it cannot make specific to one
 document, and ``--audit`` flags any question whose top retrieval hit is a
 *different* document for human review rather than silently scoring it wrong.
 
 Held-out split
-──────────────
 Questions are split into ``dev`` and ``holdout``.  Tune on dev only.  The
 holdout exists so that a final number can be reported that no decision was
 fitted to.
@@ -90,14 +85,14 @@ technician would ask, which this excerpt answers.
 
 Hard requirements:
 1. The question must be answerable using ONLY this excerpt.
-2. The question must be SPECIFIC to this excerpt — not a generic question that \
+2. The question must be SPECIFIC to this excerpt, not a generic question that \
 a dozen other documentation pages could also answer. If you cannot write such \
 a question, set "usable" to false and explain why.
 3. Phrase it the way a technician would actually type it. Do NOT copy \
-distinctive phrases verbatim from the excerpt — paraphrase. A question that \
+distinctive phrases verbatim from the excerpt, paraphrase. A question that \
 reuses rare exact strings makes keyword retrieval trivially easy and ruins the \
 benchmark.
-4. Do not reference "the excerpt", "the document", or "the text" — the user \
+4. Do not reference "the excerpt", "the document", or "the text", the user \
 asking the question cannot see it.
 5. key_facts: 1-3 short factual strings the correct answer must convey.
 
@@ -269,7 +264,7 @@ def audit() -> int:
         # Note this differs from the curated set in eval/ground_truth.json,
         # where multiple expected_sources mean several documents are jointly
         # relevant and recall is the fraction found. Same field name, different
-        # meaning — which is why the two sets are audited separately rather
+        # meaning, which is why the two sets are audited separately rather
         # than concatenated.
         expected = set(q["expected_sources"])
         recalls.append(1.0 if expected & set(docs) else 0.0)
@@ -321,7 +316,7 @@ You are auditing labels for a retrieval benchmark.
 
 A question was written from document A, so document A is known to answer it. \
 The retrieval system instead ranked document B first. The question is whether \
-that is a retrieval error, or whether document B ALSO answers the question — \
+that is a retrieval error, or whether document B ALSO answers the question, \
 in which case the benchmark label is too narrow and B should be accepted too.
 
 Question:
@@ -333,7 +328,7 @@ Document B ({doc_b}) content:
 Does document B contain enough information to correctly and specifically \
 answer that question on its own?
 
-Be strict. "Mentions the same topic" is NOT enough — it must actually answer \
+Be strict. "Mentions the same topic" is NOT enough, it must actually answer \
 the question. If it only partially answers, say false.
 
 Respond with ONLY a valid JSON object, no markdown fences:
@@ -345,7 +340,6 @@ def expand_labels() -> int:
     """Accept additional correct source documents, verified by adjudication.
 
     The problem this solves
-    ───────────────────────
     Each generated question is labelled with the single document it was written
     from.  On a corpus of 733 overlapping help topics, other documents often
     answer the same question equally well, so that single-source label marks
@@ -411,7 +405,7 @@ def expand_labels() -> int:
                     {"added": candidate, "why": verdict.get("why", "")}
                 )
                 expanded += 1
-                print(f"  Q{q['id']}: + {candidate} — {verdict.get('why','')[:70]}")
+                print(f"  Q{q['id']}: + {candidate}, {verdict.get('why','')[:70]}")
 
     payload["label_expansion"] = {
         "expanded_questions": expanded,

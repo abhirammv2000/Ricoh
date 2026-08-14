@@ -6,21 +6,20 @@ professional chat-style interface that shows not just the
 agent's answer, but its full reasoning process - the "Glass Box".
 
 Features:
-─────────
-• Chat-style UI with user/assistant message bubbles
-• Glass Box expander showing: sub-queries, evidence sources,
+- Chat-style UI with user/assistant message bubbles
+- Glass Box expander showing: sub-queries, evidence sources,
   verification status, iteration count
-• Sidebar with system controls, model info, and reset button
-• Clean, dark-themed styling
+- Sidebar with system controls, model info, and reset button
+- Clean, dark-themed styling
 """
 
-# ── Telemetry + env MUST run before ANY other imports ──
+# Telemetry + env MUST run before ANY other imports
 import os
 import sys
 
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
-# ── Ensure project root is on sys.path so `src` package is importable ──
+# Ensure project root is on sys.path so `src` package is importable
 # Streamlit runs this file directly, so the project root isn't
 # automatically on the path.
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -32,7 +31,7 @@ import time
 
 import streamlit as st
 
-# ── Ensure config.py logging setup runs ──
+# Ensure config.py logging setup runs
 from src.config import (  # noqa: F401
     CHROMA_DIR,
     DEFAULT_LLM_PROVIDER,
@@ -72,13 +71,13 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* ── Global font ── */
+    /* Global font */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
     }
 
-    /* ── Main header ── */
+    /* Main header */
     .main-header {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
         padding: 1.5rem 2rem;
@@ -98,7 +97,7 @@ st.markdown(
         font-size: 0.9rem;
     }
 
-    /* ── Glass Box expander styling ── */
+    /* Glass Box expander styling */
     .glass-box {
         background: rgba(22, 33, 62, 0.6);
         backdrop-filter: blur(10px);
@@ -124,7 +123,7 @@ st.markdown(
         margin-bottom: 0.3rem;
     }
 
-    /* ── Evidence cards ── */
+    /* Evidence cards */
     .evidence-card {
         background: rgba(15, 52, 96, 0.4);
         border-left: 3px solid #e94560;
@@ -138,7 +137,7 @@ st.markdown(
         color: #e94560;
     }
 
-    /* ── Stat pills in sidebar ── */
+    /* Stat pills in sidebar */
     .stat-pill {
         background: linear-gradient(135deg, #1a1a2e, #16213e);
         border: 1px solid rgba(233, 69, 96, 0.3);
@@ -159,7 +158,7 @@ st.markdown(
         font-weight: 600;
     }
 
-    /* ── Chat message fine-tuning ── */
+    /* Chat message fine-tuning */
     .stChatMessage {
         border-radius: 10px !important;
     }
@@ -262,7 +261,7 @@ def render_glass_box(state: dict, latency: float) -> None:
                 "Planner and verifier stages are **disabled by default**. A "
                 "progressive-removal ablation found the single-retrieval path "
                 "matched or beat the full agentic pipeline on every quality "
-                "metric at 3.1× lower cost and 1.6× lower latency — so the "
+                "metric at 3.1× lower cost and 1.6× lower latency, so the "
                 "query is sent to retrieval unchanged. Set `USE_PLANNER=true` "
                 "/ `USE_VERIFIER=true` to re-enable. See §7 of the README."
             )
@@ -329,7 +328,7 @@ with st.sidebar:
     st.markdown("## ⚙️ System Controls")
     st.divider()
 
-    # ── Model info ──
+    # Model info
     provider = DEFAULT_LLM_PROVIDER
     model_name = _DEFAULT_MODELS.get(provider, "unknown")
 
@@ -348,7 +347,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # ── Index status ──
+    # Index status
     ensure_index()
     idx_size = st.session_state.get("index_size", 0)
     st.markdown(
@@ -369,14 +368,14 @@ with st.sidebar:
 
     st.divider()
 
-    # ── Reset button ──
+    # Reset button
     if st.button("🗑️ Reset Chat", use_container_width=True):
         st.session_state.messages = []
         st.session_state.total_queries = 0
         st.rerun()
 
     st.divider()
-    st.caption("Citera — agentic RAG over RICOH ProcessDirector docs")
+    st.caption("Citera, agentic RAG over RICOH ProcessDirector docs")
     st.caption("by Abhiram")
 
 
@@ -384,7 +383,7 @@ with st.sidebar:
 # 8. MAIN CHAT INTERFACE
 # ====================================================================
 
-# ── Header ──
+# Header
 st.markdown(
     '<div class="main-header">'
     "<h1>📚 Citera</h1>"
@@ -393,7 +392,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Demo-subset disclosure ──
+# Demo-subset disclosure
 # The hosted demo answers from a small subset while the published metrics were
 # measured on the full 733-document corpus. Letting a visitor assume the two
 # are the same would overstate what they are looking at.
@@ -412,7 +411,7 @@ if DEMO_MODE:
         f"**Demo deployment.** This instance searches **{_n}** so the image "
         "stays small and limits redistribution of RICOH's documentation. "
         "The published evaluation metrics were measured on the **full "
-        "733-document corpus** — this demo shows the system working, it does "
+        "733-document corpus**, this demo shows the system working, it does "
         "not reproduce the benchmark. Questions outside the subset will be "
         "correctly refused.",
         icon="ℹ️",
@@ -422,7 +421,7 @@ if DEMO_MODE:
 with st.expander("📊 Performance and cost dashboard", expanded=False):
     render_perf_dashboard()
 
-# ── Render chat history ──
+# Render chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])

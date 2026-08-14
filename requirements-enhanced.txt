@@ -1,4 +1,4 @@
-# Optional "enhanced retrieval" extras — stronger embeddings + reranker.
+# Optional "enhanced retrieval" extras: stronger embeddings + reranker.
 # Heavy (pulls in torch). Only needed when EMBEDDING_MODEL is set and/or
 # RERANKER_ENABLED=true. Supersedes requirements-reranker.txt (same dep).
 #   pip install -r requirements-enhanced.txt

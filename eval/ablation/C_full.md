@@ -1,4 +1,4 @@
-# 📊 Citera — Quality Evaluation Report
+# 📊 Citera: Quality Evaluation Report
 
 **Generated:** 2026-08-01 15:17:31  
 **Agent model:** `claude-sonnet-4-6`  
@@ -6,7 +6,7 @@
 **Questions:** 10  
 
 > Every mean carries a 95% percentile-bootstrap confidence interval.
-> At this sample size the intervals are wide by construction — they
+> At this sample size the intervals are wide by construction, they
 > are reported so the numbers are not read as more precise than the
 > eval set can support.
 
@@ -23,7 +23,7 @@
 
 ### Retriever in isolation
 
-Single retrieval on the raw question — no planner, no sub-queries,
+Single retrieval on the raw question, no planner, no sub-queries,
 no entity boost, no retry. Ranks counted over distinct documents.
 Comparing this against *Evidence recall* separates a retrieval
 failure from a planning failure.
@@ -52,9 +52,9 @@ a query costs; judge cost is eval overhead and is never folded into it.
 
 ### Worst case (what the means hide)
 
-- **evidence_recall** = 0.50 — Q1: What property do I set if I want the printers to enable after a restart?
-- **groundedness** = 0.90 — Q1: What property do I set if I want the printers to enable after a restart?
-- **correctness** = 0.80 — Q9: How do I use locations?
+- **evidence_recall** = 0.50, Q1: What property do I set if I want the printers to enable after a restart?
+- **groundedness** = 0.90, Q1: What property do I set if I want the printers to enable after a restart?
+- **correctness** = 0.80, Q9: How do I use locations?
 
 ## Per-question results
 

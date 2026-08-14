@@ -58,10 +58,10 @@ def test_is_refusal_detection():
     assert not _is_refusal("Set the property to Yes [a.pdf, Page 1].")
 
 
-# ── Refusal detection: the multilingual regression ──────────────────
+# Refusal detection: the multilingual regression
 # The synthesizer answers in the user's language. Before the fix, a
 # refusal emitted only in translated form was invisible to _is_refusal
-# and was silently scored as an *answer* — inflating behaviour-match on
+# and was silently scored as an *answer*, inflating behaviour-match on
 # precisely the questions the system got right. The synthesizer prompt
 # now requires the English canonical sentence verbatim in every refusal.
 
@@ -85,7 +85,7 @@ def test_is_refusal_false_for_translation_only():
     assert not _is_refusal("Informacion no disponible en los documentos.")
 
 
-# ── Statistics ──────────────────────────────────────────────────────
+# Statistics
 
 
 def test_bootstrap_ci_brackets_the_mean():
@@ -127,7 +127,7 @@ def test_worst_case_none_when_nothing_scored():
     assert _worst([{"id": 1, "question": "a", "correctness": None}], "correctness") is None
 
 
-# ── Instrumentation: LLM vs retrieval span accounting ───────────────
+# Instrumentation: LLM vs retrieval span accounting
 # Regression guard: when retrieval became traced, retrieval spans landed in
 # the same list as LLM spans and silently doubled llm_calls. The metric still
 # looked plausible, which is what makes it dangerous.

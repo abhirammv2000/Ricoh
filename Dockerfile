@@ -1,4 +1,4 @@
-# ── Citera container ──────────────────────────────────────────
+# Citera container
 # Python 3.11 to match the tested runtime. slim base keeps the image
 # small; PyMuPDF / chromadb ship manylinux wheels so no build toolchain
 # is required.
@@ -21,7 +21,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Bake the ONNX MiniLM embedding model into the image.
 #
 # ChromaDB lazily downloads it (~79MB) on the FIRST embedding call, which in a
-# container means the first user request pays for a network download — and
+# container means the first user request pays for a network download, and
 # fails outright in an environment without egress. Fetching it at build time
 # makes cold starts predictable and the container self-contained.
 RUN python -c "from chromadb.utils import embedding_functions as ef; ef.ONNXMiniLM_L6_V2()(['warm up'])"
@@ -42,7 +42,7 @@ COPY api/ ./api/
 COPY eval/ ./eval/
 COPY demo_index/ ./demo_index/
 
-# Serve the baked subset, and have the UI disclose that it IS a subset —
+# Serve the baked subset, and have the UI disclose that it IS a subset , 
 # the published metrics were measured on the full 733-document corpus.
 ENV CHROMA_DIR=/app/demo_index \
     DEMO_MODE=true

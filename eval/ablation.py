@@ -1,12 +1,11 @@
 """eval/ablation.py - Does each pipeline stage earn its cost?
 
 The question this answers
-─────────────────────────
 The production pipeline is Planner -> Retriever -> Verifier -> (retry) ->
 Synthesizer, roughly four LLM calls per query.  Deterministic measurement
 already shows that a *single* retrieval on the raw question finds every
 expected document (8/8 at production settings) while the full pipeline
-reaches 0.88 — so on retrieval alone, the agentic layer is net negative.
+reaches 0.88, so on retrieval alone, the agentic layer is net negative.
 
 That is not sufficient grounds to remove it.  Retrieval recall is not answer
 quality:
@@ -19,10 +18,9 @@ quality:
 
 So the honest experiment is a **progressive-removal ablation** (the standard
 method for isolating component contribution): run the same benchmark, same
-retriever, same judge, varying exactly one thing — how much pipeline runs.
+retriever, same judge, varying exactly one thing, how much pipeline runs.
 
 The ladder
-──────────
     A  retrieve_only   retrieve(raw question) -> synthesize        ~1 LLM call
     B  planner         + query decomposition + entity pass         ~2 calls
     C  full            + verifier and retry loop  (production)     ~4 calls
@@ -31,7 +29,6 @@ Each rung adds one mechanism, so a quality difference between adjacent rungs
 is attributable to that mechanism.
 
 What would justify each outcome
-───────────────────────────────
     A ties or beats C on quality  ->  delete the planner and verifier.
                                       No router needed; less code, ~4x cheaper.
     C beats A on SOME questions   ->  a router is justified, and the ablation
@@ -42,7 +39,6 @@ What would justify each outcome
                                       up as such.
 
 Reading the results honestly
-────────────────────────────
 There are 10 questions. Judge noise on borderline answers is up to 0.10
 (see eval/judge_variance.py). A difference of one question, or a mean shift
 below ~0.10, is NOT a result. This script prints the per-question deltas

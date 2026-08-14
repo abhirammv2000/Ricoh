@@ -1,4 +1,4 @@
-# 📊 Citera — Evaluation Report
+# 📊 Citera, Evaluation Report
 
 **Generated:** 2026-02-21 00:12:56  
 **Author:** Abhiram  

@@ -31,8 +31,8 @@ It also records a **behaviour match** (did the system answer vs. refuse
 when it should have?) which surfaces probable retrieval misses.
 
 Outputs:
-  • eval/metrics.json   - machine-readable aggregate + per-question scores
-  • eval/eval_report.md - human-readable report
+  - eval/metrics.json   - machine-readable aggregate + per-question scores
+  - eval/eval_report.md - human-readable report
 
 Usage:
     python -m src.eval_harness            # run the full harness
@@ -138,7 +138,7 @@ def _judge(
 ) -> dict[str, Any]:
     """Run the LLM judge for one question. Resilient to bad JSON.
 
-    The judge runs on ``JUDGE_MODEL`` — deliberately a *different and
+    The judge runs on ``JUDGE_MODEL``, deliberately a *different and
     stronger* model than the agent under test.  Letting a model grade its
     own output produces self-preference bias and makes the resulting
     groundedness/correctness scores uninterpretable.
@@ -189,8 +189,8 @@ def _evidence_recall(
     """Fraction of expected source docs present in the FULL accumulated evidence.
 
     ⚠️  This is deliberately **not** called "recall@k".  ``evidence_docs`` is
-    the union of every chunk the agent accumulated — across all planner
-    sub-queries, the entity-boost pass, and any retry — which in practice
+    the union of every chunk the agent accumulated, across all planner
+    sub-queries, the entity-boost pass, and any retry, which in practice
     ranges from 5 to 40+ chunks.  Reporting that as "recall@k" (where
     ``RETRIEVAL_FINAL_K`` is 5) overstates the retriever, because the net
     cast is far wider than k.
@@ -219,7 +219,7 @@ def _evidence_recall(
 #
 # ⚠️  These MUST mirror production (`RETRIEVAL_TOP_K`), and an earlier version
 # of this file got that wrong with real consequences.  It used a deliberately
-# wider pool (top_k=50) so that recall@20 was "measurable" — but RRF is not
+# wider pool (top_k=50) so that recall@20 was "measurable", but RRF is not
 # monotonic in pool size, so that measured a configuration the agent never
 # runs and understated true recall@5 (0.81 measured vs 1.00 actual).  A
 # diagnostic that does not mirror production is worse than no diagnostic: it
@@ -237,11 +237,11 @@ def _retriever_only_recall(
     """Recall@N of the retriever alone, on the RAW question.
 
     This bypasses the planner entirely: one retrieval call, original
-    question, no sub-query decomposition, no entity boosting, no retry —
+    question, no sub-query decomposition, no entity boosting, no retry,
     run at **production settings** so it is a like-for-like control.
 
     Why it matters: ``_evidence_recall`` conflates two very different
-    failure modes — the retriever cannot find the document, versus the
+    failure modes, the retriever cannot find the document, versus the
     retriever ranks it fine but the planner rewrote the question into
     something worse.  This is the control that separates them, and it
     doubles as the **do-nothing baseline**: if the full agentic pipeline
@@ -293,7 +293,7 @@ def _is_refusal(answer: str) -> bool:
 
     The synthesizer answers in the *user's* language, so a refusal that was
     only ever emitted in translated form would be invisible here and would
-    be silently scored as an answer — inflating behaviour-match and
+    be silently scored as an answer, inflating behaviour-match and
     correctness on exactly the questions the system handled correctly.
 
     The synthesizer prompt therefore requires the English canonical
@@ -317,7 +317,7 @@ def _run_agent_full(
 
 def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
     """Render the FULL evidence the synthesizer saw, so the groundedness
-    judge scores against the same material (no truncation / capping —
+    judge scores against the same material (no truncation / capping,
     an earlier capped version understated groundedness)."""
     if not evidence:
         return "(no evidence retrieved)"
@@ -343,7 +343,7 @@ def evaluate(
 ) -> dict[str, Any]:
     # Default to the PRODUCTION composition from config, not to True.
     # Hard-coding True here meant the harness silently benchmarked the full
-    # agentic pipeline while production shipped the single-retrieval path —
+    # agentic pipeline while production shipped the single-retrieval path,
     # i.e. the headline numbers would have described a system nobody runs.
     # Ablation callers still pass these explicitly.
     use_planner = USE_PLANNER if use_planner is None else use_planner
@@ -491,7 +491,7 @@ def _bootstrap_ci(
 ) -> list[float] | None:
     """Percentile bootstrap 95% CI for the mean.
 
-    At n=10 the sampling error on any of these means is enormous — a single
+    At n=10 the sampling error on any of these means is enormous, a single
     question moves a mean by 10 points.  Reporting a bare "0.98
     groundedness" invites the reader to believe a precision the sample size
     cannot support, so every mean ships with the interval around it.
@@ -519,10 +519,10 @@ def _cost_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Cost and per-stage rollup across the run.
 
     Two figures are kept apart on purpose:
-      * ``mean_cost_per_query_usd`` — what serving one query costs. This is
+      * ``mean_cost_per_query_usd``: what serving one query costs. This is
         the number that scales with traffic and belongs in any unit-economics
         discussion.
-      * ``eval_judge_cost_usd``     — what grading the benchmark costs. It is
+      * ``eval_judge_cost_usd``: what grading the benchmark costs. It is
         overhead paid once per eval run, not per user query.
     """
     n = len(rows)
@@ -565,7 +565,7 @@ def _cost_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _worst(rows: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
-    """The single worst question for a metric — means hide these."""
+    """The single worst question for a metric, means hide these."""
     scored = [r for r in rows if r.get(key) is not None]
     if not scored:
         return None
@@ -665,7 +665,7 @@ def write_outputs(
         )
 
     lines: list[str] = [
-        "# 📊 Citera — Quality Evaluation Report",
+        "# 📊 Citera: Quality Evaluation Report",
         "",
         f"**Generated:** {report['generated']}  ",
         f"**Agent model:** `{report.get('agent_model')}`  ",
@@ -673,7 +673,7 @@ def write_outputs(
         f"**Questions:** {s['questions']}  ",
         "",
         "> Every mean carries a 95% percentile-bootstrap confidence interval.",
-        "> At this sample size the intervals are wide by construction — they",
+        "> At this sample size the intervals are wide by construction, they",
         "> are reported so the numbers are not read as more precise than the",
         "> eval set can support.",
         "",
@@ -705,7 +705,7 @@ def write_outputs(
         "",
         "### Retriever in isolation",
         "",
-        "Single retrieval on the raw question — no planner, no sub-queries,",
+        "Single retrieval on the raw question, no planner, no sub-queries,",
         "no entity boost, no retry. Ranks counted over distinct documents.",
         "Comparing this against *Evidence recall* separates a retrieval",
         "failure from a planning failure.",
@@ -751,7 +751,7 @@ def write_outputs(
     if worst:
         lines += ["", "### Worst case (what the means hide)", ""]
         for metric, w in worst.items():
-            lines.append(f"- **{metric}** = {w[metric]:.2f} — Q{w['id']}: {w['question']}")
+            lines.append(f"- **{metric}** = {w[metric]:.2f}, Q{w['id']}: {w['question']}")
 
     lines += [
         "",
@@ -792,7 +792,7 @@ def _fmt(v: float | None) -> str:
 def _ensure_index() -> None:
     retriever = HybridRetriever()
     if retriever.index_size == 0 or not retriever.bm25_ready:
-        print("📄  Index missing — ingesting PDFs from data/ …")
+        print("📄  Index missing, ingesting PDFs from data/ …")
         chunks = ingest_all()
         if not chunks:
             raise SystemExit("❌  No PDFs found in data/. Add PDFs and retry.")
@@ -822,7 +822,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print("=" * 70)
-    print("  Citera — Quality Evaluation Harness")
+    print("  Citera: Quality Evaluation Harness")
     print("=" * 70)
     _ensure_index()
     report = evaluate(
