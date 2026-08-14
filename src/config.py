@@ -53,6 +53,35 @@ for _noisy in (
 ):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
 
+
+# Optional LangSmith tracing, opt-in and off by default.
+# LangChain traces the LangGraph agent to LangSmith automatically when
+# LANGSMITH_TRACING is truthy and an API key is present. Keeping it opt-in means
+# the repo stays self-contained: nothing here needs a LangSmith account to run,
+# and the file-based traces in traces/ work with or without it. When a key is
+# configured this adds a hosted timeline of every run on top of those.
+def _configure_langsmith() -> None:
+    flag = os.getenv("LANGSMITH_TRACING", os.getenv("LANGCHAIN_TRACING_V2", "")).lower()
+    if flag not in ("1", "true", "yes"):
+        return
+    # Set both the current and the legacy variable names so any langchain-core
+    # version picks the tracer up.
+    os.environ["LANGSMITH_TRACING"] = "true"
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    project = os.getenv("LANGCHAIN_PROJECT") or os.getenv("LANGSMITH_PROJECT") or "citera"
+    os.environ["LANGCHAIN_PROJECT"] = project
+    os.environ["LANGSMITH_PROJECT"] = project
+    if os.getenv("LANGSMITH_API_KEY") or os.getenv("LANGCHAIN_API_KEY"):
+        logging.getLogger(__name__).info("LangSmith tracing enabled, project '%s'", project)
+    else:
+        logging.getLogger(__name__).warning(
+            "LANGSMITH_TRACING is on but no LANGSMITH_API_KEY is set, so traces will not be sent."
+        )
+
+
+_configure_langsmith()
+
+
 # Project root = parent of the `src/` package directory
 PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 
