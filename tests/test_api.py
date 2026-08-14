@@ -6,12 +6,23 @@ endpoint shapes, the streaming format, and input validation, not answer quality.
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 import api.main as apimod
 from api.main import api
+from src.ratelimit import TokenBucketLimiter
 
 client = TestClient(api)
+
+
+@pytest.fixture(autouse=True)
+def fresh_limiter():
+    """Give every test its own generous limiter, so the rate limit never fires
+    incidentally and one test's requests cannot bleed into the next. A test that
+    exercises the limit installs its own tight limiter."""
+    apimod._limiter = TokenBucketLimiter(rate_per_sec=1000.0, capacity=1000)
+    yield
 
 
 def test_health_ok():
@@ -72,3 +83,16 @@ def test_stream_emits_tokens_then_done(monkeypatch):
     assert '"token": "hel"' in r.text
     assert '"token": "lo"' in r.text
     assert '"done": true' in r.text
+
+
+def test_rate_limit_returns_429_with_retry_after(monkeypatch):
+    # Install a bucket of exactly one token, so the second request is throttled.
+    apimod._limiter = TokenBucketLimiter(rate_per_sec=0.001, capacity=1)
+    monkeypatch.setattr(apimod, "run_agent", lambda q: "ok [a.pdf, Page 1]")
+
+    first = client.post("/query", json={"query": "how do I print a test page?"})
+    assert first.status_code == 200
+
+    second = client.post("/query", json={"query": "how do I print a test page?"})
+    assert second.status_code == 429
+    assert "Retry-After" in second.headers
