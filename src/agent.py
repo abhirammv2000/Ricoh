@@ -17,14 +17,13 @@ The agentic loop allows one retry: if the Verifier says
 back to the Planner to broaden the search.
 
 Design decisions
-────────────────
-• We use LangGraph's StateGraph for explicit, auditable control
+- We use LangGraph's StateGraph for explicit, auditable control
   flow - no hidden chains or prompt-chaining magic.
-• ``iterations`` is capped at 2 to prevent runaway API costs.
-• Temperature is 0.0 to reduce variance — NOT to make output
+- ``iterations`` is capped at 2 to prevent runaway API costs.
+- Temperature is 0.0 to reduce variance, NOT to make output
   deterministic, which temperature 0 has never guaranteed. The
   planner's sub-queries do vary run to run; retrieval does not.
-• All prompts are defined as module-level constants for easy tuning.
+- All prompts are defined as module-level constants for easy tuning.
 """
 
 from __future__ import annotations
@@ -136,7 +135,7 @@ the following sentence verbatim, in English, exactly as written:
 "Information unavailable in provided documents."
 You may add a translation of that sentence into the user's language \
 immediately afterwards, but the English sentence itself must always be \
-present and unaltered — it is the machine-readable refusal marker. Never \
+present and unaltered, it is the machine-readable refusal marker. Never \
 emit this sentence when the evidence does let you answer.
 5. Do NOT invent information.  Do NOT guess.
 

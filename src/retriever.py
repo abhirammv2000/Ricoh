@@ -14,16 +14,15 @@ This is the **heart of Phase 2**.  It:
    method that combines ranks instead of raw scores.
 
 Design decisions
-────────────────
-• ChromaDB's default embedding function (all-MiniLM-L6-v2) runs
+- ChromaDB's default embedding function (all-MiniLM-L6-v2) runs
   entirely offline - critical because the hackathon disallows web
   search and we want zero API-key dependencies at retrieval time.
-• BM25 adds keyword-exact-match strength that pure vector search
+- BM25 adds keyword-exact-match strength that pure vector search
   misses on model numbers, error codes, and part names that are
   common in Ricoh technical manuals.
-• BM25 is pickled to disk alongside ChromaDB so both indices
+- BM25 is pickled to disk alongside ChromaDB so both indices
   persist across restarts - fixes the "BM25 not built" bug.
-• RRF (k=60) is preferred over linear score fusion because the two
+- RRF (k=60) is preferred over linear score fusion because the two
   score distributions are incommensurable.
 """
 
@@ -51,7 +50,7 @@ from src.config import (
     RRF_K,
 )
 
-# ── Logging (configured centrally in config.py) ──
+# Logging (configured centrally in config.py)
 logger = logging.getLogger(__name__)
 
 # Module-level cache so the (expensive) cross-encoder loads at most once.
@@ -177,7 +176,7 @@ class HybridRetriever:
         #
         # These were previously module-level constants, so a retriever pointed
         # at a different persist_dir got an EMPTY vector store paired with the
-        # DEFAULT BM25 index — two halves of different indexes, reporting
+        # DEFAULT BM25 index, two halves of different indexes, reporting
         # bm25_ready=True while holding no vectors. Deriving the paths keeps a
         # retriever internally consistent, and is identical to the old
         # behaviour for the default directory.
@@ -275,7 +274,7 @@ class HybridRetriever:
             logger.warning("build_index called with empty chunk list.")
             return
 
-        # ── 1. ChromaDB (vector index) ─────────────────────────────
+        # 1. ChromaDB (vector index)
         # ChromaDB upsert accepts batches of up to ~41 666 docs
         # (limited by the underlying SQLite default).  We batch at
         # 5 000 to stay well within limits and keep memory reasonable.
@@ -302,12 +301,12 @@ class HybridRetriever:
                 ],
             )
             logger.info(
-                "  ChromaDB upsert batch %d–%d done.",
+                "  ChromaDB upsert batch %d-%d done.",
                 i,
                 min(i + BATCH_SIZE, len(chunks)) - 1,
             )
 
-        # ── 2. BM25 (keyword index) ───────────────────────────────
+        # 2. BM25 (keyword index)
         # Tokenisation: simple lowercase whitespace split.  This is
         # intentionally basic - BM25 does not need stemming to match
         # error codes like "SC542" or model names like "IM C3500".
@@ -317,7 +316,7 @@ class HybridRetriever:
         self._bm25 = BM25Okapi(tokenised_corpus)
         self._bm25_chunks = chunks  # keep a reference for lookup
 
-        # ── 3. Persist BM25 to disk ───────────────────────────────
+        # 3. Persist BM25 to disk
         self._save_bm25()
 
         logger.info(
@@ -600,7 +599,7 @@ if __name__ == "__main__":
     print("  Citera - Phase 2 Hybrid Retrieval Smoke Test")
     print("=" * 70)
 
-    # ── Step 1: Ingest all PDFs from data/ ──
+    # Step 1: Ingest all PDFs from data/
     print("\n📄  Ingesting PDFs…")
     chunks = ingest_all()
 
@@ -610,7 +609,7 @@ if __name__ == "__main__":
 
     print(f"   {len(chunks)} chunks ingested.")
 
-    # ── Step 2: Build the hybrid index ──
+    # Step 2: Build the hybrid index
     print("\n🔨  Building hybrid index (ChromaDB + BM25)…")
     t0 = time.perf_counter()
     retriever = HybridRetriever()
@@ -619,7 +618,7 @@ if __name__ == "__main__":
     print(f"   Index built in {elapsed:.1f}s - {retriever.index_size} docs in ChromaDB.")
     print(f"   BM25 ready: {retriever.bm25_ready}")
 
-    # ── Step 3: Run sample queries ──
+    # Step 3: Run sample queries
     sample_queries = [
         "How do I fix error SC542?",
         "What paper sizes does the bypass tray support?",

@@ -1,6 +1,6 @@
 """Unit tests for LLM transport-resilience config (src/llm_factory.py).
 
-These construct the model **offline** (no network call is made — building a
+These construct the model **offline** (no network call is made, building a
 ChatAnthropic only validates config) and assert the retry/timeout knobs are
 applied, so a future refactor cannot silently drop production resilience.
 """

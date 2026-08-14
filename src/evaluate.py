@@ -8,17 +8,16 @@ through the full agentic pipeline and produces:
 2. **evaluation_report.md**  - judge-ready Markdown report.
 
 Each question is sent to ``agent.run_agent()`` and we capture:
-• The final answer (with citations)
-• Latency (seconds)
-• Retrieved evidence sources (document + page)
+- The final answer (with citations)
+- Latency (seconds)
+- Retrieved evidence sources (document + page)
 
 Design decisions
-────────────────
-• Questions are hardcoded - the hackathon forbids web search and
+- Questions are hardcoded - the hackathon forbids web search and
   the rubric specifies these exact queries.
-• CSV is written with the stdlib ``csv`` module; Markdown is
+- CSV is written with the stdlib ``csv`` module; Markdown is
   hand-assembled for maximum judge readability.
-• We suppress ingestion logs during evaluation so only the agent
+- We suppress ingestion logs during evaluation so only the agent
   "thoughts" (Planner / Verifier / Synthesizer) are visible.
 
 NOTE: This script reports latency + citations only. For QUALITY
@@ -66,7 +65,7 @@ HACKATHON_QUESTIONS: list[str] = [
     "What inserters does RPD support?",
 ]
 
-# ── Output paths ──
+# Output paths
 CSV_PATH: Path = PROJECT_ROOT / "evaluation_results.csv"
 REPORT_PATH: Path = PROJECT_ROOT / "evaluation_report.md"
 
@@ -212,7 +211,7 @@ def save_markdown_report(
             ]
         )
 
-    # ── Compliance statement (required by hackathon) ──
+    # Compliance statement (required by hackathon)
     lines.extend(
         [
             "## Compliance Statement",
@@ -241,7 +240,7 @@ if __name__ == "__main__":
     print("  Citera - Phase 4 Evaluation Pipeline")
     print("=" * 70)
 
-    # ── Ensure index is ready ──
+    # Ensure index is ready
     print("\n📄  Checking retrieval index…")
     retriever = HybridRetriever()
 
@@ -260,15 +259,15 @@ if __name__ == "__main__":
     else:
         print(f"   Index ready: {retriever.index_size} docs, BM25: ✅")
 
-    # ── Run evaluation ──
+    # Run evaluation
     print(f"\n🚀  Running {len(HACKATHON_QUESTIONS)} hackathon questions…")
     results = run_evaluation()
 
-    # ── Save outputs ──
+    # Save outputs
     save_csv(results)
     save_markdown_report(results)
 
-    # ── Final summary ──
+    # Final summary
     total = sum(r["latency_seconds"] for r in results)
     print(f"\n{'=' * 70}")
     print(f"  EVALUATION COMPLETE")
