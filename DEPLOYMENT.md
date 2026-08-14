@@ -11,7 +11,7 @@ runtime: an `ANTHROPIC_API_KEY`, and the Ricoh PDFs available in `data/`
 
 ---
 
-## Option A — Docker (recommended, reproducible)
+## Option A: Docker (recommended, reproducible)
 
 ```bash
 # Build
@@ -31,7 +31,7 @@ built in.
 
 ---
 
-## Option B — Render.com (one-click, public URL)
+## Option B: Render.com (one-click, public URL)
 
 A [`render.yaml`](render.yaml) blueprint is included.
 
@@ -44,9 +44,9 @@ Render injects `$PORT`; the Dockerfile already binds to it.
 
 ---
 
-## Option C — Streamlit Community Cloud (fastest demo)
+## Option C: Streamlit Community Cloud (fastest demo)
 
-1. Push to GitHub (without the PDFs — they exceed limits).
+1. Push to GitHub (without the PDFs, they exceed limits).
 2. streamlit.io/cloud → **New app** → `app/main.py`.
 3. Add `ANTHROPIC_API_KEY` in **Secrets**.
 4. Because Streamlit Cloud has no persistent volume for 223 MB of PDFs,

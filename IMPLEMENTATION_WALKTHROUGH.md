@@ -164,4 +164,4 @@ All project constants centralized:
 
 **File:** `src/llm_factory.py`
 
-Provider-agnostic factory: `get_llm()` returns a LangChain chat model based on `LLM_PROVIDER` env var. Currently uses Claude Sonnet (`claude-sonnet-4-6` — the earlier dated `claude-sonnet-4-20250514` was retired on 2026-06-15), swappable to OpenAI/Google with one config change.
+Provider-agnostic factory: `get_llm()` returns a LangChain chat model based on `LLM_PROVIDER` env var. Currently uses Claude Sonnet (`claude-sonnet-4-6`, the earlier dated `claude-sonnet-4-20250514` was retired on 2026-06-15), swappable to OpenAI/Google with one config change.
