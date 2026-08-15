@@ -203,6 +203,20 @@ DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
 USE_PLANNER: bool = os.getenv("USE_PLANNER", "false").lower() in ("1", "true", "yes")
 USE_VERIFIER: bool = os.getenv("USE_VERIFIER", "false").lower() in ("1", "true", "yes")
 
+# Semantic answer cache (opt-in, off by default)
+# When on, run_agent returns a stored answer for an identical or near-duplicate
+# query instead of paying for the synthesizer again. Serving a cached answer for
+# a merely similar question would be a correctness bug in a system whose whole
+# value is grounded accuracy, so the threshold is set from measurement, not
+# guessed: on this corpus, MiniLM scores genuine paraphrases at 0.87 to 0.91 and
+# different questions at 0.48 or below, so 0.90 catches near-duplicate phrasings
+# with a wide safety margin above anything a different question scored. The eval
+# harness bypasses the cache entirely (it invokes the graph directly), so a hit
+# can never corrupt a measured number.
+SEMANTIC_CACHE_ENABLED: bool = os.getenv("SEMANTIC_CACHE_ENABLED", "false").lower() in ("1", "true", "yes")
+SEMANTIC_CACHE_THRESHOLD: float = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.90"))
+SEMANTIC_CACHE_MAX_ENTRIES: int = int(os.getenv("SEMANTIC_CACHE_MAX_ENTRIES", "512"))
+
 # Evaluation judge
 # The LLM-as-judge MUST NOT be the same model as the one generating the
 # answers.  A model scoring its own output exhibits self-preference bias,
