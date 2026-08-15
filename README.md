@@ -59,9 +59,15 @@ Traces are append-only JSONL in `traces/`, no service required to run this
 repo. For a hosted timeline on top of that, LangSmith tracing is wired in and
 opt-in: set `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` and every agent run
 streams to LangSmith as well, with the local JSONL still written. It stays off
-by default so reproduction never depends on an external account. **Honest
-gaps:** the local traces have no web UI of their own, and production traffic is
-not sampled back into the eval set.
+by default so reproduction never depends on an external account.
+
+An optional semantic answer cache (also off by default) short-circuits the
+synthesizer for a repeat or near-duplicate question. A hit is recorded as a
+zero-cost span, so the cost dashboard shows the saving rather than hiding it, and
+the threshold is set from measured cosine similarity rather than guessed.
+
+**Honest gaps:** the local traces have no web UI of their own, and production
+traffic is not sampled back into the eval set.
 
 ---
 
