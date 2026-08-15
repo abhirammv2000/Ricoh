@@ -103,6 +103,6 @@ but are the next steps for a real deployment:
 
 - [ ] Authentication in front of the Streamlit app (it is currently open).
 - [ ] Secrets via a manager (Vault / AWS Secrets Manager), not `.env`.
-- [ ] LLM-call caching + Anthropic rate-limit/retry handling.
+- [x] LLM-call caching (opt-in semantic cache) + Anthropic timeout/retry handling.
 - [x] Request tracing via LangSmith (wired, opt-in). Metrics export still open.
 - [ ] Pin a rebuilt index artifact in CI rather than ingesting on boot.

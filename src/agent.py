@@ -45,8 +45,10 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
     USE_VERIFIER,
 )
 from src.instrumentation import invoke as instrumented_invoke
+from src.instrumentation import span
 from src.llm_factory import get_llm
 from src.retriever import get_retriever
+from src.semantic_cache import get_semantic_cache
 
 # Logging is configured centrally in config.py.
 logger = logging.getLogger(__name__)
@@ -501,10 +503,28 @@ def run_agent(
 
     Returns:
         The final synthesised answer string with citations.
+
+    When the semantic cache is enabled (off by default), an identical or
+    near-duplicate query returns the stored answer without running the pipeline.
+    The hit is recorded as a zero-cost span, so a trace shows the saving. The
+    eval harness never reaches this path, so cache hits cannot affect measured
+    numbers.
     """
+    cache = get_semantic_cache()
+    if cache is not None:
+        hit = cache.lookup(query)
+        if hit is not None:
+            with span("cache", cache_hit=True, kind=hit.kind, similarity=hit.similarity):
+                pass
+            return hit.answer
+
     agent = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
     final_state = agent.invoke(initial_state(query, use_planner=use_planner))
-    return final_state["final_answer"]
+    answer = final_state["final_answer"]
+
+    if cache is not None:
+        cache.store(query, answer)
+    return answer
 
 
 @dataclass
