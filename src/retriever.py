@@ -1,21 +1,21 @@
 """
 src/retriever.py - Hybrid Retrieval Engine (ChromaDB + BM25 + RRF).
 
-This is the **heart of Phase 2**.  It:
+Finds the passages most likely to answer a question. It:
 
 1. Accepts the chunk list produced by ``ingest.py``.
-2. Builds **two parallel indices**:
+2. Builds two parallel indices:
    a. A ChromaDB collection for dense/semantic vector search
       (embeddings computed locally via the bundled all-MiniLM-L6-v2).
-   b. A BM25 index for sparse/keyword search, **persisted to disk**
+   b. A BM25 index for sparse/keyword search, persisted to disk
       as pickle files so it survives process restarts.
 3. At query time, runs *both* searches and fuses the ranked lists
-   via **Reciprocal Rank Fusion (RRF)** - a simple, tuning-free
+   via Reciprocal Rank Fusion (RRF) - a simple, tuning-free
    method that combines ranks instead of raw scores.
 
 Design decisions
 - ChromaDB's default embedding function (all-MiniLM-L6-v2) runs
-  entirely offline - critical because the hackathon disallows web
+  entirely offline - the system never depends on web
   search and we want zero API-key dependencies at retrieval time.
 - BM25 adds keyword-exact-match strength that pure vector search
   misses on model numbers, error codes, and part names that are
@@ -151,9 +151,7 @@ class HybridRetriever:
     BM25 index from disk - no need to call ``build_index`` again.
     """
 
-    # ----------------------------------------------------------------
-    # INITIALISATION
-    # ----------------------------------------------------------------
+    # Initialisation
 
     def __init__(
         self,
@@ -217,9 +215,7 @@ class HybridRetriever:
             "loaded" if self._bm25 is not None else "NOT loaded",
         )
 
-    # ----------------------------------------------------------------
-    # BM25 PERSISTENCE - save / load pickle files
-    # ----------------------------------------------------------------
+    # Bm25 persistence - save / load pickle files
 
     def _save_bm25(self) -> None:
         """Persist the BM25 index and chunk list to disk as pickle."""
@@ -251,18 +247,16 @@ class HybridRetriever:
         else:
             logger.info("No persisted BM25 index found - will need build_index().")
 
-    # ----------------------------------------------------------------
-    # INDEX BUILDING
-    # ----------------------------------------------------------------
+    # Index building
 
     def build_index(self, chunks: list[dict[str, Any]]) -> None:
         """Populate ChromaDB and build a BM25 index from chunks.
 
-        This is designed to be **idempotent**: if the ChromaDB
+        This is designed to be idempotent: if the ChromaDB
         collection already contains documents, we skip re-adding
         them (ChromaDB upserts by ID).
 
-        The BM25 index is **pickled to disk** so it persists across
+        The BM25 index is pickled to disk so it persists across
         process restarts - matching ChromaDB's persistence.
 
         Args:
@@ -323,9 +317,7 @@ class HybridRetriever:
             "BM25 index built and persisted: %d chunks.", len(chunks)
         )
 
-    # ----------------------------------------------------------------
-    # SEARCH - VECTOR (SEMANTIC)
-    # ----------------------------------------------------------------
+    # Search - vector (semantic)
 
     def _vector_search(
         self,
@@ -376,9 +368,7 @@ class HybridRetriever:
 
         return ranked
 
-    # ----------------------------------------------------------------
-    # SEARCH - BM25 (KEYWORD)
-    # ----------------------------------------------------------------
+    # Search - bm25 (keyword)
 
     def _bm25_search(
         self,
@@ -421,9 +411,7 @@ class HybridRetriever:
 
         return ranked
 
-    # ----------------------------------------------------------------
-    # FUSION - RECIPROCAL RANK FUSION (RRF)
-    # ----------------------------------------------------------------
+    # Fusion - reciprocal rank fusion (rrf)
 
     @staticmethod
     def _rrf_fuse(
@@ -475,9 +463,7 @@ class HybridRetriever:
 
         return results
 
-    # ----------------------------------------------------------------
-    # PUBLIC API
-    # ----------------------------------------------------------------
+    # Public api
 
     def retrieve(
         self,
@@ -487,7 +473,7 @@ class HybridRetriever:
     ) -> list[dict[str, Any]]:
         """Run hybrid retrieval: vector + BM25 → RRF fusion.
 
-        This is the **only method the LangGraph agent calls**.
+        This is the only method the LangGraph agent calls.
 
         Args:
             query:   Natural-language question.
@@ -570,9 +556,7 @@ class HybridRetriever:
             out.append(entry)
         return out
 
-    # ----------------------------------------------------------------
-    # UTILITY - check if index is populated
-    # ----------------------------------------------------------------
+    # Utility - check if index is populated
 
     @property
     def index_size(self) -> int:
@@ -585,9 +569,7 @@ class HybridRetriever:
         return self._bm25 is not None
 
 
-# ====================================================================
 # __main__ - End-to-end smoke test
-# ====================================================================
 
 if __name__ == "__main__":
     import sys
@@ -596,21 +578,21 @@ if __name__ == "__main__":
     from src.ingest import ingest_all
 
     print("=" * 70)
-    print("  Citera - Phase 2 Hybrid Retrieval Smoke Test")
+    print("  Citera retrieval smoke test")
     print("=" * 70)
 
     # Step 1: Ingest all PDFs from data/
-    print("\n📄  Ingesting PDFs…")
+    print("\nIngesting PDFs…")
     chunks = ingest_all()
 
     if not chunks:
-        print("❌  No chunks found. Place PDFs in data/ first.")
+        print("No chunks found. Place PDFs in data/ first.")
         sys.exit(1)
 
     print(f"   {len(chunks)} chunks ingested.")
 
     # Step 2: Build the hybrid index
-    print("\n🔨  Building hybrid index (ChromaDB + BM25)…")
+    print("\nBuilding hybrid index (ChromaDB + BM25)…")
     t0 = time.perf_counter()
     retriever = HybridRetriever()
     retriever.build_index(chunks)
@@ -626,7 +608,7 @@ if __name__ == "__main__":
     ]
 
     for query in sample_queries:
-        print(f"\n🔍  Query: \"{query}\"")
+        print(f"\nQuery: \"{query}\"")
         print("-" * 60)
         results = retriever.retrieve(query)
 
@@ -643,5 +625,5 @@ if __name__ == "__main__":
             print(f"      {snippet}")
 
     print("\n" + "=" * 70)
-    print("Phase 2 smoke test complete. Ready for Phase 3!")
+    print("Smoke test complete.")
     print("=" * 70)

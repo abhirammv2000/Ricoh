@@ -12,7 +12,7 @@ With k = 60 and a candidate pool of 10:
     rank 1  ->  1/61 = 0.01639
     rank 10 ->  1/70 = 0.01429      ... only 15% apart
 
-but a document appearing in *both* lists gets roughly **twice** the score of
+but a document appearing in *both* lists gets roughly twice the score of
 one appearing in a single list, whatever its rank.  So at this pool size the
 formula is closer to "did both retrievers vote for it" than to "how highly
 did they rank it", k = 60 flattens rank almost entirely.
