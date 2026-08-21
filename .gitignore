@@ -73,3 +73,9 @@ eval/ablation/*_*.json
 # `python -m eval.label_for_kappa --sample N`. Once filled in with real
 # labels it is worth keeping: `git add -f eval/human_labels.json`.
 eval/human_labels.json
+
+# Internal notes and generated eval artifacts, not for the public repo
+DEMO_WALKTHROUGH.md
+IMPLEMENTATION_WALKTHROUGH.md
+evaluation_report.md
+evaluation_results.csv

@@ -1,6 +1,6 @@
 # Citera Roadmap and Decision Log
 
-**Goal:** a portfolio-grade RAG system that stands up to a technical interview.
+**Goal:** a RAG system where every design choice is backed by a measurement.
 Every design choice must be justifiable with evidence, and every number must be
 reproducible from a command in this repo.
 
@@ -39,11 +39,11 @@ When these are checked, the project ships. Remaining ideas move to
 
 | Phase | Goal | Status |
 |---|---|---|
-| **0** | Make the evaluation trustworthy | ✅ Done |
-| **1** | Eval set to ~100 questions + judge calibration | 🟡 Set built; κ needs your labels |
-| **2** | Improve retrieval | ✅ Done, no work needed, see D-4 |
-| **3** | Cut cost and latency | ✅ Done, see D-6 |
-| **4** | Tracing + live deployment | ✅ Tracing done; image verified, awaiting your push |
+| **0** | Make the evaluation trustworthy | Done |
+| **1** | Eval set to ~100 questions + judge calibration | Set built; κ needs your labels |
+| **2** | Improve retrieval | Done, no work needed, see D-4 |
+| **3** | Cut cost and latency | Done, see D-6 |
+| **4** | Tracing + live deployment | Tracing done; image verified, awaiting your push |
 | **5** | Final consistency pass, commit, ship | ⬜ Last |
 
 **Remaining: your `git push` + Render deploy. Optionally ~15 human labels for κ.**
@@ -53,7 +53,7 @@ When these are checked, the project ships. Remaining ideas move to
 ## Decision log
 
 Each entry is a decision that changed the system, the evidence behind it, and
-the command that reproduces that evidence. This is the interview record.
+the command that reproduces that evidence.
 
 ### D-1 · The index could not build at all
 `ChromaDB.get_or_create_collection(embedding_function=None)` **overrides** the
