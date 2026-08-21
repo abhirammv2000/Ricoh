@@ -317,6 +317,55 @@ def _cost(model: str, usage: dict[str, Any]) -> float:
     ) / 1_000_000
 
 
+def invoke_messages(llm: Any, messages: Any, stage: str) -> Any:
+    """Invoke an LLM on a message list and return the raw response.
+
+    invoke() returns text, which is all a single-shot stage needs. A tool loop
+    needs the response object itself (the tool_calls live there) and has to send
+    a growing message list rather than one prompt string, so it cannot use
+    invoke(). Sharing the span-recording logic here rather than letting the loop
+    call llm.invoke() directly is the point: an untraced code path would spend
+    real money that never reaches the cost dashboard, and the dashboard being
+    complete is the only reason to trust it.
+    """
+    rec = _CURRENT.get()
+    model = getattr(llm, "model", None) or getattr(llm, "model_name", "unknown")
+
+    started = time.perf_counter()
+    try:
+        response = llm.invoke(messages)
+    except Exception as exc:
+        if rec is not None:
+            rec.spans.append(
+                Span(
+                    stage=stage,
+                    model=str(model),
+                    latency_seconds=round(time.perf_counter() - started, 3),
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            )
+        raise
+    elapsed = time.perf_counter() - started
+
+    if rec is not None:
+        usage = getattr(response, "usage_metadata", None) or {}
+        details = usage.get("input_token_details") or {}
+        rec.spans.append(
+            Span(
+                stage=stage,
+                model=str(model),
+                input_tokens=int(usage.get("input_tokens", 0) or 0),
+                output_tokens=int(usage.get("output_tokens", 0) or 0),
+                cache_read_tokens=int(details.get("cache_read", 0) or 0),
+                cache_write_tokens=int(details.get("cache_creation", 0) or 0),
+                latency_seconds=round(elapsed, 3),
+                cost_usd=round(_cost(str(model), usage), 6),
+            )
+        )
+
+    return response
+
+
 def invoke(llm: Any, prompt: str, stage: str) -> str:
     """Invoke an LLM, record a span, and return its text.
 

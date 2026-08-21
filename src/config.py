@@ -203,6 +203,21 @@ DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
 USE_PLANNER: bool = os.getenv("USE_PLANNER", "false").lower() in ("1", "true", "yes")
 USE_VERIFIER: bool = os.getenv("USE_VERIFIER", "false").lower() in ("1", "true", "yes")
 
+# Tool-calling retrieval (opt-in, off by default)
+# When on, the agent exposes search_docs as a tool and the model runs its own
+# searches, re-querying when the passages it gets back do not answer the
+# question. This is the re-query mechanism the ablation section predicted would
+# earn its cost only on a corpus with weak retrieval. It earns it here too:
+# of the 6 questions that fail retrieval at n=100, the model recovered 4, and it
+# lost none of a 20-question sample that already passed. Cost is 1.77x
+# ($0.0278 vs $0.0157 per query).
+#
+# Off by default regardless, because that measurement is retrieval-only. Whether
+# the recovered evidence actually improves judged groundedness and correctness
+# needs the full n=100 judged run, and changing a default on unjudged evidence
+# is the kind of move the rest of this project exists to argue against.
+USE_TOOL_LOOP: bool = os.getenv("USE_TOOL_LOOP", "false").lower() in ("1", "true", "yes")
+
 # Semantic answer cache (opt-in, off by default)
 # When on, run_agent returns a stored answer for an identical or near-duplicate
 # query instead of paying for the synthesizer again. Serving a cached answer for
