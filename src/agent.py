@@ -1,7 +1,7 @@
 """
 src/agent.py - LangGraph Agentic State Machine.
 
-This is the **brain** of Citera.  It orchestrates a
+Orchestrates a
 Plan → Retrieve → Verify → Synthesize loop that:
 
 1. **Plans** - decomposes a user question into focused sub-queries
@@ -42,6 +42,7 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
     RETRIEVAL_FINAL_K,
     RETRIEVAL_TOP_K,
     USE_PLANNER,
+    USE_TOOL_LOOP,
     USE_VERIFIER,
 )
 from src.instrumentation import invoke as instrumented_invoke
@@ -57,9 +58,7 @@ logger = logging.getLogger(__name__)
 MAX_ITERATIONS: int = 2  # hard cap on agentic retries
 
 
-# ====================================================================
 # 1. STATE DEFINITION
-# ====================================================================
 
 class AgentState(TypedDict):
     """Typed state that flows through every node in the graph.
@@ -76,9 +75,7 @@ class AgentState(TypedDict):
     iterations: int                          # loop counter (max 2)
 
 
-# ====================================================================
 # 2. PROMPT TEMPLATES
-# ====================================================================
 
 PLANNER_PROMPT = """\
 You are a query planner for a Ricoh technical support system.
@@ -151,9 +148,7 @@ Answer:
 """
 
 
-# ====================================================================
 # 3. HELPER - format evidence for prompts
-# ====================================================================
 
 def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
     """Render evidence chunks into a numbered text block for prompts."""
@@ -171,9 +166,7 @@ def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-# ====================================================================
 # 4. GRAPH NODES
-# ====================================================================
 
 def planner_node(state: AgentState) -> dict[str, Any]:
     """Node 1 - Decompose the user query into sub-queries.
@@ -341,9 +334,7 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
     return {"final_answer": answer}
 
 
-# ====================================================================
 # 5. CONDITIONAL EDGE - Verifier routing logic
-# ====================================================================
 
 def should_retry_or_synthesize(state: AgentState) -> str:
     """Decide whether to loop back to the planner or move on.
@@ -366,9 +357,7 @@ def should_retry_or_synthesize(state: AgentState) -> str:
     return "synthesizer"
 
 
-# ====================================================================
 # 6. GRAPH ASSEMBLY
-# ====================================================================
 
 def build_agent_graph(
     use_planner: bool = True,
@@ -465,9 +454,7 @@ def get_agent_graph(
     return _COMPILED_GRAPHS[key]
 
 
-# ====================================================================
 # 7. PUBLIC API - convenience runner
-# ====================================================================
 
 def initial_state(query: str, use_planner: bool | None = None) -> AgentState:
     """Build the starting state for a run.
@@ -517,6 +504,18 @@ def run_agent(
             with span("cache", cache_hit=True, kind=hit.kind, similarity=hit.similarity):
                 pass
             return hit.answer
+
+    # Tool-calling path (USE_TOOL_LOOP, off by default). The model runs its own
+    # searches instead of taking one fixed retrieval, so it bypasses the graph
+    # rather than forming a node inside it: the whole point is that the control
+    # flow is the model's, not the graph's.
+    if USE_TOOL_LOOP:
+        from src.tools import run_tool_loop
+
+        answer = run_tool_loop(query)["answer"]
+        if cache is not None:
+            cache.store(query, answer)
+        return answer
 
     agent = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
     final_state = agent.invoke(initial_state(query, use_planner=use_planner))
@@ -600,9 +599,7 @@ def stream_agent(
     result.total_seconds = time.perf_counter() - started
 
 
-# ====================================================================
 # __main__ - Smoke test with a complex multi-part question
-# ====================================================================
 
 if __name__ == "__main__":
     import sys
