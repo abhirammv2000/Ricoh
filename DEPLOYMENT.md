@@ -1,4 +1,4 @@
-# 🚀 Deployment Guide
+# Deployment Guide
 
 Citera ships four deployment paths. All of them need an `ANTHROPIC_API_KEY`.
 The first three also need the Ricoh PDFs in `data/` (the app ingests them and
@@ -98,7 +98,7 @@ Live demo: https://citera-634289062173.us-central1.run.app
 
 ## Production hardening checklist
 
-The items below are deliberately **out of scope for the hackathon build**
+The items below are deliberately **out of scope for this build**
 but are the next steps for a real deployment:
 
 - [ ] Authentication in front of the Streamlit app (it is currently open).
