@@ -1,4 +1,4 @@
-# 📊 Citera: Quality Evaluation Report
+# Citera quality evaluation report
 
 **Generated:** 2026-08-01 15:14:14  
 **Agent model:** `claude-sonnet-4-6`  
@@ -14,12 +14,12 @@
 
 | Metric | Mean | 95% CI | What it means |
 |---|---|---|---|
-| Behaviour-match rate | 1.00 | — | Answered vs. refused as expected |
+| Behaviour-match rate | 1.00 | n/a | Answered vs. refused as expected |
 | Evidence recall | 0.88 | [0.69, 1.00] | Expected doc reached the synthesizer, across ALL passes/retries (n=8) |
 | Citation precision | 1.00 | [1.00, 1.00] | Cited docs exist in the evidence (catches fabricated filenames only) (n=8) |
 | Groundedness | 0.99 | [0.97, 1.00] | Claims supported by evidence (n=10) |
 | Correctness | 0.97 | [0.93, 1.00] | Conveys expected facts / refuses correctly (n=10) |
-| Mean latency | 13.92s | — | Per-question wall-clock (max 20.08s) |
+| Mean latency | 13.92s | n/a | Per-question wall-clock (max 20.08s) |
 
 ### Retriever in isolation
 
@@ -57,15 +57,15 @@ a query costs; judge cost is eval overhead and is never folded into it.
 
 ## Per-question results
 
-| # | Behaviour ✓ | Evid. recall | Retr.@5 | Cite prec. | Grounded | Correct | Latency | Flags |
+| # | Behaviour | Evid. recall | Retr.@5 | Cite prec. | Grounded | Correct | Latency | Flags |
 |---|---|---|---|---|---|---|---|---|
-| 1 | ✅ | 0.50 | 1.00 | 1.00 | 1.00 | 1.00 | 7.17s | — |
-| 2 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 11.69s | — |
-| 3 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 6.67s | — |
-| 4 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 15.58s | — |
-| 5 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 11.06s | — |
-| 6 | ✅ | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 19.84s | — |
-| 7 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 0.85 | 20.08s | — |
-| 8 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 15.8s | — |
-| 9 | ✅ | 0.50 | 1.00 | 1.00 | 1.00 | 0.85 | 16.19s | — |
-| 10 | ✅ | 1.00 | 1.00 | 1.00 | 0.93 | 1.00 | 15.1s | — |
+| 1 | yes | 0.50 | 1.00 | 1.00 | 1.00 | 1.00 | 7.17s | n/a |
+| 2 | yes | n/a | n/a | n/a | 1.00 | 1.00 | 11.69s | n/a |
+| 3 | yes | n/a | n/a | n/a | 1.00 | 1.00 | 6.67s | n/a |
+| 4 | yes | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 15.58s | n/a |
+| 5 | yes | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 11.06s | n/a |
+| 6 | yes | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 19.84s | n/a |
+| 7 | yes | 1.00 | 1.00 | 1.00 | 1.00 | 0.85 | 20.08s | n/a |
+| 8 | yes | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 15.8s | n/a |
+| 9 | yes | 0.50 | 1.00 | 1.00 | 1.00 | 0.85 | 16.19s | n/a |
+| 10 | yes | 1.00 | 1.00 | 1.00 | 0.93 | 1.00 | 15.1s | n/a |
