@@ -7,7 +7,7 @@ an app that ships with no index is worse than useless, it looks healthy and
 refuses every question, because the synthesizer correctly declines to answer
 with no evidence.
 
-So the demo ships a **small curated index**: large enough that the system
+So the demo ships a small curated index: large enough that the system
 demonstrably works end to end, small enough to bake into the image and to
 limit how much third-party documentation is republished.
 
@@ -78,7 +78,7 @@ def build(extra: int, seed: int) -> int:
     present = {p.name for p in DATA_DIR.glob("*.pdf")}
     missing = wanted - present
     if missing:
-        print(f"⚠ {len(missing)} referenced document(s) not in {DATA_DIR}:")
+        print(f"{len(missing)} referenced document(s) not in {DATA_DIR}:")
         for m in sorted(missing)[:10]:
             print(f"    {m}")
     wanted &= present

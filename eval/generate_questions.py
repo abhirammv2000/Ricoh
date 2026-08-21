@@ -8,7 +8,7 @@ sits on its weakest evidence base.  Growing the set is the highest-value work
 remaining.
 
 How the labels are obtained without hand-labelling everything
-Each question is generated **from a specific chunk**, so that chunk's document
+Each question is generated from a specific chunk, so that chunk's document
 is the expected source *by construction*.  That gives reliable retrieval labels
 for free.  It does not give free *answer* labels, those still need the judge,
 and the judge still needs human calibration (see eval/label_for_kappa.py).
@@ -290,16 +290,16 @@ def audit() -> int:
 
     print("\nReading this:")
     if mean_overlap > 0.60:
-        print("  ⚠ HIGH overlap - questions echo their source chunk. Keyword")
+        print("  HIGH overlap - questions echo their source chunk. Keyword")
         print("    retrieval will find them trivially and recall is inflated.")
     else:
-        print("  ✓ Overlap is moderate; questions are paraphrased rather than copied.")
+        print("  Overlap is moderate; questions are paraphrased rather than copied.")
     if sum(recalls) / n >= 0.99:
-        print("  ⚠ recall@k is ~perfect. Either retrieval genuinely is this")
+        print("  recall@k is ~perfect. Either retrieval genuinely is this")
         print("    strong on this corpus (consistent with the 10-question set),")
         print("    or the set is too easy to discriminate between systems.")
     else:
-        print("  ✓ recall@k below ceiling - the set can distinguish systems.")
+        print("  recall@k below ceiling - the set can distinguish systems.")
 
     if mismatched:
         print(f"\n{len(mismatched)} question(s) whose TOP hit is a different document.")

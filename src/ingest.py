@@ -1,15 +1,15 @@
 """
 src/ingest.py - PDF parsing and metadata-preserving chunking pipeline.
 
-This is the **heart of Phase 1**.  It:
+Turns the PDFs in data/ into chunks the retriever can index. It:
 
 1. Discovers all PDFs in ``data/``.
-2. Extracts text **page-by-page** via PyMuPDF, keeping each page's
+2. Extracts text page-by-page via PyMuPDF, keeping each page's
    ``source_document`` (filename) and ``page_number``.
 3. Splits page text into sliding-window chunks (~500 words, 50-word
-   overlap) that **never lose** their page-number provenance.
+   overlap) that never lose their page-number provenance.
 4. Returns a flat list of chunk dicts ready for ChromaDB + BM25
-   insertion in Phase 2.
+   insertion into the index.
 
 Design decisions
 - We use PyMuPDF (``import fitz``) because it gives us precise
@@ -17,7 +17,7 @@ Design decisions
 - "Token" is approximated by whitespace-split words - simple,
   deterministic, zero extra dependencies.
 - Each chunk records the page(s) it originated from so the
-  hackathon rubric's *strict citation* requirement is met.
+  every answer can cite an exact document and page.
 """
 
 from __future__ import annotations
@@ -40,9 +40,7 @@ from src.config import (
 logger = logging.getLogger(__name__)
 
 
-# ====================================================================
 # 1. PDF TEXT EXTRACTION
-# ====================================================================
 
 def extract_pages(pdf_path: str | Path) -> list[dict[str, Any]]:
     """Extract text from every page of a single PDF.
@@ -60,7 +58,7 @@ def extract_pages(pdf_path: str | Path) -> list[dict[str, Any]]:
             }
 
     Why page-level extraction?
-        The hackathon rubric demands **exact page citations**.  By
+        Answers have to cite an exact document and page.  By
         capturing the page number at extraction time we guarantee
         downstream chunks never lose this provenance.
     """
@@ -96,9 +94,7 @@ def extract_pages(pdf_path: str | Path) -> list[dict[str, Any]]:
     return pages
 
 
-# ====================================================================
 # 2. SLIDING-WINDOW CHUNKER  (metadata-safe)
-# ====================================================================
 
 def _generate_chunk_id(source: str, page: int | str, index: int) -> str:
     """Deterministic chunk ID = sha256(source|page|index)[:16].
@@ -138,7 +134,7 @@ def chunk_pages(
 
     Why NOT cross page boundaries?
         Mixing text from different pages makes page-number citation
-        ambiguous.  We chunk **within** each page so every chunk maps
+        ambiguous.  We chunk within each page so every chunk maps
         to exactly ONE page number - clean citations, zero ambiguity.
     """
     chunks: list[dict[str, Any]] = []
@@ -198,9 +194,7 @@ def chunk_pages(
     return chunks
 
 
-# ====================================================================
 # 3. ORCHESTRATOR - ingest all PDFs in data/
-# ====================================================================
 
 def ingest_all(data_dir: str | Path = DATA_DIR) -> list[dict[str, Any]]:
     """Discover PDFs in *data_dir*, extract + chunk them all.
@@ -241,9 +235,7 @@ def ingest_all(data_dir: str | Path = DATA_DIR) -> list[dict[str, Any]]:
     return all_chunks
 
 
-# ====================================================================
 # 4. __main__ - quick smoke test with a generated sample PDF
-# ====================================================================
 
 def _create_sample_pdf(path: Path) -> None:
     """Generate a tiny multi-page PDF for testing the pipeline.
@@ -324,7 +316,7 @@ if __name__ == "__main__":
     import sys
 
     print("=" * 70)
-    print("  Citera - Phase 1 Ingestion Pipeline Smoke Test")
+    print("  Citera ingestion smoke test")
     print("=" * 70)
 
     # Create a sample PDF in data/ for testing
@@ -335,11 +327,11 @@ if __name__ == "__main__":
     chunks = ingest_all(DATA_DIR)
 
     if not chunks:
-        print("\n❌  No chunks produced - something went wrong.")
+        print("\nNo chunks produced - something went wrong.")
         sys.exit(1)
 
     # Summary statistics
-    print(f"\n✅  Ingestion successful!")
+    print(f"\nIngestion successful!")
     print(f"   Total chunks : {len(chunks)}")
     print(f"   Source files  : {set(c['source_document'] for c in chunks)}")
 
@@ -357,7 +349,7 @@ if __name__ == "__main__":
 
     # Clean up sample PDF (optional - comment out to keep it)
     sample_path.unlink(missing_ok=True)
-    print(f"\n🧹  Cleaned up sample PDF.")
+    print(f"\nCleaned up sample PDF.")
     print("=" * 70)
-    print("Phase 1 smoke test complete. Ready for Phase 2!")
+    print("Smoke test complete.")
     print("=" * 70)

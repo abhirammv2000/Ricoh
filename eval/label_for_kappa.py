@@ -202,7 +202,7 @@ def score() -> int:
         print(f"  Cohen's kappa  : {stats['cohens_kappa']}  ({_interpret(stats['cohens_kappa'])})")
         print(f"  positives - human {stats['human_positive_rate']:.0%} / judge {stats['judge_positive_rate']:.0%}")
         if stats["raw_agreement"] - stats["chance_agreement"] < 0.1:
-            print("  ⚠ raw agreement is close to chance, the high raw number is a")
+            print("  raw agreement is close to chance, the high raw number is a")
             print("    base-rate artifact, not evidence the judge is accurate.")
         if disagreements:
             print(f"  disagreements ({len(disagreements)}):")
@@ -316,13 +316,13 @@ def spot_check(metrics_path: Path) -> int:
     print(f"  judge mean correctness: {sum((c or 0) for _, _, c in rows)/len(rows):.3f}")
     print()
     if flagged:
-        print(f"⚠ {len(flagged)} answer(s) scored >= 0.8 by the judge with ZERO key facts present:")
+        print(f"{len(flagged)} answer(s) scored >= 0.8 by the judge with ZERO key facts present:")
         for qid, q, c in flagged[:10]:
             print(f"  Q{qid} (correctness {c}): {q[:76]}")
         print("\n  Each is a real defect in one of three places: the judge is wrong,")
         print("  the answer is wrong, or the key_facts are badly written. Worth reading.")
     else:
-        print("✓ No answer was credited by the judge while containing none of its key facts.")
+        print("No answer was credited by the judge while containing none of its key facts.")
     print("\nNote: exact-wording matching. A correctly paraphrased fact counts as")
     print("absent here, so coverage UNDERSTATES quality. Only the disagreements")
     print("are informative, not the absolute number.")
@@ -350,7 +350,7 @@ def cross_judge(metrics_path: Path, n: int, seed: int) -> int:
     report = json.loads(io.open(metrics_path, encoding="utf-8").read())
     cfg = report.get("config", {})
     if cfg.get("use_planner"):
-        print("⚠ This run used the planner, so retrieval is not reproducible from")
+        print("This run used the planner, so retrieval is not reproducible from")
         print("  the question alone and the reconstructed evidence may differ.")
 
     rows = [r for r in report["per_question"] if r.get("correctness") is not None]
@@ -398,7 +398,7 @@ def cross_judge(metrics_path: Path, n: int, seed: int) -> int:
     print(f"  cost             : ${rec.total_cost_usd:.4f}")
     if stats["chance_agreement"] > 0.85:
         print()
-        print("  ⚠ Chance agreement is very high because both judges rate almost")
+        print("  Chance agreement is very high because both judges rate almost")
         print("    everything acceptable. Kappa has little room to move, so this")
         print("    result is far weaker evidence than the headline number suggests.")
     if disagreements:

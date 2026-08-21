@@ -10,9 +10,9 @@ reports the spread.  Anything smaller than that spread is noise, not signal.
 
 Two properties worth knowing about the result:
 
-* Unambiguous answers score with **zero** variance, the judge is not
+* Unambiguous answers score with zero variance, the judge is not
   randomly jittering everything.
-* Variance concentrates on **borderline** answers, which are exactly the ones
+* Variance concentrates on borderline answers, which are exactly the ones
   that move an aggregate mean.  So the noise floor that matters is the
   borderline one, not the average one.
 

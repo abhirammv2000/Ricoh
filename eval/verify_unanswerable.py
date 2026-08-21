@@ -61,7 +61,7 @@ def _iter_documents(data_dir: Path) -> Iterator[tuple[str, str]]:
             text = "\n".join(page.get_text("text") for page in doc)
             doc.close()
         except Exception as exc:  # pragma: no cover - corrupt/locked file
-            print(f"  ⚠️  could not read {path.name}: {exc}")
+            print(f"  could not read {path.name}: {exc}")
             continue
         yield path.name, text
 
@@ -104,13 +104,13 @@ def verify(data_dir: Path = DATA_DIR) -> int:
         print(f"\n  Documents matching: {hits}")
         if quantified:
             quantified_total += len(quantified)
-            print(f"  ⚠️  {len(quantified)} line(s) contain a quantity, REVIEW THESE:")
+            print(f"  {len(quantified)} line(s) contain a quantity, REVIEW THESE:")
             for q in quantified:
                 print(f"      {q[:180]}")
             print("  → If any is a real answer, this question is NOT unanswerable")
             print("    and its 'refuse' label is wrong.")
         else:
-            print("  ✅  No quantity found, 'refuse' label is supported.\n")
+            print("  No quantity found, 'refuse' label is supported.\n")
 
     print("=" * 72)
     if quantified_total:
