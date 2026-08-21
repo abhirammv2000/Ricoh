@@ -1,15 +1,15 @@
 """
 src/agent.py - LangGraph Agentic State Machine.
 
-This is the **brain** of Citera.  It orchestrates a
+Orchestrates a
 Plan → Retrieve → Verify → Synthesize loop that:
 
-1. **Plans** - decomposes a user question into focused sub-queries
+1. Plans - decomposes a user question into focused sub-queries
    and extracts key entities (error codes, model numbers).
-2. **Retrieves** - calls the HybridRetriever for each sub-query.
-3. **Verifies** - asks the LLM whether the retrieved evidence is
+2. Retrieves - calls the HybridRetriever for each sub-query.
+3. Verifies - asks the LLM whether the retrieved evidence is
    sufficient to answer the question definitively.
-4. **Synthesises** - generates a grounded answer with strict
+4. Synthesises - generates a grounded answer with strict
    page-level citations in [Document Name, Page X] format.
 
 The agentic loop allows one retry: if the Verifier says
@@ -42,6 +42,7 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
     RETRIEVAL_FINAL_K,
     RETRIEVAL_TOP_K,
     USE_PLANNER,
+    USE_TOOL_LOOP,
     USE_VERIFIER,
 )
 from src.instrumentation import invoke as instrumented_invoke
@@ -57,9 +58,7 @@ logger = logging.getLogger(__name__)
 MAX_ITERATIONS: int = 2  # hard cap on agentic retries
 
 
-# ====================================================================
 # 1. STATE DEFINITION
-# ====================================================================
 
 class AgentState(TypedDict):
     """Typed state that flows through every node in the graph.
@@ -76,9 +75,7 @@ class AgentState(TypedDict):
     iterations: int                          # loop counter (max 2)
 
 
-# ====================================================================
 # 2. PROMPT TEMPLATES
-# ====================================================================
 
 PLANNER_PROMPT = """\
 You are a query planner for a Ricoh technical support system.
@@ -113,7 +110,7 @@ Retrieved evidence:
 {evidence_block}
 
 Task: Determine whether the retrieved evidence contains enough \
-information to **definitively** answer the user's question without \
+information to definitively answer the user's question without \
 guessing.  Consider whether specific steps, values, or procedures \
 mentioned in the question are covered.
 
@@ -151,9 +148,7 @@ Answer:
 """
 
 
-# ====================================================================
 # 3. HELPER - format evidence for prompts
-# ====================================================================
 
 def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
     """Render evidence chunks into a numbered text block for prompts."""
@@ -171,9 +166,7 @@ def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-# ====================================================================
 # 4. GRAPH NODES
-# ====================================================================
 
 def planner_node(state: AgentState) -> dict[str, Any]:
     """Node 1 - Decompose the user query into sub-queries.
@@ -222,7 +215,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
     logger.info("Planner sub-queries: %s", sub_queries)
 
     # Pretty-print for terminal visibility.
-    print(f"\n🧠  PLANNER - Iteration {state['iterations'] + 1}")
+    print(f"\nPLANNER - Iteration {state['iterations'] + 1}")
     print(f"   Entities : {entities}")
     print(f"   Sub-queries:")
     for i, sq in enumerate(sub_queries, 1):
@@ -261,7 +254,7 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
                 new_evidence.append(r)
 
     pass1_count = len(new_evidence)
-    print(f"\n📚  RETRIEVER - Pass 1 (sub-queries): {pass1_count} chunks")
+    print(f"\nRETRIEVER - Pass 1 (sub-queries): {pass1_count} chunks")
 
     # Pass 2: entity-boosted refined queries.
     entities = state.get("entities", [])
@@ -280,9 +273,9 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
                     new_evidence.append(r)
 
         pass2_new = len(new_evidence) - pass1_count
-        print(f"📚  RETRIEVER - Pass 2 (entities: {entities}): +{pass2_new} new chunks")
+        print(f"RETRIEVER - Pass 2 (entities: {entities}): +{pass2_new} new chunks")
 
-    print(f"📚  RETRIEVER - Total: {len(new_evidence)} unique evidence chunks")
+    print(f"RETRIEVER - Total: {len(new_evidence)} unique evidence chunks")
 
     return {
         "retrieved_evidence": new_evidence,
@@ -315,7 +308,7 @@ def verifier_node(state: AgentState) -> dict[str, Any]:
         logger.warning("Verifier gave unexpected output: '%s'", verdict)
         status = "SUFFICIENT"
 
-    print(f"\n✅  VERIFIER - {status} (iteration {state['iterations']})")
+    print(f"\nVERIFIER - {status} (iteration {state['iterations']})")
 
     return {"verification_status": status}
 
@@ -336,14 +329,12 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
 
     answer = instrumented_invoke(llm, prompt, stage="synthesizer")
 
-    print(f"\n💬  SYNTHESIZER - Answer generated ({len(answer)} chars)")
+    print(f"\nSYNTHESIZER - Answer generated ({len(answer)} chars)")
 
     return {"final_answer": answer}
 
 
-# ====================================================================
 # 5. CONDITIONAL EDGE - Verifier routing logic
-# ====================================================================
 
 def should_retry_or_synthesize(state: AgentState) -> str:
     """Decide whether to loop back to the planner or move on.
@@ -356,19 +347,17 @@ def should_retry_or_synthesize(state: AgentState) -> str:
         state["verification_status"] == "INSUFFICIENT"
         and state["iterations"] < MAX_ITERATIONS
     ):
-        print(f"\n🔄  ROUTING back to PLANNER (retry)")
+        print(f"\nROUTING back to PLANNER (retry)")
         return "planner"
 
     if state["iterations"] >= MAX_ITERATIONS:
-        print(f"\n⚠️   ROUTING to SYNTHESIZER (max iterations reached)")
+        print(f"\nROUTING to SYNTHESIZER (max iterations reached)")
     else:
-        print(f"\n✅  ROUTING to SYNTHESIZER (evidence sufficient)")
+        print(f"\nROUTING to SYNTHESIZER (evidence sufficient)")
     return "synthesizer"
 
 
-# ====================================================================
 # 6. GRAPH ASSEMBLY
-# ====================================================================
 
 def build_agent_graph(
     use_planner: bool = True,
@@ -465,9 +454,7 @@ def get_agent_graph(
     return _COMPILED_GRAPHS[key]
 
 
-# ====================================================================
 # 7. PUBLIC API - convenience runner
-# ====================================================================
 
 def initial_state(query: str, use_planner: bool | None = None) -> AgentState:
     """Build the starting state for a run.
@@ -517,6 +504,18 @@ def run_agent(
             with span("cache", cache_hit=True, kind=hit.kind, similarity=hit.similarity):
                 pass
             return hit.answer
+
+    # Tool-calling path (USE_TOOL_LOOP, off by default). The model runs its own
+    # searches instead of taking one fixed retrieval, so it bypasses the graph
+    # rather than forming a node inside it: the whole point is that the control
+    # flow is the model's, not the graph's.
+    if USE_TOOL_LOOP:
+        from src.tools import run_tool_loop
+
+        answer = run_tool_loop(query)["answer"]
+        if cache is not None:
+            cache.store(query, answer)
+        return answer
 
     agent = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
     final_state = agent.invoke(initial_state(query, use_planner=use_planner))
@@ -600,9 +599,7 @@ def stream_agent(
     result.total_seconds = time.perf_counter() - started
 
 
-# ====================================================================
 # __main__ - Smoke test with a complex multi-part question
-# ====================================================================
 
 if __name__ == "__main__":
     import sys
@@ -611,11 +608,11 @@ if __name__ == "__main__":
     from src.retriever import HybridRetriever
 
     print("=" * 70)
-    print("  Citera - Phase 3 Agent Smoke Test")
+    print("  Citera agent smoke test")
     print("=" * 70)
 
     # Step 1: make sure the retrieval index is populated.
-    print("\n📄  Checking/building retrieval index…")
+    print("\nChecking/building retrieval index…")
     retriever = HybridRetriever()
 
     if retriever.index_size == 0 or not retriever.bm25_ready:
@@ -623,7 +620,7 @@ if __name__ == "__main__":
         print(f"   Index needs (re)build ({reason}) - ingesting PDFs…")
         chunks = ingest_all()
         if not chunks:
-            print("❌  No PDFs found in data/. Add PDFs and retry.")
+            print("No PDFs found in data/. Add PDFs and retry.")
             sys.exit(1)
         retriever.build_index(chunks)
         print(f"   Index built: {retriever.index_size} docs, BM25: {retriever.bm25_ready}.")
@@ -647,5 +644,5 @@ if __name__ == "__main__":
     print(f"{'=' * 70}")
     print(answer)
     print(f"\n{'=' * 70}")
-    print("Phase 3 smoke test complete. Ready for Phase 4!")
+    print("Smoke test complete.")
     print(f"{'=' * 70}")
