@@ -14,12 +14,12 @@
 
 | Metric | Mean | 95% CI | What it means |
 |---|---|---|---|
-| Behaviour-match rate | 1.00 | — | Answered vs. refused as expected |
+| Behaviour-match rate | 1.00 | n/a | Answered vs. refused as expected |
 | Evidence recall | 1.00 | [1.00, 1.00] | Expected doc reached the synthesizer, across ALL passes/retries (n=8) |
 | Citation precision | 1.00 | [1.00, 1.00] | Cited docs exist in the evidence (catches fabricated filenames only) (n=8) |
 | Groundedness | 0.98 | [0.97, 1.00] | Claims supported by evidence (n=10) |
 | Correctness | 1.00 | [1.00, 1.00] | Conveys expected facts / refuses correctly (n=10) |
-| Mean latency | 9.89s | — | Per-question wall-clock (max 16.59s) |
+| Mean latency | 9.89s | n/a | Per-question wall-clock (max 16.59s) |
 
 ### Retriever in isolation
 
@@ -58,13 +58,13 @@ a query costs; judge cost is eval overhead and is never folded into it.
 
 | # | Behaviour ✓ | Evid. recall | Retr.@5 | Cite prec. | Grounded | Correct | Latency | Flags |
 |---|---|---|---|---|---|---|---|---|
-| 1 | ✅ | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 7.47s | — |
-| 2 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 3.81s | — |
-| 3 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 5.43s | — |
-| 4 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 12.82s | — |
-| 5 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 8.18s | — |
-| 6 | ✅ | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 16.59s | — |
-| 7 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 14.19s | — |
-| 8 | ✅ | 1.00 | 1.00 | 1.00 | 0.97 | 1.00 | 13.16s | — |
-| 9 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 10.92s | — |
-| 10 | ✅ | 1.00 | 1.00 | 1.00 | 0.97 | 1.00 | 6.34s | — |
+| 1 | ✅ | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 7.47s | n/a |
+| 2 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 3.81s | n/a |
+| 3 | ✅ | n/a | n/a | n/a | 1.00 | 1.00 | 5.43s | n/a |
+| 4 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 12.82s | n/a |
+| 5 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 8.18s | n/a |
+| 6 | ✅ | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 16.59s | n/a |
+| 7 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 14.19s | n/a |
+| 8 | ✅ | 1.00 | 1.00 | 1.00 | 0.97 | 1.00 | 13.16s | n/a |
+| 9 | ✅ | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 10.92s | n/a |
+| 10 | ✅ | 1.00 | 1.00 | 1.00 | 0.97 | 1.00 | 6.34s | n/a |

@@ -48,9 +48,7 @@ from src.retriever import HybridRetriever
 
 logger = logging.getLogger(__name__)
 
-# ====================================================================
 # 1. OFFICIAL HACKATHON TEST QUESTIONS
-# ====================================================================
 
 HACKATHON_QUESTIONS: list[str] = [
     "What property do I set if I want the printers to enable after a restart?",
@@ -70,9 +68,7 @@ CSV_PATH: Path = PROJECT_ROOT / "evaluation_results.csv"
 REPORT_PATH: Path = PROJECT_ROOT / "evaluation_report.md"
 
 
-# ====================================================================
 # 2. EVALUATION RUNNER
-# ====================================================================
 
 def _extract_sources(answer: str) -> list[str]:
     """Pull unique [Document, Page X] citations from the answer text."""
@@ -125,9 +121,7 @@ def run_evaluation() -> list[dict[str, Any]]:
     return results
 
 
-# ====================================================================
 # 3. CSV WRITER
-# ====================================================================
 
 def save_csv(results: list[dict[str, Any]], path: Path = CSV_PATH) -> None:
     """Write evaluation results to a CSV file."""
@@ -147,9 +141,7 @@ def save_csv(results: list[dict[str, Any]], path: Path = CSV_PATH) -> None:
     print(f"\n📊  CSV saved → {path}")
 
 
-# ====================================================================
 # 4. MARKDOWN REPORT WRITER
-# ====================================================================
 
 def save_markdown_report(
     results: list[dict[str, Any]], path: Path = REPORT_PATH
@@ -229,9 +221,7 @@ def save_markdown_report(
     print(f"📝  Markdown report saved → {path}")
 
 
-# ====================================================================
 # __main__ - Run the full evaluation
-# ====================================================================
 
 if __name__ == "__main__":
     import sys

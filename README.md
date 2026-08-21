@@ -4,13 +4,13 @@
 
 ---
 
-## ⭐ TL;DR
+## TL;DR
 
 **Citera** is a retrieval-augmented technical-support assistant over **733 Ricoh ProcessDirector documents**. Ask a natural-language question; it answers with page-level citations and **refuses when the docs don't contain the answer** instead of hallucinating.
 
 It was built as an agentic pipeline (plan → retrieve → verify → retry) and then **measured back down to a single retrieval call**, because that is what the evidence supported.
 
-**Measured** with `claude-opus-5` judging `claude-sonnet-4-6` over the full corpus, methodology and caveats in [§7](#7️⃣-evaluation--metrics), full decision log in [ROADMAP.md](ROADMAP.md):
+**Measured** with `claude-opus-5` judging `claude-sonnet-4-6` over the full corpus, methodology and caveats in [§7](#7-evaluation-and-metrics), full decision log in [ROADMAP.md](ROADMAP.md):
 
 > **0.96** groundedness `[0.95-0.98]` · **0.97** correctness `[0.94-0.99]` · **1.00** citation precision · **0.98** answer-vs-refuse · **0.94** retrieval recall@5
 >
@@ -18,7 +18,7 @@ It was built as an agentic pipeline (plan → retrieve → verify → retry) and
 
 Measured on **100 questions** with a 70/30 dev/holdout split. An earlier 10-question set gave flattering numbers with intervals twice as wide. Growing the benchmark moved groundedness 0.98 → 0.96 and revealed a behaviour-match failure the small set could not see.
 
-**The headline result is that the agentic pipeline was removed, and the system got better.**
+**The headline result: every stage had to earn its cost against an ablation, and two of them failed.** Switching the planner and verifier off made the system cheaper and faster and no worse on any quality metric.
 
 A three-config progressive-removal ablation compared the full Planner → Retriever → Verifier → retry loop against progressively simpler pipelines:
 
@@ -28,9 +28,9 @@ A three-config progressive-removal ablation compared the full Planner → Retrie
 | B | + planner | 2.0 | $0.0207 | 13.9s | 0.88 | 0.99 | 0.97 |
 | C | + verifier/retry *(old default)* | 3.4 | $0.0490 | 15.6s | 0.88 | 0.98 | 0.98 |
 
-Config A matched or beat the full pipeline on **every quality metric** at **3.1× lower cost** and **1.6× lower latency**. Not one question was measurably better under C. Config A is now the default; the stages remain behind config flags rather than deleted, because the ablation's scope is this corpus and this question set, see [§7](#7️⃣-evaluation--metrics).
+Config A matched or beat the full pipeline on **every quality metric** at **3.1× lower cost** and **1.6× lower latency**. Not one question was measurably better under C. Config A is now the default; the stages remain behind config flags rather than deleted, because the ablation's scope is this corpus and this question set, see [§7](#7-evaluation-and-metrics).
 
-Brackets elsewhere are 95% bootstrap confidence intervals. **n=10. The intervals are wide, and that is the point:** numbers are reported with the uncertainty the sample size supports rather than as bare point estimates.
+Brackets are 95% percentile-bootstrap confidence intervals. The headline figures above are n=100. The ablation table is n=10, and its intervals are correspondingly wide. Numbers are reported with the uncertainty the sample size supports rather than as bare point estimates.
 
 **Stack:** Python · LangGraph · Claude · ChromaDB (dense) + BM25 + Reciprocal Rank Fusion · Streamlit · pytest + GitHub Actions CI · Docker.
 
@@ -42,7 +42,7 @@ streamlit run app/main.py
 
 ---
 
-## 🔎 Observability
+## Observability
 
 Every request is traced: a trace id, per-stage spans (retrieval and LLM), token
 counts, derived cost, and **chunk attribution**, for any stored answer you can
@@ -66,18 +66,20 @@ synthesizer for a repeat or near-duplicate question. A hit is recorded as a
 zero-cost span, so the cost dashboard shows the saving rather than hiding it, and
 the threshold is set from measured cosine similarity rather than guessed.
 
-**Honest gaps:** the local traces have no web UI of their own, and production
-traffic is not sampled back into the eval set.
+**Honest gaps:** the app ships an aggregate cost and latency dashboard
+(`src/perf.py`), but per-request drill-down, the chunk attribution behind one
+past trace, is CLI-only. Production traffic is not sampled back into the eval
+set.
 
 ---
 
-## 1️⃣ Problem Statement
+## 1. Problem statement
 
 Build a technical-support assistant that answers complex, multi-part questions about RICOH ProcessDirector using **only** the supplied documentation, and that refuses rather than guesses when the documentation does not contain the answer.
 
 Field technicians and support engineers lose significant time searching documentation for specific procedures, error-code resolutions, and configuration steps. The system needs to ingest that documentation, understand natural-language questions, retrieve the relevant passages, and generate accurate, cited answers with zero hallucination.
 
-**The constraint that actually shapes the design:** the corpus is **733 individual help-topic articles, most of them a single page**, not a handful of long manuals (median chunk: 307 words; 1,314 chunks total). So the core retrieval task is **selecting the right document out of 733**, not locating a passage within a long document. Almost every design decision below follows from that, see [§5](#5️⃣-data-handling--preprocessing).
+**The constraint that actually shapes the design:** the corpus is **733 individual help-topic articles, most of them a single page**, not a handful of long manuals (median chunk: 307 words; 1,314 chunks total). So the core retrieval task is **selecting the right document out of 733**, not locating a passage within a long document. Almost every design decision below follows from that, see [§5](#5-data-handling-and-preprocessing).
 
 **End user:** Ricoh field service technicians, help desk agents, and customers seeking self-service support.
 
@@ -85,7 +87,7 @@ Field technicians and support engineers lose significant time searching document
 
 ---
 
-## 2️⃣ Why This Problem
+## 2. Why this problem
 
 - **Real-world impact:** Technical support is a multi-billion dollar industry; AI-assisted retrieval meaningfully cuts the time engineers spend searching documentation.
 - **Technical depth:** the problem spans ingestion, hybrid retrieval, grounded generation, and strict hallucination control, not just a chatbot wrapper.
@@ -94,13 +96,13 @@ Field technicians and support engineers lose significant time searching document
 
 ---
 
-## 3️⃣ Solution Overview
+## 3. Solution overview
 
 **Citera** is an agentic AI technical support system that:
 
 1. **Ingests** Ricoh PDF manuals using PyMuPDF with metadata-preserving chunking (500 words, 50-word overlap).
 2. **Retrieves** relevant passages via a **hybrid engine** combining semantic vector search (ChromaDB + MiniLM) and keyword search (BM25), fused with Reciprocal Rank Fusion.
-3. **Runs** a LangGraph state machine whose composition is set by measurement: the Planner and Verifier stages exist but are **off by default**, because an ablation showed the single-retrieval path matched or beat the full loop at 3.1× lower cost ([§7](#7️⃣-evaluation--metrics)).
+3. **Runs** a LangGraph state machine whose composition is set by measurement: the Planner and Verifier stages exist but are **off by default**, because an ablation showed the single-retrieval path matched or beat the full loop at 3.1× lower cost ([§7](#7-evaluation-and-metrics)).
 4. **Generates** grounded answers with strict `[Document Name, Page X]` citations - refusing to answer when evidence is insufficient.
 5. **Visualises** the full reasoning process in a "Glass Box" Streamlit dashboard.
 6. 🌍 **Polyglot Support:** Automatically detects user language (e.g., Spanish, Japanese, Hindi) and answers in that language while preserving English citations.
@@ -109,7 +111,7 @@ Field technicians and support engineers lose significant time searching document
 
 ---
 
-## 4️⃣ Architecture & System Design
+## 4. Architecture and system design
 
 ```
 User Question
@@ -148,11 +150,11 @@ Cited Answer + Glass Box Visualisation
 ### Why this architecture?
 - **Hybrid retrieval** because pure vector search misses exact matches on error codes (`SC542`) and model numbers (`IM C3500`), while pure BM25 misses semantic similarity.
 - **RRF fusion** because BM25 and cosine similarity scores are incommensurable - rank-based fusion avoids score normalisation issues.
-- **Agentic loop, built, measured, and switched off.** The original rationale was that single-pass retrieval misses evidence on multi-part questions and the verify-retry pattern catches the gaps. That was a hypothesis, and on this corpus it turned out to be false: the loop retrieved *worse* than the raw question and cost 3.1× more. The stages remain behind config flags because the rationale may well hold on a corpus with weaker retrieval. It simply does not hold here ([§7](#7️⃣-evaluation--metrics)).
+- **Agentic loop, built, measured, and switched off.** The original rationale was that single-pass retrieval misses evidence on multi-part questions and the verify-retry pattern catches the gaps. That was a hypothesis, and on this corpus it turned out to be false: the loop retrieved *worse* than the raw question and cost 3.1× more. The stages remain behind config flags because the rationale may well hold on a corpus with weaker retrieval. It simply does not hold here ([§7](#7-evaluation-and-metrics)).
 
 ---
 
-## 5️⃣ Data Handling & Preprocessing
+## 5. Data handling and preprocessing
 
 - **Dataset:** Official Ricoh ProcessDirector (RPD) documentation, **733 PDFs (~223 MB)**, stored in `data/` (gitignored due to size). Honest note: these are **individual help-topic articles**, most of which are a *single page* each, rather than a handful of 100+ page manuals. This is why nearly every citation reads "Page 1", and it means the real retrieval challenge here is **picking the right document out of 733**, not pinpointing a page within a long manual. The page-level citation machinery still works (and would matter for true multi-page manuals), but we call out the corpus shape rather than overstate it.
 - **Extraction:** PyMuPDF extracts raw text page-by-page, preserving `source_document` and `page_number` metadata throughout.
@@ -163,7 +165,7 @@ Cited Answer + Glass Box Visualisation
 
 ---
 
-## 6️⃣ Modeling & AI Strategy
+## 6. Modeling and AI strategy
 
 ### LLM: Claude Sonnet (Anthropic)
 - **Why:** Strong instruction-following, reliable JSON output for the planner, low hallucination rate, and cheap enough to run 4-5 calls per question.
@@ -186,9 +188,9 @@ Cited Answer + Glass Box Visualisation
 
 ---
 
-## 7️⃣ Evaluation & Metrics
+## 7. Evaluation and metrics
 
-### Test Set: 10 Official Hackathon Questions
+### Test set: 10 seed questions, expanded to 100
 1. What property do I set if I want the printers to enable after a restart?
 2. How much RAM does the primary server need for document-level processing?
 3. How much hard drive space should I allocate for DB2 logs?
@@ -200,7 +202,9 @@ Cited Answer + Glass Box Visualisation
 9. How do I use locations?
 10. What inserters does RPD support?
 
-_(Per-question latency and scores are in the measured-results table below and in [eval/eval_report.md](eval/eval_report.md).)_
+These 10 shipped with the hackathon brief and seeded the benchmark. The eval set is now **100 questions** (`eval/generate_questions.py`, 70/30 dev/holdout), and the headline metrics are measured on all 100. The 10 are kept here because the ablation in this section was run on them.
+
+_(Per-question latency and scores: [eval/eval_report_n100.md](eval/eval_report_n100.md) for the current run, [eval/eval_report.md](eval/eval_report.md) for the original 10.)_
 
 ### Two levels of evaluation
 
@@ -246,28 +250,30 @@ So the honest conclusion is: **this eval cannot detect whether self-preference w
 
 ### Measured results
 
-Full corpus (733 PDFs → 1,314 chunks), agent `claude-sonnet-4-6`, judge `claude-opus-5`, 10 questions. Generated by `src/eval_harness.py` → [eval/eval_report.md](eval/eval_report.md) / [eval/metrics.json](eval/metrics.json). Brackets are 95% percentile-bootstrap CIs:
+Full corpus (733 PDFs → 1,314 chunks), agent `claude-sonnet-4-6`, judge `claude-opus-5`, **100 questions** with a 70/30 dev/holdout split. Generated by `src/eval_harness.py` → [eval/eval_report_n100.md](eval/eval_report_n100.md) / [eval/metrics_n100.json](eval/metrics_n100.json). Brackets are 95% percentile-bootstrap CIs:
 
 | Metric | Mean | 95% CI | n |
 |---|---|---|---|
-| **Behaviour-match rate** | **1.00** | — | 10 |
-| **Groundedness** | **0.98** | [0.97, 1.00] | 10 |
-| **Answer correctness** | **0.98** | [0.94, 1.00] | 10 |
-| **Citation precision** | **1.00** | [1.00, 1.00] | 8 |
-| **Evidence recall** | **0.88** | [0.69, 1.00] | 8 |
-| **Mean latency** | **18.8s** | max 25.5s | 10 |
+| **Behaviour-match rate** | **0.98** | n/a | 100 |
+| **Groundedness** | **0.96** | [0.95, 0.98] | 100 |
+| **Answer correctness** | **0.97** | [0.94, 0.99] | 100 |
+| **Citation precision** | **1.00** | [1.00, 1.00] | 100 |
+| **Evidence recall** | **0.94** | [0.89, 0.98] | 100 |
+| **Mean latency** | **10.1s** | max 24.5s | 100 |
+
+The earlier 10-question run reported 1.00 behaviour match, 0.98 groundedness and 0.98 correctness at 18.8s. Those numbers are **superseded, not deleted**: they are what a small sample looks like when it flatters you. Growing the set moved groundedness down 0.02, cut the intervals roughly in half, and surfaced the behaviour-match failure that 10 questions could not see. The old run is preserved in [eval/eval_report.md](eval/eval_report.md) / [eval/metrics.json](eval/metrics.json).
 
 **The retriever in isolation.** This is the most actionable result in the project:
 
 | Depth | Recall |
 |---|---|
-| recall@1 | 0.38 |
-| recall@5 | 0.81 |
-| **recall@20** | **1.00** |
+| recall@1 | 0.78 |
+| recall@3 | 0.89 |
+| **recall@5** | **0.94** |
 
-At **production settings** (`top_k=10, final_k=5`), retrieval on the raw question finds **every expected document in all 8 scorable questions**, worst rank 5. So the retriever is not the bottleneck. The pipeline wrapped around it is:
+At **production settings** (`top_k=10, final_k=5`), retrieval on the raw question reaches 0.94 recall@5 across all 100 questions, so the retriever is not the main bottleneck. The pipeline wrapped around it was:
 
-| Path | Recall | LLM calls |
+| Path (n=10 ablation) | Recall | LLM calls |
 |---|---|---|
 | Raw question, single retrieval | **1.00** (8/8) | 0 |
 | Full agentic pipeline | **0.88** | ~4 |
@@ -304,7 +310,52 @@ The verifier is cheap in *time* (one-word output) and expensive in *money* (it r
 
 **The system spent most on questions it could not answer.** Q2 and Q3, the two correct refusals, cost $0.146 and $0.122 against a $0.026 median, because the retry loop fires precisely when evidence looks insufficient. **52% of the benchmark's total cost went to 2 of 10 questions, both unanswerable.** Retrying cannot help when the corpus lacks the answer.
 
-**Limits of this conclusion, stated plainly.** It holds for *this* corpus (733 mostly single-page articles where one retrieval already achieves recall@5 = 1.00) and *this* 10-question set, which contains no genuinely multi-hop questions. On a corpus with weak retrieval, the planner's ability to re-query is exactly the mechanism that would pay for itself, the literature's case for agentic RAG is that it repairs weak retrieval, and there is nothing here to repair. That is why the stages are disabled by configuration (`USE_PLANNER`, `USE_VERIFIER`) rather than deleted.
+**Limits of this conclusion, stated plainly.** It holds for *this* corpus (733 mostly single-page articles where one retrieval already achieves recall@5 = 1.00 on these 10 questions, 0.94 across all 100) and *this* 10-question set, which contains no genuinely multi-hop questions. On a corpus with weak retrieval, the planner's ability to re-query is exactly the mechanism that would pay for itself, the literature's case for agentic RAG is that it repairs weak retrieval, and there is nothing here to repair. That is why the stages are disabled by configuration (`USE_PLANNER`, `USE_VERIFIER`) rather than deleted.
+
+### Tool calling: the one stage that did earn its cost
+
+The ablation above switched the planner and verifier off. It also predicted the
+condition under which re-querying *would* pay: a corpus where retrieval is weak
+enough to have something to repair. At n=100 that condition partly holds. Six
+questions retrieve none of their expected documents, so `USE_TOOL_LOOP`
+(`src/tools.py`) exposes retrieval to the model as a `search_docs` tool and lets
+it run its own searches, reformulating when the passages come back unhelpful.
+
+**The prediction was wrong, and the way it was wrong is the interesting part.**
+Before writing the feature, the 6 failing questions were replayed through the
+retriever with four hand-written reformulations each. Two recovered. That was
+taken as a ceiling, on the reasoning that a model without hindsight would do
+worse, and the feature was nearly abandoned on that basis.
+
+| | Recovered | Cost/query |
+|---|---|---|
+| Hand-written reformulations (predicted ceiling) | 2 / 6 | n/a |
+| **Model choosing its own searches** | **4 / 6** | **$0.0278** |
+| Baseline, single retrieval | 0 / 6 | $0.0157 |
+
+The model beat the hand-written ceiling because it reformulates *after* seeing
+the results. The planner failed at n=10 for the mirror-image reason: it rewrote
+the question up front, blind, and retrieved worse than the original. Same
+mechanism, opposite outcome, and the difference is entirely whether the
+reformulation is informed by feedback.
+
+On a 20-question sample drawn from the questions that already retrieve correctly,
+the tool loop lost **none** (20/20 retained), so the recovery is not being paid
+for with regressions elsewhere. The model used 1 to 3 searches and never hit the
+4-call cap.
+
+**Why it is still off by default.** That measurement is retrieval-only: it asks
+whether the expected document reached the model, not whether the answer got
+better. Groundedness and correctness need the full judged run at n=100, which has
+not been paid for yet. Flipping a default on unjudged evidence is the exact move
+the rest of this section argues against, so the flag ships off and the evidence
+for turning it on is written down rather than acted on. Zero regressions in 20
+questions is also consistent with a real regression rate as high as ~14%, which
+is another reason the wider run matters.
+
+```bash
+USE_TOOL_LOOP=true streamlit run app/main.py   # model runs its own searches
+```
 
 ### A correction worth reading: how I got this wrong
 
@@ -329,7 +380,7 @@ Retrieval is **bit-identical across repeated runs** (verified across fresh clien
 A second signal points the same way: on **Q6**, the retriever alone scores recall@5 = 0.00 while end-to-end evidence recall is 1.00: the planner's query decomposition surfaced a document the raw query missed. That is the clearest case in the set of the agentic layer earning its cost.
 
 **Honest caveats:**
-- **n=10.** The CIs above are wide by construction; one question moves any mean by ~10 points. This is a credible signal, not a statistically rigorous benchmark. Expanding the set is the top priority.
+- **The ablation is n=10.** Its CIs are wide by construction; one question moves any mean by ~10 points. The headline metrics are n=100, but the ablation that switched the planner and verifier off was not re-run at that size, so the pipeline-composition conclusion rests on the weaker sample. Re-running it at n=100 is the top priority.
 - **Single judge, model-graded.** No human-labelled agreement (Cohen's κ) has been measured yet, so the judge itself is unvalidated.
 - **Citation precision measures the weak thing** (see table above) and 1.00 should be read accordingly.
 - **Latency ~19s** reflects 4-5 sequential LLM calls; fine for assisted lookup, too slow for live phone support.
@@ -337,7 +388,7 @@ A second signal points the same way: on **Q6**, the retriever alone scores recal
 
 ### Enhanced retrieval A/B: withdrawn pending re-measurement
 
-An earlier A/B of stronger embeddings (`BAAI/bge-small-en-v1.5`) plus the cross-encoder reranker reported a recall gain of 0.78 → 0.89. **That comparison is withdrawn.** It was produced under the old harness: self-judged, with the mislabeled ground truth described below, and using the metric definition since renamed. It also rested on a single-question difference at n=10, well inside the noise floor. It will be re-run once the eval set is large enough to resolve a difference of that size.
+An earlier A/B of stronger embeddings (`BAAI/bge-small-en-v1.5`) plus the cross-encoder reranker reported a recall gain of 0.78 → 0.89. **That comparison is withdrawn.** It was produced under the old harness: self-judged, with the mislabeled ground truth described below, and using the metric definition since renamed. It also rested on a single-question difference at n=10, well inside the noise floor. The eval set is now large enough (n=100) to resolve a difference of that size, so re-running it is no longer blocked, only unstarted.
 
 The opt-in path still exists (it pulls in torch):
 
@@ -368,7 +419,7 @@ The script exits non-zero if any candidate quantity appears, so it can gate CI. 
 
 ---
 
-## 8️⃣ Business Impact & Actionability
+## 8. Business impact and actionability
 
 ### How this helps decision-makers
 - **Support engineers:** Get instant, cited answers instead of manually searching hundreds of separate documentation articles, faster time-to-answer.
@@ -386,7 +437,7 @@ The script exits non-zero if any candidate quantity appears, so it can gate CI. 
 
 ---
 
-## 9️⃣ Tech Stack
+## 9. Tech stack
 
 | Category | Technology |
 |---|---|
@@ -401,7 +452,7 @@ The script exits non-zero if any candidate quantity appears, so it can gate CI. 
 
 ---
 
-## 🔟 How to Run the Project
+## 10. How to run the project
 
 ### Prerequisites
 - Python 3.11+ (developed on 3.13)
@@ -447,7 +498,7 @@ python -m src.eval_harness --no-judge # objective metrics only, no API calls
 # Legacy latency/citation smoke test
 python -m src.evaluate                # outputs evaluation_results.csv + evaluation_report.md
 ```
-Results and methodology are in [§7 Evaluation & Metrics](#7️⃣-evaluation--metrics).
+Results and methodology are in [§7 Evaluation & Metrics](#7-evaluation-and-metrics).
 
 ### Run Individual Components
 ```bash
@@ -456,7 +507,7 @@ python -m src.retriever    # Retrieval smoke test
 python -m src.agent        # Agent smoke test
 ```
 
-### 🌍 Live Public Demo (Ngrok)
+### Live public demo (Ngrok)
 
 To share a live demo link with judges or teammates:
 
@@ -476,7 +527,7 @@ ngrok http 8501
 
 ---
 
-## 🧪 Testing & CI
+## 11. Testing and CI
 
 ```bash
 pip install -r requirements-dev.txt
@@ -491,7 +542,7 @@ The suite covers the logic most likely to break silently:
 
 [GitHub Actions](.github/workflows/ci.yml) runs `pytest` on every push/PR (Python 3.11). No secrets required. The tests mock the LLM.
 
-## ⚡ Optional: Cross-Encoder Reranker
+## 12. Optional: cross-encoder reranker
 
 A query-aware cross-encoder reranker (off by default to keep the base torch-free) can be enabled for higher precision@k:
 
@@ -502,7 +553,7 @@ RERANKER_ENABLED=true streamlit run app/main.py
 
 It fuses a larger candidate pool, re-scores with `cross-encoder/ms-marco-MiniLM-L-6-v2`, and trims to the top-k. Lazy-loaded and cached, so the default lightweight path is untouched.
 
-## 🐳 Deployment
+## 13. Deployment
 
 Beyond the local Ngrok demo, the project ships a reproducible container path. See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Docker, Render (one-click `render.yaml`), and Streamlit Cloud instructions.
 
@@ -511,7 +562,7 @@ docker build -t citera .
 docker run -p 8501:8501 -e ANTHROPIC_API_KEY=sk-ant-... -v "$PWD/data:/app/data" citera
 ```
 
-## ✅ Project Status: Demo vs. Production
+## 14. Project status: demo vs production
 
 Being straight about what this is:
 
@@ -519,7 +570,7 @@ Being straight about what this is:
 
 **Deliberately out of scope (next steps for true production):** auth in front of the app, secrets management, LLM-call caching + rate-limit/retry handling, request tracing (LangSmith), multi-turn conversation memory, and a CI-built index artifact instead of ingest-on-boot. These are tracked in [DEPLOYMENT.md](DEPLOYMENT.md).
 
-## 1️⃣1️⃣ Repository Structure
+## 15. Repository structure
 
 ```
 Ricoh/
@@ -568,13 +619,13 @@ Ricoh/
 
 ---
 
-## 1️⃣2️⃣ Roadmap
+## 16. Roadmap
 
 Ordered by what most improves the system, not by what is easiest to demo.
 
 | Priority | Work | Why |
 |---|---|---|
-| **1** | Expand the eval set to 100+ questions with a held-out slice | n=10 cannot resolve any change smaller than ~10 points, and the ablation conclusion deserves re-testing at higher power. |
+| **1** | Re-run the A/B/C ablation at n=100 | ~~Expand the eval set to 100+ questions with a held-out slice~~ **done**: the benchmark is now 100 questions with a 70/30 split. The ablation itself is still n=10, so the conclusion that switched two stages off is the weakest-powered claim left in the project. |
 | **2** | Judge calibration: hand-label ~50, report Cohen's κ | The judge's noise floor is measured (0.00-0.10) but its *agreement with humans* is not. Chance-corrected, not raw. |
 | **3** | Widen candidate pool (top-10 → top-50) + rerank to 5 | Worst observed rank is 8, so the ranking headroom is provable, not hoped-for. |
 | ~~4~~ | ~~Adaptive routing~~ | **Done differently.** The ablation showed no question benefited from the agentic path, so routing was unnecessary. The stages were switched off outright. A router would have added a classifier to choose between a better option and a worse one. |

@@ -87,9 +87,7 @@ REPORT_PATH: Path = PROJECT_ROOT / "eval" / "eval_report.md"
 REFUSAL_MARKER = "information unavailable"
 
 
-# ====================================================================
 # 1. LLM-AS-JUDGE
-# ====================================================================
 
 JUDGE_PROMPT = """\
 You are a strict evaluator for a retrieval-augmented technical-support \
@@ -166,9 +164,7 @@ def _judge(
         return {"groundedness": 0.0, "correctness": 0.0, "rationale": "JUDGE_PARSE_ERROR"}
 
 
-# ====================================================================
 # 2. OBJECTIVE METRICS (no LLM)
-# ====================================================================
 
 _CITATION_RE = re.compile(r"\[([^\]]+?),\s*Page\s*\d+\]", re.IGNORECASE)
 
@@ -304,9 +300,7 @@ def _is_refusal(answer: str) -> bool:
     return REFUSAL_MARKER in " ".join(answer.lower().split())
 
 
-# ====================================================================
 # 3. AGENT RUNNER (returns full state, like the Streamlit app)
-# ====================================================================
 
 def _run_agent_full(
     query: str, use_planner: bool = True, use_verifier: bool = True
@@ -330,9 +324,7 @@ def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
     return "\n\n".join(lines)
 
 
-# ====================================================================
 # 4. MAIN EVALUATION LOOP
-# ====================================================================
 
 def evaluate(
     use_judge: bool = True,
@@ -632,9 +624,7 @@ def _aggregate(
     }
 
 
-# ====================================================================
 # 5. REPORT WRITERS
-# ====================================================================
 
 def write_outputs(
     report: dict[str, Any],
@@ -656,9 +646,9 @@ def write_outputs(
 
     def row(label: str, stat: dict[str, Any] | None, meaning: str) -> str:
         if not stat or stat.get("mean") is None:
-            return f"| {label} | n/a | — | {meaning} |"
+            return f"| {label} | n/a | n/a | {meaning} |"
         ci = stat.get("ci95")
-        ci_txt = f"[{ci[0]:.2f}, {ci[1]:.2f}]" if ci else "—"
+        ci_txt = f"[{ci[0]:.2f}, {ci[1]:.2f}]" if ci else "n/a"
         return (
             f"| {label} | {stat['mean']:.2f} | {ci_txt} "
             f"| {meaning} (n={stat['scored_n']}) |"
@@ -681,7 +671,7 @@ def write_outputs(
         "",
         "| Metric | Mean | 95% CI | What it means |",
         "|---|---|---|---|",
-        f"| Behaviour-match rate | {s['behavior_match_rate']:.2f} | — "
+        f"| Behaviour-match rate | {s['behavior_match_rate']:.2f} | n/a "
         f"| Answered vs. refused as expected |",
         row(
             "Evidence recall",
@@ -700,7 +690,7 @@ def write_outputs(
             row("Correctness", s.get("correctness"), "Conveys expected facts / refuses correctly"),
         ]
     lines += [
-        f"| Mean latency | {s['mean_latency_seconds']}s | — "
+        f"| Mean latency | {s['mean_latency_seconds']}s | n/a "
         f"| Per-question wall-clock (max {s['max_latency_seconds']}s) |",
         "",
         "### Retriever in isolation",
@@ -774,7 +764,7 @@ def write_outputs(
             f"| {_fmt(r.get('retriever_recall', {}).get('recall@5'))} "
             f"| {_fmt(r['citation_precision'])} "
             f"| {_fmt(r.get('groundedness'))} | {_fmt(r.get('correctness'))} "
-            f"| {r['latency_seconds']}s | {', '.join(flags) or '—'} |"
+            f"| {r['latency_seconds']}s | {', '.join(flags) or '-'} |"
         )
 
     report_path.write_text("\n".join(lines), encoding="utf-8")
@@ -785,9 +775,7 @@ def _fmt(v: float | None) -> str:
     return "n/a" if v is None else f"{v:.2f}"
 
 
-# ====================================================================
 # __main__
-# ====================================================================
 
 def _ensure_index() -> None:
     retriever = HybridRetriever()

@@ -151,9 +151,7 @@ class HybridRetriever:
     BM25 index from disk - no need to call ``build_index`` again.
     """
 
-    # ----------------------------------------------------------------
-    # INITIALISATION
-    # ----------------------------------------------------------------
+    # Initialisation
 
     def __init__(
         self,
@@ -217,9 +215,7 @@ class HybridRetriever:
             "loaded" if self._bm25 is not None else "NOT loaded",
         )
 
-    # ----------------------------------------------------------------
-    # BM25 PERSISTENCE - save / load pickle files
-    # ----------------------------------------------------------------
+    # Bm25 persistence - save / load pickle files
 
     def _save_bm25(self) -> None:
         """Persist the BM25 index and chunk list to disk as pickle."""
@@ -251,9 +247,7 @@ class HybridRetriever:
         else:
             logger.info("No persisted BM25 index found - will need build_index().")
 
-    # ----------------------------------------------------------------
-    # INDEX BUILDING
-    # ----------------------------------------------------------------
+    # Index building
 
     def build_index(self, chunks: list[dict[str, Any]]) -> None:
         """Populate ChromaDB and build a BM25 index from chunks.
@@ -323,9 +317,7 @@ class HybridRetriever:
             "BM25 index built and persisted: %d chunks.", len(chunks)
         )
 
-    # ----------------------------------------------------------------
-    # SEARCH - VECTOR (SEMANTIC)
-    # ----------------------------------------------------------------
+    # Search - vector (semantic)
 
     def _vector_search(
         self,
@@ -376,9 +368,7 @@ class HybridRetriever:
 
         return ranked
 
-    # ----------------------------------------------------------------
-    # SEARCH - BM25 (KEYWORD)
-    # ----------------------------------------------------------------
+    # Search - bm25 (keyword)
 
     def _bm25_search(
         self,
@@ -421,9 +411,7 @@ class HybridRetriever:
 
         return ranked
 
-    # ----------------------------------------------------------------
-    # FUSION - RECIPROCAL RANK FUSION (RRF)
-    # ----------------------------------------------------------------
+    # Fusion - reciprocal rank fusion (rrf)
 
     @staticmethod
     def _rrf_fuse(
@@ -475,9 +463,7 @@ class HybridRetriever:
 
         return results
 
-    # ----------------------------------------------------------------
-    # PUBLIC API
-    # ----------------------------------------------------------------
+    # Public api
 
     def retrieve(
         self,
@@ -570,9 +556,7 @@ class HybridRetriever:
             out.append(entry)
         return out
 
-    # ----------------------------------------------------------------
-    # UTILITY - check if index is populated
-    # ----------------------------------------------------------------
+    # Utility - check if index is populated
 
     @property
     def index_size(self) -> int:
@@ -585,9 +569,7 @@ class HybridRetriever:
         return self._bm25 is not None
 
 
-# ====================================================================
 # __main__ - End-to-end smoke test
-# ====================================================================
 
 if __name__ == "__main__":
     import sys

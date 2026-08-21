@@ -40,9 +40,7 @@ from src.config import (
 logger = logging.getLogger(__name__)
 
 
-# ====================================================================
 # 1. PDF TEXT EXTRACTION
-# ====================================================================
 
 def extract_pages(pdf_path: str | Path) -> list[dict[str, Any]]:
     """Extract text from every page of a single PDF.
@@ -96,9 +94,7 @@ def extract_pages(pdf_path: str | Path) -> list[dict[str, Any]]:
     return pages
 
 
-# ====================================================================
 # 2. SLIDING-WINDOW CHUNKER  (metadata-safe)
-# ====================================================================
 
 def _generate_chunk_id(source: str, page: int | str, index: int) -> str:
     """Deterministic chunk ID = sha256(source|page|index)[:16].
@@ -198,9 +194,7 @@ def chunk_pages(
     return chunks
 
 
-# ====================================================================
 # 3. ORCHESTRATOR - ingest all PDFs in data/
-# ====================================================================
 
 def ingest_all(data_dir: str | Path = DATA_DIR) -> list[dict[str, Any]]:
     """Discover PDFs in *data_dir*, extract + chunk them all.
@@ -241,9 +235,7 @@ def ingest_all(data_dir: str | Path = DATA_DIR) -> list[dict[str, Any]]:
     return all_chunks
 
 
-# ====================================================================
 # 4. __main__ - quick smoke test with a generated sample PDF
-# ====================================================================
 
 def _create_sample_pdf(path: Path) -> None:
     """Generate a tiny multi-page PDF for testing the pipeline.
