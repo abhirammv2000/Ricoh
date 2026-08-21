@@ -16,7 +16,7 @@ quality:
   * The verifier + retry exist to catch insufficient evidence, which shows
     up in refusal behaviour, not in recall.
 
-So the honest experiment is a **progressive-removal ablation** (the standard
+So the honest experiment is a progressive-removal ablation (the standard
 method for isolating component contribution): run the same benchmark, same
 retriever, same judge, varying exactly one thing, how much pipeline runs.
 

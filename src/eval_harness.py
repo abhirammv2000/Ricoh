@@ -3,31 +3,31 @@ src/eval_harness.py - Quality-focused evaluation harness for Citera.
 
 The original ``src/evaluate.py`` only measured *latency* and whether a
 citation regex matched.  It never checked whether answers were
-**correct** or **faithful** to the sources - so it could not answer the
+correct or faithful to the sources - so it could not answer the
 one question any company will ask: *"How do you know it's good?"*
 
 This harness measures RAG quality with four metrics:
 
-1. **Retrieval recall@k** (objective, no LLM)
+1. Retrieval recall@k (objective, no LLM)
    Of the documents we EXPECT to be relevant (from ground_truth.json),
    how many actually showed up in the retrieved evidence?  This is the
    metric that catches retrieval misses - e.g. a question that gets
    refused only because the right document was never retrieved.
 
-2. **Citation precision** (objective, no LLM)
+2. Citation precision (objective, no LLM)
    Of the documents the answer CITES, how many are actually present in
    the retrieved evidence?  Guards against fabricated citations.
 
-3. **Groundedness / faithfulness** (LLM-judged, 0-1)
+3. Groundedness / faithfulness (LLM-judged, 0-1)
    The gold-standard RAG metric: is every claim in the answer supported
    by the retrieved evidence, with no hallucination?  Needs no external
    ground truth, so it is non-circular.
 
-4. **Answer correctness** (LLM-judged, 0-1)
+4. Answer correctness (LLM-judged, 0-1)
    Does the answer convey the curated ``key_facts`` (or correctly refuse
    when ``expected_behavior == 'refuse'``)?
 
-It also records a **behaviour match** (did the system answer vs. refuse
+It also records a behaviour match (did the system answer vs. refuse
 when it should have?) which surfaces probable retrieval misses.
 
 Outputs:
@@ -87,9 +87,7 @@ REPORT_PATH: Path = PROJECT_ROOT / "eval" / "eval_report.md"
 REFUSAL_MARKER = "information unavailable"
 
 
-# ====================================================================
 # 1. LLM-AS-JUDGE
-# ====================================================================
 
 JUDGE_PROMPT = """\
 You are a strict evaluator for a retrieval-augmented technical-support \
@@ -166,9 +164,7 @@ def _judge(
         return {"groundedness": 0.0, "correctness": 0.0, "rationale": "JUDGE_PARSE_ERROR"}
 
 
-# ====================================================================
 # 2. OBJECTIVE METRICS (no LLM)
-# ====================================================================
 
 _CITATION_RE = re.compile(r"\[([^\]]+?),\s*Page\s*\d+\]", re.IGNORECASE)
 
@@ -188,7 +184,7 @@ def _evidence_recall(
 ) -> float | None:
     """Fraction of expected source docs present in the FULL accumulated evidence.
 
-    ⚠️  This is deliberately **not** called "recall@k".  ``evidence_docs`` is
+    This is deliberately not called "recall@k".  ``evidence_docs`` is
     the union of every chunk the agent accumulated, across all planner
     sub-queries, the entity-boost pass, and any retry, which in practice
     ranges from 5 to 40+ chunks.  Reporting that as "recall@k" (where
@@ -217,7 +213,7 @@ def _evidence_recall(
 
 # Depths for the retriever-only diagnostic.
 #
-# ⚠️  These MUST mirror production (`RETRIEVAL_TOP_K`), and an earlier version
+# These MUST mirror production (`RETRIEVAL_TOP_K`), and an earlier version
 # of this file got that wrong with real consequences.  It used a deliberately
 # wider pool (top_k=50) so that recall@20 was "measurable", but RRF is not
 # monotonic in pool size, so that measured a configuration the agent never
@@ -238,17 +234,17 @@ def _retriever_only_recall(
 
     This bypasses the planner entirely: one retrieval call, original
     question, no sub-query decomposition, no entity boosting, no retry,
-    run at **production settings** so it is a like-for-like control.
+    run at production settings so it is a like-for-like control.
 
     Why it matters: ``_evidence_recall`` conflates two very different
     failure modes, the retriever cannot find the document, versus the
     retriever ranks it fine but the planner rewrote the question into
     something worse.  This is the control that separates them, and it
-    doubles as the **do-nothing baseline**: if the full agentic pipeline
+    doubles as the do-nothing baseline: if the full agentic pipeline
     does not beat a single retrieval on the raw question, the planner,
     verifier, and retry loop are not paying for themselves.
 
-    Ranks are counted over distinct **documents**, not chunks, because on
+    Ranks are counted over distinct documents, not chunks, because on
     this corpus (mostly one-page help articles) the task is selecting the
     right document out of 733.
     """
@@ -304,9 +300,7 @@ def _is_refusal(answer: str) -> bool:
     return REFUSAL_MARKER in " ".join(answer.lower().split())
 
 
-# ====================================================================
 # 3. AGENT RUNNER (returns full state, like the Streamlit app)
-# ====================================================================
 
 def _run_agent_full(
     query: str, use_planner: bool = True, use_verifier: bool = True
@@ -330,9 +324,7 @@ def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
     return "\n\n".join(lines)
 
 
-# ====================================================================
 # 4. MAIN EVALUATION LOOP
-# ====================================================================
 
 def evaluate(
     use_judge: bool = True,
@@ -632,9 +624,7 @@ def _aggregate(
     }
 
 
-# ====================================================================
 # 5. REPORT WRITERS
-# ====================================================================
 
 def write_outputs(
     report: dict[str, Any],
@@ -650,22 +640,22 @@ def write_outputs(
     """
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\n📊  Metrics  → {metrics_path}")
+    print(f"\nMetrics  → {metrics_path}")
 
     s = report["summary"]
 
     def row(label: str, stat: dict[str, Any] | None, meaning: str) -> str:
         if not stat or stat.get("mean") is None:
-            return f"| {label} | n/a | — | {meaning} |"
+            return f"| {label} | n/a | n/a | {meaning} |"
         ci = stat.get("ci95")
-        ci_txt = f"[{ci[0]:.2f}, {ci[1]:.2f}]" if ci else "—"
+        ci_txt = f"[{ci[0]:.2f}, {ci[1]:.2f}]" if ci else "n/a"
         return (
             f"| {label} | {stat['mean']:.2f} | {ci_txt} "
             f"| {meaning} (n={stat['scored_n']}) |"
         )
 
     lines: list[str] = [
-        "# 📊 Citera: Quality Evaluation Report",
+        "# Citera: Quality Evaluation Report",
         "",
         f"**Generated:** {report['generated']}  ",
         f"**Agent model:** `{report.get('agent_model')}`  ",
@@ -681,7 +671,7 @@ def write_outputs(
         "",
         "| Metric | Mean | 95% CI | What it means |",
         "|---|---|---|---|",
-        f"| Behaviour-match rate | {s['behavior_match_rate']:.2f} | — "
+        f"| Behaviour-match rate | {s['behavior_match_rate']:.2f} | n/a "
         f"| Answered vs. refused as expected |",
         row(
             "Evidence recall",
@@ -700,7 +690,7 @@ def write_outputs(
             row("Correctness", s.get("correctness"), "Conveys expected facts / refuses correctly"),
         ]
     lines += [
-        f"| Mean latency | {s['mean_latency_seconds']}s | — "
+        f"| Mean latency | {s['mean_latency_seconds']}s | n/a "
         f"| Per-question wall-clock (max {s['max_latency_seconds']}s) |",
         "",
         "### Retriever in isolation",
@@ -757,48 +747,46 @@ def write_outputs(
         "",
         "## Per-question results",
         "",
-        "| # | Behaviour ✓ | Evid. recall | Retr.@5 | Cite prec. | Grounded | Correct | Latency | Flags |",
+        "| # | Behaviour | Evid. recall | Retr.@5 | Cite prec. | Grounded | Correct | Latency | Flags |",
         "|---|---|---|---|---|---|---|---|---|",
     ]
     for r in report["per_question"]:
         flags = []
         if r.get("needs_verification"):
-            flags.append("⚠ verify")
+            flags.append("verify")
         if not r["behavior_match"]:
-            flags.append("✗ behaviour")
+            flags.append("behaviour")
         if r.get("evidence_recall") == 0.0:
-            flags.append("✗ retrieval miss")
+            flags.append("retrieval miss")
         lines.append(
-            f"| {r['id']} | {'✅' if r['behavior_match'] else '❌'} "
+            f"| {r['id']} | {'' if r['behavior_match'] else ''} "
             f"| {_fmt(r['evidence_recall'])} "
             f"| {_fmt(r.get('retriever_recall', {}).get('recall@5'))} "
             f"| {_fmt(r['citation_precision'])} "
             f"| {_fmt(r.get('groundedness'))} | {_fmt(r.get('correctness'))} "
-            f"| {r['latency_seconds']}s | {', '.join(flags) or '—'} |"
+            f"| {r['latency_seconds']}s | {', '.join(flags) or '-'} |"
         )
 
     report_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"📝  Report   → {report_path}")
+    print(f"Report   → {report_path}")
 
 
 def _fmt(v: float | None) -> str:
     return "n/a" if v is None else f"{v:.2f}"
 
 
-# ====================================================================
 # __main__
-# ====================================================================
 
 def _ensure_index() -> None:
     retriever = HybridRetriever()
     if retriever.index_size == 0 or not retriever.bm25_ready:
-        print("📄  Index missing, ingesting PDFs from data/ …")
+        print("Index missing, ingesting PDFs from data/ …")
         chunks = ingest_all()
         if not chunks:
-            raise SystemExit("❌  No PDFs found in data/. Add PDFs and retry.")
+            raise SystemExit("No PDFs found in data/. Add PDFs and retry.")
         retriever.build_index(chunks)
         reset_retriever()  # drop any cached instance so the agent reloads the fresh index
-    print(f"📄  Index ready: {retriever.index_size} chunks, BM25={retriever.bm25_ready}")
+    print(f"Index ready: {retriever.index_size} chunks, BM25={retriever.bm25_ready}")
 
 
 if __name__ == "__main__":

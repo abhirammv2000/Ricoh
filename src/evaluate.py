@@ -1,28 +1,13 @@
-"""
-src/evaluate.py - Phase 4 Evaluation Pipeline.
+"""Latency and citation smoke test over the 10 seed questions.
 
-Runs the 10 official HackVerse hackathon test questions
-through the full agentic pipeline and produces:
+Runs each question through the agent and writes two files: a CSV of the raw
+results and a Markdown summary. Both are generated output, not checked in.
 
-1. **evaluation_results.csv** - machine-readable results.
-2. **evaluation_report.md**  - judge-ready Markdown report.
-
-Each question is sent to ``agent.run_agent()`` and we capture:
-- The final answer (with citations)
-- Latency (seconds)
-- Retrieved evidence sources (document + page)
-
-Design decisions
-- Questions are hardcoded - the hackathon forbids web search and
-  the rubric specifies these exact queries.
-- CSV is written with the stdlib ``csv`` module; Markdown is
-  hand-assembled for maximum judge readability.
-- We suppress ingestion logs during evaluation so only the agent
-  "thoughts" (Planner / Verifier / Synthesizer) are visible.
-
-NOTE: This script reports latency + citations only. For QUALITY
-metrics (groundedness, answer correctness, retrieval recall@k) use
-the newer ``src/eval_harness.py`` instead.
+This only measures how long an answer took and whether it carried a citation.
+It does not check whether the answer was right. Use src/eval_harness.py for
+that: it scores groundedness, correctness, and retrieval recall against
+ground truth. This script is kept because it is cheap to run and catches gross
+breakage without spending judge tokens.
 """
 
 from __future__ import annotations
@@ -48,11 +33,9 @@ from src.retriever import HybridRetriever
 
 logger = logging.getLogger(__name__)
 
-# ====================================================================
-# 1. OFFICIAL HACKATHON TEST QUESTIONS
-# ====================================================================
+# The 10 seed questions.
 
-HACKATHON_QUESTIONS: list[str] = [
+SEED_QUESTIONS: list[str] = [
     "What property do I set if I want the printers to enable after a restart?",
     "How much RAM does the primary server need if I will be doing document-level processing?",
     "How much hard drive space should I allocate for DB2 logs?",
@@ -70,9 +53,7 @@ CSV_PATH: Path = PROJECT_ROOT / "evaluation_results.csv"
 REPORT_PATH: Path = PROJECT_ROOT / "evaluation_report.md"
 
 
-# ====================================================================
 # 2. EVALUATION RUNNER
-# ====================================================================
 
 def _extract_sources(answer: str) -> list[str]:
     """Pull unique [Document, Page X] citations from the answer text."""
@@ -85,15 +66,15 @@ def _extract_sources(answer: str) -> list[str]:
 
 
 def run_evaluation() -> list[dict[str, Any]]:
-    """Execute all hackathon questions and collect results.
+    """Run every seed question and collect the results.
 
     Returns:
         List of result dicts, one per question.
     """
     results: list[dict[str, Any]] = []
 
-    total = len(HACKATHON_QUESTIONS)
-    for idx, question in enumerate(HACKATHON_QUESTIONS, 1):
+    total = len(SEED_QUESTIONS)
+    for idx, question in enumerate(SEED_QUESTIONS, 1):
         print(f"\n{'━' * 70}")
         print(f"  Question {idx}/{total}")
         print(f"  {question}")
@@ -119,15 +100,13 @@ def run_evaluation() -> list[dict[str, Any]]:
             }
         )
 
-        print(f"\n⏱️  Answered in {elapsed:.1f}s")
-        print(f"📄  Sources: {', '.join(sources)}")
+        print(f"\nAnswered in {elapsed:.1f}s")
+        print(f"Sources: {', '.join(sources)}")
 
     return results
 
 
-# ====================================================================
 # 3. CSV WRITER
-# ====================================================================
 
 def save_csv(results: list[dict[str, Any]], path: Path = CSV_PATH) -> None:
     """Write evaluation results to a CSV file."""
@@ -144,27 +123,23 @@ def save_csv(results: list[dict[str, Any]], path: Path = CSV_PATH) -> None:
         writer.writeheader()
         writer.writerows(results)
 
-    print(f"\n📊  CSV saved → {path}")
+    print(f"\nCSV saved → {path}")
 
 
-# ====================================================================
 # 4. MARKDOWN REPORT WRITER
-# ====================================================================
 
 def save_markdown_report(
     results: list[dict[str, Any]], path: Path = REPORT_PATH
 ) -> None:
-    """Generate a judge-ready Markdown evaluation report."""
+    """Write the results out as a Markdown report."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     total_time = sum(r["latency_seconds"] for r in results)
     avg_time = total_time / len(results) if results else 0
 
     lines: list[str] = [
-        "# 📊 Citera - Evaluation Report",
+        "# Citera evaluation report",
         "",
         f"**Generated:** {timestamp}  ",
-        f"**Author:** Abhiram  ",
-        f"**Track:** Ricoh Modern AI Solutions  ",
         f"**Total Questions:** {len(results)}  ",
         f"**Total Time:** {total_time:.1f}s  ",
         f"**Average Latency:** {avg_time:.1f}s per question  ",
@@ -211,37 +186,23 @@ def save_markdown_report(
             ]
         )
 
-    # Compliance statement (required by hackathon)
-    lines.extend(
-        [
-            "## Compliance Statement",
-            "",
-            "> We confirm that this project was developed during HackVerse 2026. "
-            "We used only permitted datasets and tools. "
-            "No private code sharing occurred between teams. "
-            "All work is original.",
-        ]
-    )
-
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-    print(f"📝  Markdown report saved → {path}")
+    print(f"Markdown report saved → {path}")
 
 
-# ====================================================================
 # __main__ - Run the full evaluation
-# ====================================================================
 
 if __name__ == "__main__":
     import sys
 
     print("=" * 70)
-    print("  Citera - Phase 4 Evaluation Pipeline")
+    print("  Citera latency and citation smoke test")
     print("=" * 70)
 
     # Ensure index is ready
-    print("\n📄  Checking retrieval index…")
+    print("\nChecking retrieval index…")
     retriever = HybridRetriever()
 
     if retriever.index_size == 0 or not retriever.bm25_ready:
@@ -251,16 +212,16 @@ if __name__ == "__main__":
         logging.getLogger("src.ingest").setLevel(logging.INFO)
         chunks = ingest_all()
         if not chunks:
-            print("❌  No PDFs found in data/. Add PDFs and retry.")
+            print("No PDFs found in data/. Add PDFs and retry.")
             sys.exit(1)
         retriever.build_index(chunks)
         logging.getLogger("src.ingest").setLevel(logging.WARNING)
         print(f"   Index built: {retriever.index_size} docs.")
     else:
-        print(f"   Index ready: {retriever.index_size} docs, BM25: ✅")
+        print(f"   Index ready: {retriever.index_size} docs, BM25: ")
 
     # Run evaluation
-    print(f"\n🚀  Running {len(HACKATHON_QUESTIONS)} hackathon questions…")
+    print(f"\nRunning {len(SEED_QUESTIONS)} seed questions…")
     results = run_evaluation()
 
     # Save outputs
