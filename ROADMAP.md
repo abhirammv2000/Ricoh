@@ -4,8 +4,7 @@
 Every design choice must be justifiable with evidence, and every number must be
 reproducible from a command in this repo.
 
-**This document is the single source of truth for project state.** If it
-disagrees with a conversation, this file wins.
+This document is the single source of truth for project state.
 
 ---
 
@@ -40,13 +39,13 @@ When these are checked, the project ships. Remaining ideas move to
 | Phase | Goal | Status |
 |---|---|---|
 | **0** | Make the evaluation trustworthy | Done |
-| **1** | Eval set to ~100 questions + judge calibration | Set built; κ needs your labels |
+| **1** | Eval set to ~100 questions + judge calibration | Set built; κ still needs ~15 human labels |
 | **2** | Improve retrieval | Done, no work needed, see D-4 |
 | **3** | Cut cost and latency | Done, see D-6 |
-| **4** | Tracing + live deployment | Tracing done; image verified, awaiting your push |
-| **5** | Final consistency pass, commit, ship |  Last |
+| **4** | Tracing + live deployment | Tracing done; image verified, deploy is manual |
+| **5** | Final consistency pass, commit, ship | Last |
 
-**Remaining: your `git push` + Render deploy. Optionally ~15 human labels for κ.**
+**Remaining: push and deploy to Render. Optionally ~15 human labels for κ.**
 
 ---
 
