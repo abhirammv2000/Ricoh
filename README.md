@@ -10,7 +10,7 @@ Citera is a retrieval-augmented technical-support assistant over 733 Ricoh Proce
 
 It started as an agentic pipeline (plan, retrieve, verify, retry) and ended up as a single retrieval call, because that is what the measurements supported.
 
-**Measured** with `claude-opus-5` judging `claude-sonnet-4-6` over the full corpus, methodology and caveats in [§7](#7-evaluation-and-metrics), full decision log in [ROADMAP.md](ROADMAP.md):
+**Measured** with `claude-opus-5` judging `claude-sonnet-4-6` over the full corpus, methodology and caveats in [§7](#7-evaluation-and-metrics):
 
 > 0.96 groundedness `[0.95-0.98]`, 0.97 correctness `[0.94-0.99]`, 1.00 citation precision, 0.98 answer-vs-refuse, 0.94 retrieval recall@5
 >
