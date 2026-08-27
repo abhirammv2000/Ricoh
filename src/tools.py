@@ -1,45 +1,29 @@
 """Tool-calling retrieval: the model issues its own searches.
 
-The default pipeline retrieves once, on the raw question, and synthesizes. That
-works because retrieval on this corpus is strong: recall@5 is 0.94 across the
-100-question benchmark. The 6 failures are the interesting case. The model gets
-one set of chunks and no way to say "that is not what I asked for, let me search
-differently".
+The default pipeline retrieves once on the raw question and synthesizes, which
+works because recall@5 is 0.94 across the 100-question benchmark. The 6 failures
+are the interesting case: the model gets one set of chunks and no way to say
+that is not what I asked for.
 
-This module gives it that: `search_docs` is exposed as a tool, and the model
-decides how many times to call it and with what query. Where the planner
-rewrote the question up front and hoped, the model here sees the actual results
-before deciding whether to search again.
+This exposes `search_docs` as a tool so the model decides how many times to
+search and with what query. Unlike the planner, which rewrote the question up
+front, it sees the actual results before deciding whether to search again.
 
-Whether that helps is a measured question, not an assumed one, and here the
-answer was yes, against expectation. A pre-build check replayed the six failing
-questions through the retriever with four hand-written reformulations each and
-recovered two, which was taken as a ceiling. The model beat it: 4 of 6 recovered,
-because it reformulates after seeing the results rather than guessing up front,
-which is exactly the mechanism the planner lacked. On a 20-question sample of
-already-passing questions it lost none. Cost is 1.77x the single-retrieval path
-($0.0278 vs $0.0157 per query).
+That turned out to help more than expected. Replaying the six failing questions
+with four hand-written reformulations each recovered two, which I took as a
+ceiling; the model recovered 4 of 6, and lost none of a 20-question sample that
+already passed. Cost is 1.77x the single-retrieval path ($0.0278 vs $0.0157).
 
-That measurement covers retrieval only, whether the expected document reached
-the model, not judged answer quality. Until a full judged run at n=100 settles
-groundedness and correctness, the stage stays off by default (USE_TOOL_LOOP).
-The evidence supports turning it on; it does not yet support making it the
-default silently.
+That only measures whether the expected document reached the model, not answer
+quality, so the stage stays off by default (USE_TOOL_LOOP) until a judged run at
+n=100 settles groundedness and correctness.
 
-Design notes:
-
-Tool results are capped. An unbounded loop that keeps searching is how a tool
-agent turns a $0.016 query into a $0.50 one. MAX_TOOL_CALLS bounds it, and the
-bound is enforced by stripping the tool rather than by trusting the model to
-stop.
-
-The loop is instrumented like every other stage. Each turn records a span via
-invoke_messages(), so a tool run shows up in the cost dashboard as what it
-actually costs rather than as a gap.
-
-Evidence is accumulated across calls, not replaced. The synthesizer's citation
-rules apply to everything the model saw, so a chunk retrieved on the second
-search is as citable as one from the first.
+Three things worth knowing about the implementation. Tool results are capped by
+MAX_TOOL_CALLS, enforced by stripping the tool rather than trusting the model to
+stop, because an unbounded search loop is how a $0.016 query becomes a $0.50
+one. Each turn records a span via invoke_messages(), so a tool run shows its real
+cost in the dashboard. And evidence accumulates across calls rather than being
+replaced, so a chunk from the second search is as citable as one from the first.
 """
 
 from __future__ import annotations

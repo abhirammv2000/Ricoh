@@ -7,8 +7,8 @@ of the trade so the choice is not simply "bigger is better".
 The trade-off being measured
 ``final_k`` is how many fused chunks the synthesizer actually sees.
 
-  Raising it   → higher chance the right document is in context (recall up)
-  Raising it   → more input tokens per call, on EVERY LLM call downstream
+  Raising it   -> higher chance the right document is in context (recall up)
+  Raising it   -> more input tokens per call, on EVERY LLM call downstream
                  (verifier and synthesizer both embed the evidence block),
                  and more irrelevant text competing with the answer.
 

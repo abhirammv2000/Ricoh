@@ -107,7 +107,7 @@ def verify(data_dir: Path = DATA_DIR) -> int:
             print(f"  {len(quantified)} line(s) contain a quantity, REVIEW THESE:")
             for q in quantified:
                 print(f"      {q[:180]}")
-            print("  → If any is a real answer, this question is NOT unanswerable")
+            print("  -> If any is a real answer, this question is NOT unanswerable")
             print("    and its 'refuse' label is wrong.")
         else:
             print("  No quantity found, 'refuse' label is supported.\n")

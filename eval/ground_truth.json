@@ -14,7 +14,7 @@
       "expected_behavior": "refuse",
       "key_facts": [],
       "expected_sources": [],
-      "note": "Refusal is CORRECT, verified 2026-08-01 by full-corpus scan (not by the harness). Method: extracted text from all 733 PDFs and searched for /RAM|memory|GB|gigabyte/i. The corpus contains exactly one 'GB' mention — a log-file size limit in pdfw_c_userprefs.pdf — and no RAM specification of any kind. The corpus therefore cannot answer this question and refusing is the intended hallucination-control behaviour. CORRECTION: an earlier note here claimed the harness had verified this via recall@k=1.0; that was false (metrics.json recorded 0.00) and it also listed aiw0appservrq.pdf as an expected source. That file is a conceptual 'Application server' overview, not a hardware-requirements document, so it could never have contained the answer — the label was wrong and made a correct refusal look like a retrieval miss. expected_sources is now empty, which is the truthful encoding of 'no document can answer this'."
+      "note": "Refusal is CORRECT, verified 2026-08-01 by full-corpus scan (not by the harness). Method: extracted text from all 733 PDFs and searched for /RAM|memory|GB|gigabyte/i. The corpus contains exactly one 'GB' mention - a log-file size limit in pdfw_c_userprefs.pdf - and no RAM specification of any kind. The corpus therefore cannot answer this question and refusing is the intended hallucination-control behaviour. CORRECTION: an earlier note here claimed the harness had verified this via recall@k=1.0; that was false (metrics.json recorded 0.00) and it also listed aiw0appservrq.pdf as an expected source. That file is a conceptual 'Application server' overview, not a hardware-requirements document, so it could never have contained the answer - the label was wrong and made a correct refusal look like a retrieval miss. expected_sources is now empty, which is the truthful encoding of 'no document can answer this'."
     },
     {
       "id": 3,
@@ -22,7 +22,7 @@
       "expected_behavior": "refuse",
       "key_facts": [],
       "expected_sources": [],
-      "note": "Refusal is CORRECT, verified 2026-08-01 by full-corpus scan (not by the harness). Method: searched all 733 PDFs for /DB2/i — 6 documents mention DB2 (aiw00a13, aiw00o15, aiwi_whatsnew, reportsPostgresql_*, aiw00aservname) and none states a log disk-space figure; they cover shutdown commands, Rocky Linux support, version notes, and PostgreSQL coexistence. No allocation guidance exists in the corpus, so refusing is correct. CORRECTION: the earlier note asserted this was confirmed 'with relevant DB2/requirements evidence retrieved'. The harness cannot support that claim — expected_sources is empty here, so recall is n/a and structurally unmeasurable for this question."
+      "note": "Refusal is CORRECT, verified 2026-08-01 by full-corpus scan (not by the harness). Method: searched all 733 PDFs for /DB2/i - 6 documents mention DB2 (aiw00a13, aiw00o15, aiwi_whatsnew, reportsPostgresql_*, aiw00aservname) and none states a log disk-space figure; they cover shutdown commands, Rocky Linux support, version notes, and PostgreSQL coexistence. No allocation guidance exists in the corpus, so refusing is correct. CORRECTION: the earlier note asserted this was confirmed 'with relevant DB2/requirements evidence retrieved'. The harness cannot support that claim - expected_sources is empty here, so recall is n/a and structurally unmeasurable for this question."
     },
     {
       "id": 4,

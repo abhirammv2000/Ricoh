@@ -1,34 +1,25 @@
-"""Per-stage cost, token, and latency accounting.
+"""Per-stage cost, token and latency accounting.
 
-"It takes about 19 seconds" is not much of an engineering statement. It does
-not say where the time goes, and it says nothing about money. Without that
-breakdown you cannot answer the two questions a reviewer asks first: what does
-one query cost, and which stage would you optimise and how do you know.
+"It takes about 19 seconds" does not say where the time goes or what a query
+costs. This records one span per LLM call (stage, model, tokens in and out,
+cache hits, latency, derived cost) and aggregates them per question, so
+optimisation claims elsewhere can cite numbers.
 
-This module records one span per LLM call (stage, model, tokens in and out,
-cache hits, latency, derived cost) and aggregates them per question. Every
-optimisation claim elsewhere in the project is expected to cite these numbers
-rather than assert an improvement.
+A few decisions:
 
-A few decisions worth noting:
+Token counts are ground truth and cost is derived. We record what the API
+reported in usage_metadata and multiply by a price table. Prices drift, so the
+table is a dated snapshot treated as configuration; if it goes stale only the
+dollar figure needs recomputing.
 
-Token counts are ground truth and cost is derived. We record the tokens the API
-actually reported (usage_metadata) and multiply by a price table. Prices drift,
-so the table is a dated snapshot treated as configuration. If it goes stale the
-token counts are still correct and only the dollar figure needs recomputing.
+Spans live in a ContextVar rather than a module-level global, so concurrent runs
+stay isolated without threading a recorder through every signature.
 
-We use contextvars, not a global. A module-level mutable would break the moment
-anything runs concurrently, and parallelising retrieval is on the roadmap. A
-ContextVar keeps each run's spans isolated without threading a recorder object
-through every function signature.
+A call that raises still emits a span with error set, so a crash loop shows up
+as cost rather than as a gap.
 
-Failures are recorded, not swallowed. A call that raises still emits a span
-with error set, so a crash loop shows up as cost rather than as a gap in the
-data.
-
-Instrumentation must not change behaviour. If usage metadata is missing, the
-span records zero tokens rather than raising. An accounting bug should never
-take down the pipeline it is measuring.
+Missing usage metadata records zero tokens rather than raising. An accounting
+bug should not take down the pipeline it measures.
 """
 
 from __future__ import annotations

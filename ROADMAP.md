@@ -44,7 +44,7 @@ When these are checked, the project ships. Remaining ideas move to
 | **2** | Improve retrieval | Done, no work needed, see D-4 |
 | **3** | Cut cost and latency | Done, see D-6 |
 | **4** | Tracing + live deployment | Tracing done; image verified, awaiting your push |
-| **5** | Final consistency pass, commit, ship | ⬜ Last |
+| **5** | Final consistency pass, commit, ship |  Last |
 
 **Remaining: your `git push` + Render deploy. Optionally ~15 human labels for κ.**
 
@@ -59,24 +59,24 @@ the command that reproduces that evidence.
 `ChromaDB.get_or_create_collection(embedding_function=None)` **overrides** the
 default rather than falling back to it, so every upsert raised and `chroma_db/`
 stayed empty. Now the kwarg is omitted when unset.
-→ `python -m src.retriever` · 1,314 chunks from 733 PDFs
+-> `python -m src.retriever` · 1,314 chunks from 733 PDFs
 
 ### D-2 · The judge may not grade its own output
 The harness used one model as both agent and judge: self-preference bias makes
 the scores uninterpretable. Judge is now `claude-opus-5`, agent `claude-sonnet-4-6`.
 The scores barely moved, but **that is not evidence the bias was absent**: the
 change (0.003) is far below the judge's own noise floor.
-→ `JUDGE_MODEL` in `src/config.py`
+-> `JUDGE_MODEL` in `src/config.py`
 
 ### D-3 · The judge's precision is measured, not assumed
 Scoring an identical answer 5× gives **0.00 spread on clear-cut answers, up to
 0.10 on borderline ones**. Any claimed improvement smaller than that is noise.
-→ `python -m eval.judge_variance`
+-> `python -m eval.judge_variance`
 
 ### D-4 · Retrieval needs no work: it is already perfect here
 At production settings a single retrieval on the raw question finds **every
 expected document (8/8, worst rank 5)**. The bottleneck was never retrieval.
-→ `python -m eval.sweep_retrieval_depth`
+-> `python -m eval.sweep_retrieval_depth`
 
 ### D-5 · Widening the candidate pool *hurts*: RRF is not monotonic
 The standard "retrieve top-50, rerank to 5" recipe **degrades** this system
@@ -84,14 +84,14 @@ without a reranker. RRF scores `Σ 1/(k+rank)`, so a document mediocre in both
 retrievers (`1/77 + 1/69 = 0.0275`) outranks one excellent in a single retriever
 (`1/62 = 0.0161`). Widening surfaces mutually-mediocre documents that displace
 strong semantic-only matches. Widening is only safe *paired with* a reranker.
-→ `python -m eval.sweep_retrieval_depth`, `python -m eval.sweep_rrf_k`
+-> `python -m eval.sweep_retrieval_depth`, `python -m eval.sweep_rrf_k`
 
 ### D-6 · The agentic pipeline was removed, and quality improved
 Progressive-removal ablation, decision rule committed to before the run:
 
 | Config | Calls | Cost/q | Latency | Evid. recall | Grounded | Correct |
 |---|---|---|---|---|---|---|
-| **A** retrieve→synthesize | **1.0** | **$0.0159** | **9.9s** | **1.00** | 0.98 | **1.00** |
+| **A** retrieve->synthesize | **1.0** | **$0.0159** | **9.9s** | **1.00** | 0.98 | **1.00** |
 | B + planner | 2.0 | $0.0207 | 13.9s | 0.88 | 0.99 | 0.97 |
 | C + verifier/retry | 3.4 | $0.0490 | 15.6s | 0.88 | 0.98 | 0.98 |
 
@@ -100,26 +100,26 @@ duplicating the synthesizer's own refusal rule (behaviour-match stays 1.00
 without it). **Scope:** this corpus, this question set. On a corpus with weak
 retrieval the planner is the right mechanism, which is why the stages are
 disabled by config (`USE_PLANNER`, `USE_VERIFIER`) rather than deleted.
-→ `python -m eval.ablation`
+-> `python -m eval.ablation`
 
 ### D-7 · `RRF_K = 60` kept, now by measurement not citation
 Everything k≥5 achieves recall 1.00 (broad plateau); pure rank-driven fusion
 (k=0,1) is measurably worse. Keeping the literature default is justified because
 nothing in the data argues for moving it.
-→ `python -m eval.sweep_rrf_k`
+-> `python -m eval.sweep_rrf_k`
 
 ### D-8 · "Unanswerable" labels are verified against the whole corpus
 The harness structurally cannot prove a refusal is correct: it only sees its own
 top-k. A full-corpus scan can. Q2 and Q3 refusals confirmed correct; a *mislabeled
 expected source* was found and fixed in the process.
-→ `python -m eval.verify_unanswerable` (exits non-zero if a claim fails)
+-> `python -m eval.verify_unanswerable` (exits non-zero if a claim fails)
 
 ### D-9 · Cost and latency identify different bottlenecks
 The verifier was **12.3% of latency but 44.8% of cost** (one-word output, re-reads
 the full evidence block as input). A latency-only view would have kept it. Also:
 **52% of benchmark cost went to the 2 unanswerable questions**, because the retry
 loop fires exactly when retrying cannot help.
-→ `src/instrumentation.py`, reported by `python -m src.eval_harness`
+-> `src/instrumentation.py`, reported by `python -m src.eval_harness`
 
 ### D-10 · The benchmark now has enough power to be worth trusting
 100 questions generated from sampled chunks, so `expected_sources` is known **by
@@ -131,12 +131,12 @@ construction**. Two guards against the usual generated-benchmark failures:
 * **Labels too narrow**: 47 questions initially had a different top hit. A strict
   adjudicator confirmed **25 of them were label errors**, not retrieval errors
   (many help topics answer the same question). Labels widened, each with a
-  recorded justification. recall@1 rose 0.53 → 0.78 purely from fixing labels.
+  recorded justification. recall@1 rose 0.53 -> 0.78 purely from fixing labels.
 
 Production config (A) at n=100: groundedness **0.96** [0.95, 0.98], correctness
 **0.97** [0.94, 0.99], citation precision 1.00, behaviour-match 0.98,
 **$0.0157/query**, **10.1s**. The intervals are now ±0.02 instead of ±0.05.
-→ `python -m eval.generate_questions --audit`, `eval/eval_report_n100.md`
+-> `python -m eval.generate_questions --audit`, `eval/eval_report_n100.md`
 
 **Known gap:** only 2 unanswerable questions exist (from the curated set), so the
 refusal claim rests on thin evidence. The generated set is all answerable.
@@ -155,7 +155,7 @@ Local JSONL rather than a hosted backend (Langfuse/Phoenix) is deliberate: a
 hosted tool adds a UI but makes reproducing this repo depend on someone else's
 account. **Honest gap:** there is no trace UI, and no sampling of production
 traffic back into the eval set.
-→ `python -m src.trace_view --last | --slowest 3 | --doc <file.pdf>`
+-> `python -m src.trace_view --last | --slowest 3 | --doc <file.pdf>`
 
 ### D-12 · The judge was checked two ways that need no human, and both have limits
 **Cross-judge** (`--cross-judge`): `claude-opus-5` vs `claude-opus-4-8` over 30
@@ -171,13 +171,13 @@ of the judge crediting an answer containing none of its key facts.
 
 The first version of that check reported **17 defects out of 100, all false**.
 It required every content word of a fact to appear exactly, so an answer saying
-"you can use `psql` … to connect directly" failed a fact worded "psql is the
+"you can use `psql` ... to connect directly" failed a fact worded "psql is the
 interactive terminal program used to connect directly" on `use` vs `used`.
 Reading the disagreements found the bug in *the check*, not the judge. Now
 threshold-based (70% of content words, crude stemming).
 
 **Still missing:** an external, non-Claude judgment. Nothing above closes that.
-→ `python -m eval.label_for_kappa --cross-judge --spot-check`
+-> `python -m eval.label_for_kappa --cross-judge --spot-check`
 
 ### D-13 · The deployment served nothing, and two things had to be baked in
 The previous blueprint told you to upload 223MB of PDFs to a Render disk and
@@ -199,7 +199,7 @@ Two fixes, both verified on the built image rather than assumed:
 
 Measured: image 1.13GB, peak RSS ~282MB per query, health endpoint 200 in ~20s,
 one real in-container query = 1 LLM call at $0.0215.
-→ `python -m src.build_demo_index && docker build -t citera:demo .`
+-> `python -m src.build_demo_index && docker build -t citera:demo .`
 
 ---
 

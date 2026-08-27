@@ -362,7 +362,7 @@ def evaluate(
         # jointly-relevant sources. See _evidence_recall.
         alternatives = item.get("provenance") == "generated"
 
-        print(f"\n{'━' * 70}\n  Q{qid}: {question}\n{'━' * 70}")
+        print(f"\n{'=' * 70}\n  Q{qid}: {question}\n{'=' * 70}")
 
         # The agent run is recorded separately from the judge: the agent is
         # what a user pays for, the judge is evaluation overhead. Reporting a
@@ -495,7 +495,7 @@ def _bootstrap_ci(
     if len(nums) < 2:
         return None
 
-    rng = random.Random(seed)  # fixed seed → reproducible intervals
+    rng = random.Random(seed)  # fixed seed -> reproducible intervals
     n = len(nums)
     means = []
     for _ in range(iterations):
@@ -640,7 +640,7 @@ def write_outputs(
     """
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\nMetrics  → {metrics_path}")
+    print(f"\nMetrics  -> {metrics_path}")
 
     s = report["summary"]
 
@@ -768,7 +768,7 @@ def write_outputs(
         )
 
     report_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Report   → {report_path}")
+    print(f"Report   -> {report_path}")
 
 
 def _fmt(v: float | None) -> str:
@@ -780,7 +780,7 @@ def _fmt(v: float | None) -> str:
 def _ensure_index() -> None:
     retriever = HybridRetriever()
     if retriever.index_size == 0 or not retriever.bm25_ready:
-        print("Index missing, ingesting PDFs from data/ …")
+        print("Index missing, ingesting PDFs from data/ ...")
         chunks = ingest_all()
         if not chunks:
             raise SystemExit("No PDFs found in data/. Add PDFs and retry.")
