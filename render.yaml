@@ -19,7 +19,7 @@
 #
 # Setup:
 #   1. Push this repo to GitHub.
-#   2. In Render: New → Blueprint → point at this repo.
+#   2. In Render: New -> Blueprint -> point at this repo.
 #   3. Set the ANTHROPIC_API_KEY secret in the dashboard.
 #
 # To change what the demo can answer, rebuild the index and redeploy:

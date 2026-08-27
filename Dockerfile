@@ -42,7 +42,7 @@ COPY api/ ./api/
 COPY eval/ ./eval/
 COPY demo_index/ ./demo_index/
 
-# Serve the baked subset, and have the UI disclose that it IS a subset , 
+# Serve the baked subset, and have the UI disclose that it IS a subset ,
 # the published metrics were measured on the full 733-document corpus.
 ENV CHROMA_DIR=/app/demo_index \
     DEMO_MODE=true

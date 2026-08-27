@@ -1,51 +1,30 @@
-"""eval/ablation.py - Does each pipeline stage earn its cost?
+"""Progressive-removal ablation: does each pipeline stage pay for itself?
 
-The question this answers
-The production pipeline is Planner -> Retriever -> Verifier -> (retry) ->
-Synthesizer, roughly four LLM calls per query.  Deterministic measurement
-already shows that a *single* retrieval on the raw question finds every
-expected document (8/8 at production settings) while the full pipeline
-reaches 0.88, so on retrieval alone, the agentic layer is net negative.
+The pipeline is Planner -> Retriever -> Verifier -> retry -> Synthesizer, about
+four LLM calls a query. A single retrieval on the raw question already finds
+every expected document (8/8) while the full pipeline reaches 0.88, so on
+retrieval alone the agentic layer is net negative.
 
-That is not sufficient grounds to remove it.  Retrieval recall is not answer
-quality:
+That alone is not enough to remove it. The agent accumulates more evidence on
+some questions because it retrieves once per sub-query, and the verifier exists
+to catch insufficient evidence, which shows up in refusal behaviour rather than
+in recall. So run the same benchmark with the same retriever and judge, varying
+only how much of the pipeline runs:
 
-  * The agent accumulates MORE evidence on some questions (Q4: 17 chunks,
-    Q7: 8) because it retrieves once per sub-query. Extra context can raise
-    groundedness even when the *expected* document set looks worse.
-  * The verifier + retry exist to catch insufficient evidence, which shows
-    up in refusal behaviour, not in recall.
-
-So the honest experiment is a progressive-removal ablation (the standard
-method for isolating component contribution): run the same benchmark, same
-retriever, same judge, varying exactly one thing, how much pipeline runs.
-
-The ladder
     A  retrieve_only   retrieve(raw question) -> synthesize        ~1 LLM call
     B  planner         + query decomposition + entity pass         ~2 calls
-    C  full            + verifier and retry loop  (production)     ~4 calls
+    C  full            + verifier and retry loop                   ~4 calls
 
-Each rung adds one mechanism, so a quality difference between adjacent rungs
-is attributable to that mechanism.
+Each rung adds one mechanism, so a difference between adjacent rungs is
+attributable to that mechanism. If A ties or beats C, the planner and verifier
+go. If C wins on some questions, a router is justified and the data says what it
+should key on.
 
-What would justify each outcome
-    A ties or beats C on quality  ->  delete the planner and verifier.
-                                      No router needed; less code, ~4x cheaper.
-    C beats A on SOME questions   ->  a router is justified, and the ablation
-                                      data tells you what the routing
-                                      criterion should key on.
-    C beats A everywhere          ->  keep the pipeline; the retrieval-recall
-                                      result was misleading and worth writing
-                                      up as such.
+Note there are only 10 questions here, and judge noise on borderline answers
+runs up to 0.10 (see eval/judge_variance.py), so a one-question difference is
+not a result. The script prints per-question deltas for that reason.
 
-Reading the results honestly
-There are 10 questions. Judge noise on borderline answers is up to 0.10
-(see eval/judge_variance.py). A difference of one question, or a mean shift
-below ~0.10, is NOT a result. This script prints the per-question deltas
-precisely so that a small mean difference cannot be quietly promoted into a
-conclusion.
-
-Cost: 3 configs x 10 questions = 30 agent runs + 30 judge calls.
+Cost: 3 configs x 10 questions = 30 agent runs plus 30 judge calls.
 
 Usage:
     python -m eval.ablation                 # all three configs

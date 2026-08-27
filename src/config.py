@@ -137,7 +137,7 @@ SUPPORTED_EXTENSIONS: tuple[str, ...] = (".pdf",)
 
 # Retrieval hyper-parameters
 # RETRIEVAL_TOP_K: how many candidates each method (vector / BM25)
-#   returns before fusion.  More candidates → better recall but
+#   returns before fusion.  More candidates -> better recall but
 #   slower.  10 is a solid default for ~1 000-10 000 chunks.
 RETRIEVAL_TOP_K: int = 10
 
@@ -167,7 +167,7 @@ RERANKER_MODEL: str = os.getenv(
     "RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"
 )
 # When reranking, fuse a larger candidate pool then rerank down to
-# RETRIEVAL_FINAL_K.  More candidates → better reranker headroom.
+# RETRIEVAL_FINAL_K.  More candidates -> better reranker headroom.
 RERANK_CANDIDATE_POOL: int = 20
 
 # LLM provider (overridden at runtime / via .env)
@@ -185,7 +185,7 @@ DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
 #   B  + planner                        2.0 calls  $0.0207/q  13.9s
 #   C  + verifier/retry  (old default)  3.4 calls  $0.0490/q  15.6s
 #
-# Config A matched or beat the full pipeline on every quality metric , 
+# Config A matched or beat the full pipeline on every quality metric ,
 # evidence recall 1.00 vs 0.88, correctness 1.00 vs 0.98, groundedness and
 # behaviour-match tied within judge noise, while costing 3.1x less and
 # running 1.6x faster.  No question was measurably better under C.

@@ -1,49 +1,29 @@
-"""eval/generate_questions.py - Build a larger, honestly-labelled eval set.
+"""Build a larger eval set with labels that can be trusted.
 
-Why this exists
-Every claim in this project currently rests on 10 questions.  At n=10 a single
-question moves any mean by 10 points, which is wider than most effects worth
-detecting, so the project's strongest result (removing the agentic pipeline)
-sits on its weakest evidence base.  Growing the set is the highest-value work
-remaining.
+Every claim in this project rested on 10 questions, where one question moves any
+mean by 10 points. That is wider than most effects worth detecting, so the
+strongest result (removing the agentic pipeline) sat on the weakest evidence.
 
-How the labels are obtained without hand-labelling everything
-Each question is generated from a specific chunk, so that chunk's document
-is the expected source *by construction*.  That gives reliable retrieval labels
-for free.  It does not give free *answer* labels, those still need the judge,
-and the judge still needs human calibration (see eval/label_for_kappa.py).
+Each question is generated from a specific chunk, so that chunk's document is
+the expected source by construction, which gives retrieval labels for free.
+Answer labels still need the judge, and the judge still needs human calibration
+(see eval/label_for_kappa.py).
 
-The failure mode this guards against
-Generated benchmarks are usually too easy.  If the question reuses distinctive
-wording from its source chunk, BM25 matches it trivially and retrieval recall
-looks perfect for reasons that have nothing to do with the system being good.
-Two defences:
+Generated benchmarks are usually too easy. If a question reuses distinctive
+wording from its source chunk, BM25 matches it trivially and recall looks
+perfect for reasons unrelated to the system. Two defences: the generator is told
+to paraphrase in a technician's own words and avoid rare exact strings, and
+--audit measures lexical overlap and reports recall on the generated set. A
+suspiciously perfect 1.00 with high overlap means the set is too easy.
 
-  1. The generator is instructed to paraphrase in a technician's own words and
-     to avoid reusing rare exact strings from the chunk.
-  2. ``--audit`` measures lexical overlap between each question and its source
-     chunk, and reports retrieval recall on the generated set. If recall comes
-     out at a suspiciously perfect 1.00 with high overlap, the set is too easy
-     and the numbers it produces are not trustworthy.
+Labelling the source chunk's document as the only expected source also assumes
+no other document answers as well, which is not always true on a corpus with
+overlapping help topics. A wrongly-narrow label penalises correct retrieval,
+which is exactly the bug in the original Q2 entry. So the generator rejects
+questions it cannot make specific to one document, and --audit flags any
+question whose top hit is a different document for review.
 
-A second guard: single-source assumption
-Labelling the source chunk's document as the *only* expected source assumes no
-other document answers the question equally well.  On a corpus with overlapping
-help topics that is not always true, and a wrongly-narrow label penalises
-correct retrieval, exactly the bug found in the original Q2 entry.  The
-generator is therefore asked to reject questions it cannot make specific to one
-document, and ``--audit`` flags any question whose top retrieval hit is a
-*different* document for human review rather than silently scoring it wrong.
-
-Held-out split
-Questions are split into ``dev`` and ``holdout``.  Tune on dev only.  The
-holdout exists so that a final number can be reported that no decision was
-fitted to.
-
-Usage:
-    python -m eval.generate_questions --pilot          # 8 questions, inspect quality first
-    python -m eval.generate_questions --n 100          # full run
-    python -m eval.generate_questions --audit          # audit an existing set, no API cost
+Questions split into dev and holdout. Tune on dev only.
 """
 
 from __future__ import annotations

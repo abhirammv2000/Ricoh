@@ -133,7 +133,7 @@ def _get_reranker():
                 "RERANKER_ENABLED=true but sentence-transformers is not "
                 "installed.  Run: pip install -r requirements-reranker.txt"
             ) from exc
-        logger.info("Loading cross-encoder reranker '%s'…", RERANKER_MODEL)
+        logger.info("Loading cross-encoder reranker '%s'...", RERANKER_MODEL)
         _RERANKER = CrossEncoder(RERANKER_MODEL)
     return _RERANKER
 
@@ -181,12 +181,12 @@ class HybridRetriever:
         self._bm25_index_path = self._persist_dir / BM25_INDEX_PATH.name
         self._bm25_chunks_path = self._persist_dir / BM25_CHUNKS_PATH.name
 
-        # Persistent client → data survives process restarts
+        # Persistent client -> data survives process restarts
         self._client = chromadb.PersistentClient(
             path=str(self._persist_dir),
         )
 
-        # get_or_create → idempotent; safe to call multiple times.
+        # get_or_create -> idempotent; safe to call multiple times.
         # The embedding_function kwarg is OMITTED (not passed as None) when no
         # EMBEDDING_MODEL is configured, so ChromaDB applies its own onnx
         # MiniLM default.  Passing None explicitly overrides that default and
@@ -275,7 +275,7 @@ class HybridRetriever:
         BATCH_SIZE = 5_000
 
         logger.info(
-            "Upserting %d chunks into ChromaDB collection '%s'…",
+            "Upserting %d chunks into ChromaDB collection '%s'...",
             len(chunks),
             self._collection.name,
         )
@@ -329,7 +329,7 @@ class HybridRetriever:
         Returns:
             Ranked list of dicts with keys:
             ``id``, ``text``, ``source_document``, ``page_number``,
-            ``chunk_index``, ``score`` (cosine distance → similarity).
+            ``chunk_index``, ``score`` (cosine distance -> similarity).
         """
         count = self._collection.count()
         if count == 0:
@@ -471,7 +471,7 @@ class HybridRetriever:
         top_k: int = RETRIEVAL_TOP_K,
         final_k: int = RETRIEVAL_FINAL_K,
     ) -> list[dict[str, Any]]:
-        """Run hybrid retrieval: vector + BM25 → RRF fusion.
+        """Run hybrid retrieval: vector + BM25 -> RRF fusion.
 
         This is the only method the LangGraph agent calls.
 
@@ -582,7 +582,7 @@ if __name__ == "__main__":
     print("=" * 70)
 
     # Step 1: Ingest all PDFs from data/
-    print("\nIngesting PDFs…")
+    print("\nIngesting PDFs...")
     chunks = ingest_all()
 
     if not chunks:
@@ -592,7 +592,7 @@ if __name__ == "__main__":
     print(f"   {len(chunks)} chunks ingested.")
 
     # Step 2: Build the hybrid index
-    print("\nBuilding hybrid index (ChromaDB + BM25)…")
+    print("\nBuilding hybrid index (ChromaDB + BM25)...")
     t0 = time.perf_counter()
     retriever = HybridRetriever()
     retriever.build_index(chunks)
@@ -617,7 +617,7 @@ if __name__ == "__main__":
             continue
 
         for i, r in enumerate(results, 1):
-            snippet = r["text"][:120].replace("\n", " ") + "…"
+            snippet = r["text"][:120].replace("\n", " ") + "..."
             print(
                 f"   {i}. [{r['source_document']} p.{r['page_number']}] "
                 f"(RRF={r['rrf_score']:.4f})"

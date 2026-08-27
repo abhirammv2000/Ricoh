@@ -1,40 +1,31 @@
-"""eval/label_for_kappa.py - Measure whether the LLM judge agrees with a human.
+"""Measure whether the LLM judge agrees with a human.
 
-The gap this closes
-`eval/judge_variance.py` established the judge is *precise*, it returns the
-same score for the same input.  Precision is not accuracy.  A judge can be
-perfectly consistent and consistently wrong, and every quality number in this
-project inherits that error without ever exposing it.
+eval/judge_variance.py showed the judge is precise, meaning it returns the same
+score for the same input. Precision is not accuracy: a judge can be perfectly
+consistent and consistently wrong, and every quality number here inherits that
+error. The only way to find out is to grade some answers by hand and compare.
 
-The only way to find out is to grade some answers yourself and compare.
+Raw agreement will not do, because it is inflated by the base rate. When ~90% of
+answers are good, a judge that always says good scores ~90% agreement while
+carrying no information. Cohen's kappa corrects for chance agreement:
 
-Why Cohen's κ and not raw agreement
-Raw agreement is inflated by the base rate.  When ~90% of answers are good, a
-judge that says "good" every single time scores ~90% agreement while carrying
-no information at all.  Cohen's κ corrects for agreement expected by chance:
+    kappa = (p_observed - p_chance) / (1 - p_chance)
 
-    κ = (p_observed - p_chance) / (1 - p_chance)
+    kappa <= 0   no better than chance
+    0.2-0.4      fair
+    0.4-0.6      moderate
+    0.6-0.8      substantial
+    > 0.8        near-perfect
 
-    κ ≤ 0     no better than chance
-    0.2-0.4   fair
-    0.4-0.6   moderate
-    0.6-0.8   substantial
-    > 0.8     near-perfect
+Scores are binarised at a threshold since kappa needs categories, and the
+threshold is written into the output so the number is reproducible.
 
-This matters here specifically: published evaluations of LLM judges find raw
-agreement overstates chance-corrected agreement by tens of points, so reporting
-raw agreement would be the flattering-but-meaningless option.
-
-Scores are binarised at a threshold because κ needs categories. The threshold
-is recorded in the output so the number is reproducible rather than tuned.
-
-Workflow
     python -m eval.label_for_kappa --sample 30    # writes a worksheet
     # ... fill in the "human_*" fields by hand ...
-    python -m eval.label_for_kappa --score        # computes κ
+    python -m eval.label_for_kappa --score        # computes kappa
 
-Sample honestly: the worksheet deliberately HIDES the judge's scores while you
-label, because seeing them first would anchor you and inflate agreement.
+The worksheet hides the judge's scores while you label, since seeing them first
+would anchor you and inflate agreement.
 """
 
 from __future__ import annotations

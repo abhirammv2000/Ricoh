@@ -1,9 +1,9 @@
 # Citera quality evaluation report
 
-**Generated:** 2026-08-01 15:14:14  
-**Agent model:** `claude-sonnet-4-6`  
-**Judge model:** `claude-opus-5`  
-**Questions:** 10  
+**Generated:** 2026-08-01 15:14:14
+**Agent model:** `claude-sonnet-4-6`
+**Judge model:** `claude-opus-5`
+**Questions:** 10
 
 > Every mean carries a 95% percentile-bootstrap confidence interval.
 > At this sample size the intervals are wide by construction, they

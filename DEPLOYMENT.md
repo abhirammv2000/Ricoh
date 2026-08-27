@@ -37,7 +37,7 @@ built in.
 A [`render.yaml`](render.yaml) blueprint is included.
 
 1. Push the repo to GitHub.
-2. Render → **New → Blueprint** → select the repo.
+2. Render -> **New -> Blueprint** -> select the repo.
 3. Add `ANTHROPIC_API_KEY` as a secret env var.
 4. Upload the PDFs to the mounted `/app/data` disk.
 
@@ -48,7 +48,7 @@ Render injects `$PORT`; the Dockerfile already binds to it.
 ## Option C: Streamlit Community Cloud (fastest demo)
 
 1. Push to GitHub (without the PDFs, they exceed limits).
-2. streamlit.io/cloud → **New app** → `app/main.py`.
+2. streamlit.io/cloud -> **New app** -> `app/main.py`.
 3. Add `ANTHROPIC_API_KEY` in **Secrets**.
 4. Because Streamlit Cloud has no persistent volume for 223 MB of PDFs,
    either commit a small curated subset to `data/`, or pre-build and
