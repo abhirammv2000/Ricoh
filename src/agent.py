@@ -2,7 +2,7 @@
 src/agent.py - LangGraph Agentic State Machine.
 
 Orchestrates a
-Plan → Retrieve → Verify → Synthesize loop that:
+Plan -> Retrieve -> Verify -> Synthesize loop that:
 
 1. Plans - decomposes a user question into focused sub-queries
    and extracts key entities (error codes, model numbers).
@@ -612,12 +612,12 @@ if __name__ == "__main__":
     print("=" * 70)
 
     # Step 1: make sure the retrieval index is populated.
-    print("\nChecking/building retrieval index…")
+    print("\nChecking/building retrieval index...")
     retriever = HybridRetriever()
 
     if retriever.index_size == 0 or not retriever.bm25_ready:
         reason = "empty" if retriever.index_size == 0 else "BM25 missing"
-        print(f"   Index needs (re)build ({reason}) - ingesting PDFs…")
+        print(f"   Index needs (re)build ({reason}) - ingesting PDFs...")
         chunks = ingest_all()
         if not chunks:
             print("No PDFs found in data/. Add PDFs and retry.")

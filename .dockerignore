@@ -8,7 +8,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
-# Large binaries + the full local index — never baked in.
+# Large binaries + the full local index - never baked in.
 # demo_index/ is the deliberate exception: it is the small pre-built subset
 # the container serves, without which the app has nothing to retrieve from.
 data/

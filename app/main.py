@@ -196,7 +196,7 @@ if required_password() is not None and not st.session_state.get("authed", False)
 
 # 4. INDEX BOOTSTRAP (runs once)
 
-@st.cache_resource(show_spinner="Loading retrieval index…")
+@st.cache_resource(show_spinner="Loading retrieval index...")
 def get_retriever() -> HybridRetriever:
     """Load or build the hybrid retriever (cached across reruns)."""
     retriever = HybridRetriever()

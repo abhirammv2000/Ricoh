@@ -75,10 +75,10 @@ def run_evaluation() -> list[dict[str, Any]]:
 
     total = len(SEED_QUESTIONS)
     for idx, question in enumerate(SEED_QUESTIONS, 1):
-        print(f"\n{'━' * 70}")
+        print(f"\n{'=' * 70}")
         print(f"  Question {idx}/{total}")
         print(f"  {question}")
-        print(f"{'━' * 70}")
+        print(f"{'=' * 70}")
 
         t0 = time.perf_counter()
         try:
@@ -123,7 +123,7 @@ def save_csv(results: list[dict[str, Any]], path: Path = CSV_PATH) -> None:
         writer.writeheader()
         writer.writerows(results)
 
-    print(f"\nCSV saved → {path}")
+    print(f"\nCSV saved -> {path}")
 
 
 # 4. MARKDOWN REPORT WRITER
@@ -153,7 +153,7 @@ def save_markdown_report(
     ]
 
     for r in results:
-        q_short = r["question"][:60] + ("…" if len(r["question"]) > 60 else "")
+        q_short = r["question"][:60] + ("..." if len(r["question"]) > 60 else "")
         lines.append(
             f"| {r['question_number']} "
             f"| {q_short} "
@@ -189,7 +189,7 @@ def save_markdown_report(
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-    print(f"Markdown report saved → {path}")
+    print(f"Markdown report saved -> {path}")
 
 
 # __main__ - Run the full evaluation
@@ -202,12 +202,12 @@ if __name__ == "__main__":
     print("=" * 70)
 
     # Ensure index is ready
-    print("\nChecking retrieval index…")
+    print("\nChecking retrieval index...")
     retriever = HybridRetriever()
 
     if retriever.index_size == 0 or not retriever.bm25_ready:
         reason = "empty" if retriever.index_size == 0 else "BM25 missing"
-        print(f"   Index needs (re)build ({reason}) - ingesting PDFs…")
+        print(f"   Index needs (re)build ({reason}) - ingesting PDFs...")
         # Temporarily restore ingest logging for visibility
         logging.getLogger("src.ingest").setLevel(logging.INFO)
         chunks = ingest_all()
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         print(f"   Index ready: {retriever.index_size} docs, BM25: ")
 
     # Run evaluation
-    print(f"\nRunning {len(SEED_QUESTIONS)} seed questions…")
+    print(f"\nRunning {len(SEED_QUESTIONS)} seed questions...")
     results = run_evaluation()
 
     # Save outputs

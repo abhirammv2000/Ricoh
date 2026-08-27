@@ -6,31 +6,31 @@
 
 ## TL;DR
 
-**Citera** is a retrieval-augmented technical-support assistant over **733 Ricoh ProcessDirector documents**. Ask a natural-language question; it answers with page-level citations and **refuses when the docs don't contain the answer** instead of hallucinating.
+Citera is a retrieval-augmented technical-support assistant over 733 Ricoh ProcessDirector documents. Ask a natural-language question and it answers with page-level citations, or refuses when the docs do not contain the answer instead of making something up.
 
-It was built as an agentic pipeline (plan → retrieve → verify → retry) and then **measured back down to a single retrieval call**, because that is what the evidence supported.
+It started as an agentic pipeline (plan, retrieve, verify, retry) and ended up as a single retrieval call, because that is what the measurements supported.
 
 **Measured** with `claude-opus-5` judging `claude-sonnet-4-6` over the full corpus, methodology and caveats in [§7](#7-evaluation-and-metrics), full decision log in [ROADMAP.md](ROADMAP.md):
 
-> **0.96** groundedness `[0.95-0.98]` · **0.97** correctness `[0.94-0.99]` · **1.00** citation precision · **0.98** answer-vs-refuse · **0.94** retrieval recall@5
+> 0.96 groundedness `[0.95-0.98]`, 0.97 correctness `[0.94-0.99]`, 1.00 citation precision, 0.98 answer-vs-refuse, 0.94 retrieval recall@5
 >
-> **$0.0157** and **10.1s** per query, on **1 LLM call**
+> $0.0157 and 10.1s per query, on 1 LLM call
 
-Measured on **100 questions** with a 70/30 dev/holdout split. An earlier 10-question set gave flattering numbers with intervals twice as wide. Growing the benchmark moved groundedness 0.98 → 0.96 and revealed a behaviour-match failure the small set could not see.
+Measured on **100 questions** with a 70/30 dev/holdout split. An earlier 10-question set gave flattering numbers with intervals twice as wide. Growing the benchmark moved groundedness 0.98 -> 0.96 and revealed a behaviour-match failure the small set could not see.
 
-**The headline result: every stage had to earn its cost against an ablation, and two of them failed.** Switching the planner and verifier off made the system cheaper and faster and no worse on any quality metric.
+The main result is that two of the pipeline stages did not pay for themselves. Switching the planner and verifier off made the system cheaper and faster and no worse on any quality metric.
 
-A three-config progressive-removal ablation compared the full Planner → Retriever → Verifier → retry loop against progressively simpler pipelines:
+A three-config progressive-removal ablation compared the full Planner -> Retriever -> Verifier -> retry loop against progressively simpler pipelines:
 
 | Config | Pipeline | Calls | Cost/query | Latency | Evidence recall | Grounded | Correct |
 |---|---|---|---|---|---|---|---|
-| **A** | retrieve → synthesize | **1.0** | **$0.0159** | **9.9s** | **1.00** | 0.98 | **1.00** |
+| A | retrieve -> synthesize | 1.0 | $0.0159 | 9.9s | 1.00 | 0.98 | 1.00 |
 | B | + planner | 2.0 | $0.0207 | 13.9s | 0.88 | 0.99 | 0.97 |
 | C | + verifier/retry *(old default)* | 3.4 | $0.0490 | 15.6s | 0.88 | 0.98 | 0.98 |
 
-Config A matched or beat the full pipeline on **every quality metric** at **3.1× lower cost** and **1.6× lower latency**. Not one question was measurably better under C. Config A is now the default; the stages remain behind config flags rather than deleted, because the ablation's scope is this corpus and this question set, see [§7](#7-evaluation-and-metrics).
+Config A matched or beat the full pipeline on every quality metric at 3.1x lower cost and 1.6x lower latency, and no question came out better under C. A is the default now. The stages stay behind config flags rather than being deleted, since the ablation only covers this corpus and this question set, see [§7](#7-evaluation-and-metrics).
 
-Brackets are 95% percentile-bootstrap confidence intervals. The headline figures above are n=100. The ablation table is n=10, and its intervals are correspondingly wide. Numbers are reported with the uncertainty the sample size supports rather than as bare point estimates.
+Brackets are 95% percentile-bootstrap confidence intervals. The figures above are n=100; the ablation table is n=10, so its intervals are much wider.
 
 **Stack:** Python · LangGraph · Claude · ChromaDB (dense) + BM25 + Reciprocal Rank Fusion · Streamlit · pytest + GitHub Actions CI · Docker.
 
@@ -79,7 +79,7 @@ Build a technical-support assistant that answers complex, multi-part questions a
 
 Field technicians and support engineers lose significant time searching documentation for specific procedures, error-code resolutions, and configuration steps. The system needs to ingest that documentation, understand natural-language questions, retrieve the relevant passages, and generate accurate, cited answers with zero hallucination.
 
-**The constraint that actually shapes the design:** the corpus is **733 individual help-topic articles, most of them a single page**, not a handful of long manuals (median chunk: 307 words; 1,314 chunks total). So the core retrieval task is **selecting the right document out of 733**, not locating a passage within a long document. Almost every design decision below follows from that, see [§5](#5-data-handling-and-preprocessing).
+The thing that actually shapes the design is the corpus: 733 individual help-topic articles, most of them a single page, not a handful of long manuals (median chunk: 307 words; 1,314 chunks total). So the core retrieval task is **selecting the right document out of 733**, not locating a passage within a long document. Almost every design decision below follows from that, see [§5](#5-data-handling-and-preprocessing).
 
 **End user:** Ricoh field service technicians, help desk agents, and customers seeking self-service support.
 
@@ -107,7 +107,7 @@ Field technicians and support engineers lose significant time searching document
 5. **Visualises** the full reasoning process in a "Glass Box" Streamlit dashboard.
 6. **Polyglot Support:** Automatically detects user language (e.g., Spanish, Japanese, Hindi) and answers in that language while preserving English citations.
 
-**What makes it distinctive:** the pipeline's composition is an evidence-backed decision rather than an assumption. Every stage had to prove it earned its cost, and two of them failed that test and were switched off.
+The shape of the pipeline came out of the ablation rather than being assumed up front, and two stages ended up switched off as a result.
 
 ---
 
@@ -115,23 +115,23 @@ Field technicians and support engineers lose significant time searching document
 
 ```
 User Question
-     ↓
-┌──────────────────────────────────────────────────────────┐
-│               LangGraph State Machine                     │
-│                                                           │
-│  DEFAULT (measured):                                      │
-│     RETRIEVER ──→ SYNTHESIZER                       │
-│                                                           │
-│  OPTIONAL (USE_PLANNER / USE_VERIFIER - off by default):  │
-│   PLANNER ──→ RETRIEVER (2-pass) ──→ VERIFIER  │
-│      ↑            │ Pass 1: sub-queries      │           │
-│      │            │ Pass 2: entity-boosted   │           │
-│      └──── (INSUFFICIENT & iter < 2) ────────┘           │
-│                                  ↓                        │
-│                          SYNTHESIZER                   │
-└──────────────────────────────────────────────────────────┘
-     ↓
-Cited Answer + Glass Box Visualisation
+    |
+    v
+LangGraph state machine
+
+  default (what the ablation settled on):
+      RETRIEVER  ->  SYNTHESIZER
+
+  optional, off unless USE_PLANNER / USE_VERIFIER are set:
+      PLANNER  ->  RETRIEVER  ->  VERIFIER  ->  SYNTHESIZER
+                      ^              |
+                      |              |  pass 1: sub-queries
+                      |              |  pass 2: entity-boosted
+                      +--------------+
+                        while INSUFFICIENT and iter < 2
+    |
+    v
+Cited answer plus the Glass Box view
 ```
 
 ### Pipeline Components
@@ -156,7 +156,7 @@ Cited Answer + Glass Box Visualisation
 
 ## 5. Data handling and preprocessing
 
-- **Dataset:** Official Ricoh ProcessDirector (RPD) documentation, **733 PDFs (~223 MB)**, stored in `data/` (gitignored due to size). Honest note: these are **individual help-topic articles**, most of which are a *single page* each, rather than a handful of 100+ page manuals. This is why nearly every citation reads "Page 1", and it means the real retrieval challenge here is **picking the right document out of 733**, not pinpointing a page within a long manual. The page-level citation machinery still works (and would matter for true multi-page manuals), but we call out the corpus shape rather than overstate it.
+- Dataset: official Ricoh ProcessDirector (RPD) documentation, 733 PDFs (~223 MB), stored in `data/` (gitignored due to size). Honest note: these are **individual help-topic articles**, most of which are a *single page* each, rather than a handful of 100+ page manuals. This is why nearly every citation reads "Page 1", and it means the real retrieval challenge here is **picking the right document out of 733**, not pinpointing a page within a long manual. The page-level citation machinery still works (and would matter for true multi-page manuals), but we call out the corpus shape rather than overstate it.
 - **Extraction:** PyMuPDF extracts raw text page-by-page, preserving `source_document` and `page_number` metadata throughout.
 - **Chunking strategy:** Sliding window of ~500 words with 50-word overlap. Word-based (not character-based) to keep semantic coherence. Overlap ensures no answer is lost at chunk boundaries.
 - **Tokenisation (BM25):** Simple lowercase whitespace split - intentionally basic because error codes like `SC542` don't benefit from stemming.
@@ -210,16 +210,16 @@ _(Per-question latency and scores: [eval/eval_report_n100.md](eval/eval_report_n
 
 **1. Latency / citation smoke test** (`src/evaluate.py`), *legacy*. Runs the 10 questions and records latency and whether a citation regex matched. It never checked whether answers were *correct* or *faithful*, which is why the harness below exists.
 
-**2. Quality harness** (`src/eval_harness.py` → `eval/metrics.json`, `eval/eval_report.md`), **the one to look at.**
+**2. Quality harness** (`src/eval_harness.py` -> `eval/metrics.json`, `eval/eval_report.md`), **the one to look at.**
 
 | Metric | LLM-judged? | What it actually measures, and what it does *not* |
 |---|---|---|
-| **Evidence recall** | No | Did the expected document reach the synthesizer **across all passes and retries**? Deliberately *not* called recall@k: the accumulated evidence ranges from 5 to 40+ chunks, so calling it "@k" (k=5) would flatter the retriever. |
-| **Retriever recall@1/5/20** | No | The retriever **in isolation**, raw question, one pass, no planner. Comparing against evidence recall separates a *retrieval* failure from a *planning* failure. |
-| **Citation precision** | No | Are cited documents present in the evidence? Catches **fabricated filenames only**, it does *not* verify that the cited document supports the claim. Real attribution correctness needs claim→span checking (not yet built). |
-| **Groundedness** | Yes | Is every claim supported by the retrieved evidence? |
-| **Answer correctness** | Yes | Does the answer convey the expected key facts, or refuse correctly? |
-| **Behaviour match** | No | Did it answer when it should and refuse only when it should? |
+| Evidence recall | No | Did the expected document reach the synthesizer across all passes and retries? Deliberately *not* called recall@k: the accumulated evidence ranges from 5 to 40+ chunks, so calling it "@k" (k=5) would flatter the retriever. |
+| Retriever recall@1/5/20 | No | The retriever in isolation, raw question, one pass, no planner. Comparing against evidence recall separates a *retrieval* failure from a *planning* failure. |
+| Citation precision | No | Are cited documents present in the evidence? Catches fabricated filenames only, it does *not* verify that the cited document supports the claim. Real attribution correctness needs claim->span checking (not yet built). |
+| Groundedness | Yes | Is every claim supported by the retrieved evidence? |
+| Answer correctness | Yes | Does the answer convey the expected key facts, or refuse correctly? |
+| Behaviour match | No | Did it answer when it should and refuse only when it should? |
 
 ```bash
 python -m src.eval_harness            # full quality run (uses the LLM judge)
@@ -228,19 +228,19 @@ python -m eval.verify_unanswerable    # audit the "refuse" labels against the co
 python -m eval.judge_variance         # measure the judge's own noise floor
 ```
 
-### Methodology: why the judge is a different model
+### Why the judge is a different model
 
-The judge runs on **`claude-opus-5`** while the agent runs on **`claude-sonnet-4-6`** (`JUDGE_MODEL` in `src/config.py`). This is not incidental: an earlier version of this harness used the **same model as both agent and judge**, which is the weakest possible configuration: a model grading its own output exhibits self-preference bias, and published work on LLM judges finds raw agreement badly overstates chance-corrected agreement.
+The judge runs on `claude-opus-5` while the agent runs on `claude-sonnet-4-6` (`JUDGE_MODEL` in `src/config.py`). This is not incidental: an earlier version of this harness used the **same model as both agent and judge**, which is the weakest possible configuration: a model grading its own output exhibits self-preference bias, and published work on LLM judges finds raw agreement badly overstates chance-corrected agreement.
 
-Switching to an independent, stronger judge moved groundedness 0.977 → 0.98 and correctness 0.97 → 0.98.
+Switching to an independent, stronger judge moved groundedness 0.977 -> 0.98 and correctness 0.97 -> 0.98.
 
 **That difference means nothing, and it is worth being precise about why.** `python -m eval.judge_variance` scores an identical answer against identical evidence five times and reports the spread:
 
 | Case | Groundedness across 5 identical runs | Spread |
 |---|---|---|
-| Q8 (unambiguous) | 1.00, 1.00, 1.00, 1.00, 1.00 | **0.00** |
-| Q9 (borderline) | 0.60, 0.55, 0.55, 0.60, 0.55 | **0.05** |
-| Q7 (borderline) | 0.65, 0.70, 0.70, 0.60, 0.70 | **0.10** |
+| Q8 (unambiguous) | 1.00, 1.00, 1.00, 1.00, 1.00 | 0.00 |
+| Q9 (borderline) | 0.60, 0.55, 0.55, 0.60, 0.55 | 0.05 |
+| Q7 (borderline) | 0.65, 0.70, 0.70, 0.60, 0.70 | 0.10 |
 
 The judge is perfectly stable on clear-cut answers and jitters by up to 0.10 on borderline ones, and borderline answers are precisely the ones that move an aggregate. A 0.003 shift in the mean is **more than an order of magnitude below the instrument's own noise floor**, before even accounting for agent nondeterminism producing different answers between runs.
 
@@ -250,16 +250,16 @@ So the honest conclusion is: **this eval cannot detect whether self-preference w
 
 ### Measured results
 
-Full corpus (733 PDFs → 1,314 chunks), agent `claude-sonnet-4-6`, judge `claude-opus-5`, **100 questions** with a 70/30 dev/holdout split. Generated by `src/eval_harness.py` → [eval/eval_report_n100.md](eval/eval_report_n100.md) / [eval/metrics_n100.json](eval/metrics_n100.json). Brackets are 95% percentile-bootstrap CIs:
+Full corpus (733 PDFs -> 1,314 chunks), agent `claude-sonnet-4-6`, judge `claude-opus-5`, **100 questions** with a 70/30 dev/holdout split. Generated by `src/eval_harness.py` -> [eval/eval_report_n100.md](eval/eval_report_n100.md) / [eval/metrics_n100.json](eval/metrics_n100.json). Brackets are 95% percentile-bootstrap CIs:
 
 | Metric | Mean | 95% CI | n |
 |---|---|---|---|
-| **Behaviour-match rate** | **0.98** | n/a | 100 |
-| **Groundedness** | **0.96** | [0.95, 0.98] | 100 |
-| **Answer correctness** | **0.97** | [0.94, 0.99] | 100 |
-| **Citation precision** | **1.00** | [1.00, 1.00] | 100 |
-| **Evidence recall** | **0.94** | [0.89, 0.98] | 100 |
-| **Mean latency** | **10.1s** | max 24.5s | 100 |
+| Behaviour-match rate | 0.98 | n/a | 100 |
+| Groundedness | 0.96 | [0.95, 0.98] | 100 |
+| Answer correctness | 0.97 | [0.94, 0.99] | 100 |
+| Citation precision | 1.00 | [1.00, 1.00] | 100 |
+| Evidence recall | 0.94 | [0.89, 0.98] | 100 |
+| Mean latency | 10.1s | max 24.5s | 100 |
 
 The earlier 10-question run reported 1.00 behaviour match, 0.98 groundedness and 0.98 correctness at 18.8s. Those numbers are **superseded, not deleted**: they are what a small sample looks like when it flatters you. Growing the set moved groundedness down 0.02, cut the intervals roughly in half, and surfaced the behaviour-match failure that 10 questions could not see. The old run is preserved in [eval/eval_report.md](eval/eval_report.md) / [eval/metrics.json](eval/metrics.json).
 
@@ -269,18 +269,18 @@ The earlier 10-question run reported 1.00 behaviour match, 0.98 groundedness and
 |---|---|
 | recall@1 | 0.78 |
 | recall@3 | 0.89 |
-| **recall@5** | **0.94** |
+| recall@5 | 0.94 |
 
 At **production settings** (`top_k=10, final_k=5`), retrieval on the raw question reaches 0.94 recall@5 across all 100 questions, so the retriever is not the main bottleneck. The pipeline wrapped around it was:
 
 | Path (n=10 ablation) | Recall | LLM calls |
 |---|---|---|
-| Raw question, single retrieval | **1.00** (8/8) | 0 |
-| Full agentic pipeline | **0.88** | ~4 |
+| Raw question, single retrieval | 1.00 (8/8) | 0 |
+| Full agentic pipeline | 0.88 | ~4 |
 
 The planner degrades Q1 and Q9 by rewriting the question into sub-queries that retrieve worse than the original, and never improves any question. **The most defensible next change to this system is to delete work, not add it.** Route simple lookups straight to retrieval and reserve the agentic path for questions that demonstrably need it.
 
-### The ablation: does each stage earn its cost?
+### The ablation
 
 Retrieval recall is not answer quality, so "the planner hurts retrieval" was not sufficient grounds to remove it. The agent gathers *more* evidence on some questions (Q4: 17 chunks, Q7: 8), and extra context could plausibly raise groundedness even while document recall looks worse. The verifier's job, catching insufficient evidence, shows up in refusal behaviour, not recall at all.
 
@@ -288,11 +288,11 @@ So the question was settled by **progressive-removal ablation** (`python -m eval
 
 | Config | Calls | Cost/query | Latency | Evid. recall | Grounded | Correct | Behaviour |
 |---|---|---|---|---|---|---|---|
-| **A** retrieve→synthesize | 1.0 | **$0.0159** | **9.9s** | **1.00** | 0.98 | **1.00** | 1.00 |
+| A retrieve->synthesize | 1.0 | $0.0159 | 9.9s | 1.00 | 0.98 | 1.00 | 1.00 |
 | B + planner | 2.0 | $0.0207 | 13.9s | 0.88 | 0.99 | 0.97 | 1.00 |
 | C + verifier/retry | 3.4 | $0.0490 | 15.6s | 0.88 | 0.98 | 0.98 | 1.00 |
 
-The decision rule was **committed to before the run** (it is written into the script's docstring): *A ties or beats C → delete the stages; C wins on some questions → build a router; C wins everywhere → keep the pipeline.* A tied or won everywhere, so the stages are off.
+The decision rule was **committed to before the run** (it is written into the script's docstring): *A ties or beats C -> delete the stages; C wins on some questions -> build a router; C wins everywhere -> keep the pipeline.* A tied or won everywhere, so the stages are off.
 
 **What the per-question deltas show.** C loses 0.50 evidence recall on Q1 and Q9, both deterministic, both caused by the planner rewriting the question into sub-queries that retrieve worse than the original. Q9 also loses 0.20 correctness, with a mechanistic explanation rather than a bare score gap: the planner dropped a document, so the answer had less to work with. Everywhere else, differences sit inside the judge's measured noise floor (±0.10 on borderline answers, see `eval/judge_variance.py`) and are reported as ties, not wins.
 
@@ -304,7 +304,7 @@ The decision rule was **committed to before the run** (it is written into the sc
 |---|---|---|
 | synthesizer | 67.7% | 51.5% |
 | planner | 20.0% | 3.7% |
-| verifier | 12.3% | **44.8%** |
+| verifier | 12.3% | 44.8% |
 
 The verifier is cheap in *time* (one-word output) and expensive in *money* (it re-reads the entire evidence block as input). A latency-only view would have ranked it last and kept it.
 
@@ -312,7 +312,7 @@ The verifier is cheap in *time* (one-word output) and expensive in *money* (it r
 
 **Limits of this conclusion, stated plainly.** It holds for *this* corpus (733 mostly single-page articles where one retrieval already achieves recall@5 = 1.00 on these 10 questions, 0.94 across all 100) and *this* 10-question set, which contains no genuinely multi-hop questions. On a corpus with weak retrieval, the planner's ability to re-query is exactly the mechanism that would pay for itself, the literature's case for agentic RAG is that it repairs weak retrieval, and there is nothing here to repair. That is why the stages are disabled by configuration (`USE_PLANNER`, `USE_VERIFIER`) rather than deleted.
 
-### Tool calling: the one stage that did earn its cost
+### Tool calling
 
 The ablation above switched the planner and verifier off. It also predicted the
 condition under which re-querying *would* pay: a corpus where retrieval is weak
@@ -330,7 +330,7 @@ worse, and the feature was nearly abandoned on that basis.
 | | Recovered | Cost/query |
 |---|---|---|
 | Hand-written reformulations (predicted ceiling) | 2 / 6 | n/a |
-| **Model choosing its own searches** | **4 / 6** | **$0.0278** |
+| Model choosing its own searches | 4 / 6 | $0.0278 |
 | Baseline, single retrieval | 0 / 6 | $0.0157 |
 
 The model beat the hand-written ceiling because it reformulates *after* seeing
@@ -357,7 +357,7 @@ is another reason the wider run matters.
 USE_TOOL_LOOP=true streamlit run app/main.py   # model runs its own searches
 ```
 
-### A correction worth reading: how I got this wrong
+### A diagnostic I got wrong
 
 An earlier version of this section claimed `recall@5 = 0.81` and "worst rank 8", concluding that `final_k=5` was truncating good results. **That was wrong, and the cause was my own diagnostic.** It measured retrieval with `top_k=50`, a candidate pool the agent never uses, on the assumption that a wider pool could only reveal more.
 
@@ -386,9 +386,9 @@ A second signal points the same way: on **Q6**, the retriever alone scores recal
 - **Latency ~19s** reflects 4-5 sequential LLM calls; fine for assisted lookup, too slow for live phone support.
 - **Means hide the worst case.** The generated report lists worst-case rows for exactly this reason. Here, correctness bottoms out at 0.80 on Q9.
 
-### Enhanced retrieval A/B: withdrawn pending re-measurement
+### Enhanced retrieval A/B, withdrawn
 
-An earlier A/B of stronger embeddings (`BAAI/bge-small-en-v1.5`) plus the cross-encoder reranker reported a recall gain of 0.78 → 0.89. **That comparison is withdrawn.** It was produced under the old harness: self-judged, with the mislabeled ground truth described below, and using the metric definition since renamed. It also rested on a single-question difference at n=10, well inside the noise floor. The eval set is now large enough (n=100) to resolve a difference of that size, so re-running it is no longer blocked, only unstarted.
+An earlier A/B of stronger embeddings (`BAAI/bge-small-en-v1.5`) plus the cross-encoder reranker reported a recall gain of 0.78 -> 0.89. **That comparison is withdrawn.** It was produced under the old harness: self-judged, with the mislabeled ground truth described below, and using the metric definition since renamed. It also rested on a single-question difference at n=10, well inside the noise floor. The eval set is now large enough (n=100) to resolve a difference of that size, so re-running it is no longer blocked, only unstarted.
 
 The opt-in path still exists (it pulls in torch):
 
@@ -400,9 +400,9 @@ EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 RERANKER_ENABLED=true python -m src.eval_
 
 Contextual Retrieval and semantic chunking were deliberately **not** implemented: both target long multi-page documents and would cost real ingest-time API calls for little gain on a single-page corpus.
 
-### On Q2 / Q3: a correction
+### A correction on Q2 and Q3
 
-Questions **2 (RAM for document-level processing)** and **3 (DB2 log disk space)** return refusals, and both refusals are **correct**. But an earlier version of this README justified that conclusion with a claim that was false, and the correction is more instructive than the original claim:
+Questions 2 (RAM for document-level processing) and 3 (DB2 log disk space) return refusals, and both refusals are correct. But an earlier version of this README justified that conclusion with a claim that was false, and the correction is more instructive than the original claim:
 
 > ~~"The harness resolved it: for Q2 the relevant requirements docs *were* retrieved (recall@k=1.0, ~38 chunks)"~~
 
@@ -441,14 +441,14 @@ The script exits non-zero if any candidate quantity appears, so it can gate CI. 
 
 | Category | Technology |
 |---|---|
-| **Language** | Python 3.11+ (developed on 3.13) |
-| **PDF Parsing** | PyMuPDF 1.25.3 |
-| **Vector Database** | ChromaDB 0.6.3 (local, all-MiniLM-L6-v2) |
-| **Keyword Search** | rank_bm25 0.2.2 |
-| **Agentic Framework** | LangGraph 0.2.74 |
-| **LLM** | Claude Sonnet via langchain-anthropic 0.3.12 |
-| **UI** | Streamlit 1.42.0 |
-| **Configuration** | python-dotenv 1.0.1 |
+| Language | Python 3.11+ (developed on 3.13) |
+| PDF Parsing | PyMuPDF 1.25.3 |
+| Vector Database | ChromaDB 0.6.3 (local, all-MiniLM-L6-v2) |
+| Keyword Search | rank_bm25 0.2.2 |
+| Agentic Framework | LangGraph 0.2.74 |
+| LLM | Claude Sonnet via langchain-anthropic 0.3.12 |
+| UI | Streamlit 1.42.0 |
+| Configuration | python-dotenv 1.0.1 |
 
 ---
 
@@ -625,12 +625,12 @@ Ordered by what most improves the system, not by what is easiest to demo.
 
 | Priority | Work | Why |
 |---|---|---|
-| **1** | Re-run the A/B/C ablation at n=100 | ~~Expand the eval set to 100+ questions with a held-out slice~~ **done**: the benchmark is now 100 questions with a 70/30 split. The ablation itself is still n=10, so the conclusion that switched two stages off is the weakest-powered claim left in the project. |
-| **2** | Judge calibration: hand-label ~50, report Cohen's κ | The judge's noise floor is measured (0.00-0.10) but its *agreement with humans* is not. Chance-corrected, not raw. |
-| **3** | Widen candidate pool (top-10 → top-50) + rerank to 5 | Worst observed rank is 8, so the ranking headroom is provable, not hoped-for. |
-| ~~4~~ | ~~Adaptive routing~~ | **Done differently.** The ablation showed no question benefited from the agentic path, so routing was unnecessary. The stages were switched off outright. A router would have added a classifier to choose between a better option and a worse one. |
-| **5** | Strip print-to-PDF boilerplate at ingest | 75% of chunks carry an identical header/breadcrumb (~4-6% of words). Low-risk cleanup. |
-| **6** | Claim→span attribution instead of filename matching | Current citation precision only catches fabricated filenames. |
-| **7** | Tracing, per-request cost/latency budgets, index built in CI | Production surface. |
+| 1 | Re-run the A/B/C ablation at n=100 | ~~Expand the eval set to 100+ questions with a held-out slice~~ done: the benchmark is now 100 questions with a 70/30 split. The ablation itself is still n=10, so the conclusion that switched two stages off is the weakest-powered claim left in the project. |
+| 2 | Judge calibration: hand-label ~50, report Cohen's κ | The judge's noise floor is measured (0.00-0.10) but its *agreement with humans* is not. Chance-corrected, not raw. |
+| 3 | Widen candidate pool (top-10 -> top-50) + rerank to 5 | Worst observed rank is 8, so the ranking headroom is provable, not hoped-for. |
+| ~~4~~ | ~~Adaptive routing~~ | Done differently. The ablation showed no question benefited from the agentic path, so routing was unnecessary. The stages were switched off outright. A router would have added a classifier to choose between a better option and a worse one. |
+| 5 | Strip print-to-PDF boilerplate at ingest | 75% of chunks carry an identical header/breadcrumb (~4-6% of words). Low-risk cleanup. |
+| 6 | Claim->span attribution instead of filename matching | Current citation precision only catches fabricated filenames. |
+| 7 | Tracing, per-request cost/latency budgets, index built in CI | Production surface. |
 
 **Deliberately deferred:** multi-lingual answering is currently a liability rather than a feature. The refusal marker is English-only, so a translated-only refusal would be scored as an answer. The synthesizer now pins the English canonical sentence to keep the eval sound, but full language support needs a language-aware detector before it is worth advertising.
