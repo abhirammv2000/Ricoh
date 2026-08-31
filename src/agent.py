@@ -16,6 +16,9 @@ The agentic loop allows one retry: if the Verifier says
 "INSUFFICIENT" and we haven't exhausted iterations, we loop
 back to the Planner to broaden the search.
 
+The planner and verifier are off by default (config A). The default path is
+retrieve then synthesize; see build_agent_graph and src/config.py.
+
 Design decisions
 - We use LangGraph's StateGraph for explicit, auditable control
   flow - no hidden chains or prompt-chaining magic.
@@ -376,19 +379,19 @@ def build_agent_graph(
 ) -> Any:
     """Construct and compile the LangGraph state machine.
 
-    With both flags on (the production default) the flow is: planner, then
-    retriever, then verifier, which either loops back to the planner (when the
-    evidence is insufficient and we are under 2 iterations) or goes on to the
-    synthesizer and then END.
+    With both flags on the flow is: planner, then retriever, then verifier, which
+    either loops back to the planner (when the evidence is insufficient and we
+    are under 2 iterations) or goes on to the synthesizer and then END. Both
+    flags default off in production (config A); see src/config.py.
 
     Why the flags exist. Every node here costs an LLM call, and anything that
     costs money has to earn it. These flags run the same code path as a reduced
     pipeline, so each stage's contribution can be measured by removing it rather
     than argued about:
 
-        use_planner=False, use_verifier=False   retrieve then synthesize
+        use_planner=False, use_verifier=False   retrieve then synthesize (default)
         use_planner=True,  use_verifier=False   adds query decomposition
-        use_planner=True,  use_verifier=True    adds verify and retry (prod)
+        use_planner=True,  use_verifier=True    adds verify and retry
 
     This is the real graph rather than a separate "simple pipeline", on purpose:
     a benchmark that compares two different code paths measures the difference
