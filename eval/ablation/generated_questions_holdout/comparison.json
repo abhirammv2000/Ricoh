@@ -1,0 +1,129 @@
+{
+  "A": {
+    "questions": 30,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 0.933,
+      "ci95": [
+        0.833,
+        1.0
+      ],
+      "scored_n": 30
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.867,
+      "recall@3": 0.933,
+      "recall@5": 0.933
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 30
+    },
+    "mean_latency_seconds": 11.32,
+    "max_latency_seconds": 23.56,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.015796,
+      "max_cost_per_query_usd": 0.02544,
+      "total_agent_cost_usd": 0.473886,
+      "eval_judge_cost_usd": 0.0,
+      "mean_llm_calls_per_query": 1.0,
+      "mean_input_tokens": 2832,
+      "mean_output_tokens": 487,
+      "by_stage": {
+        "retrieval": {
+          "calls": 30,
+          "seconds": 2.26,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 0.7,
+          "pct_of_cost": 0.0
+        },
+        "synthesizer": {
+          "calls": 30,
+          "seconds": 335.14,
+          "cost_usd": 0.473886,
+          "pct_of_llm_seconds": 99.3,
+          "pct_of_cost": 100.0
+        }
+      }
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 9,
+        "question": "What operating systems does RICOH ProcessDirector run on, and how do users access it?",
+        "evidence_recall": 0.0
+      }
+    }
+  },
+  "B": {
+    "questions": 30,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 0.933,
+      "ci95": [
+        0.833,
+        1.0
+      ],
+      "scored_n": 30
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.867,
+      "recall@3": 0.933,
+      "recall@5": 0.933
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 30
+    },
+    "mean_latency_seconds": 15.92,
+    "max_latency_seconds": 32.36,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.027555,
+      "max_cost_per_query_usd": 0.050595,
+      "total_agent_cost_usd": 0.82665,
+      "eval_judge_cost_usd": 0.0,
+      "mean_llm_calls_per_query": 2.0,
+      "mean_input_tokens": 5828,
+      "mean_output_tokens": 671,
+      "by_stage": {
+        "planner": {
+          "calls": 30,
+          "seconds": 89.06,
+          "cost_usd": 0.062628,
+          "pct_of_llm_seconds": 18.7,
+          "pct_of_cost": 7.6
+        },
+        "retrieval": {
+          "calls": 171,
+          "seconds": 10.52,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 2.2,
+          "pct_of_cost": 0.0
+        },
+        "synthesizer": {
+          "calls": 30,
+          "seconds": 377.87,
+          "cost_usd": 0.764022,
+          "pct_of_llm_seconds": 79.1,
+          "pct_of_cost": 92.4
+        }
+      }
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 9,
+        "question": "What operating systems does RICOH ProcessDirector run on, and how do users access it?",
+        "evidence_recall": 0.0
+      }
+    }
+  }
+}

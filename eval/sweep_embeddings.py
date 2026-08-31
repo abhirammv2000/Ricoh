@@ -103,8 +103,10 @@ def _embedding_function(label: str, mode: str):
         return None
 
     if kind == "openai":
+        # chromadb 0.6.3's OpenAIEmbeddingFunction targets openai<1.0 and breaks
+        # on the current SDK. Needs a pinned pair or a hand-rolled EF; untested.
         if not os.getenv("OPENAI_API_KEY"):
-            raise SystemExit(f"{label} needs OPENAI_API_KEY. Set it and retry.")
+            raise SystemExit(f"{label} needs OPENAI_API_KEY.")
         from chromadb.utils import embedding_functions
 
         return embedding_functions.OpenAIEmbeddingFunction(

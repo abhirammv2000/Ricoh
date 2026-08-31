@@ -8,7 +8,7 @@
 
 Citera is a retrieval-augmented technical-support assistant over 733 Ricoh ProcessDirector documents. Ask a natural-language question and it answers with page-level citations, or refuses when the docs do not contain the answer instead of making something up.
 
-It started as an agentic pipeline (plan, retrieve, verify, retry) and ended up as a single retrieval call, because that is what the measurements supported.
+It started as an agentic pipeline (plan, retrieve, verify, retry) and ended up as a single retrieval call, because that is what the measurements supported. An ablation re-run at n=100 walked part of that back: the verifier still earns nothing, but the planner does help retrieval on the dev split, just not on the held-out one, so it stays behind a flag rather than deleted (see [§7](#7-evaluation-and-metrics)).
 
 **Measured** with `claude-opus-5` judging `claude-sonnet-4-6` over the full corpus, methodology and caveats in [§7](#7-evaluation-and-metrics):
 
@@ -18,19 +18,17 @@ It started as an agentic pipeline (plan, retrieve, verify, retry) and ended up a
 
 Measured on **100 questions** with a 70/30 dev/holdout split. An earlier 10-question set gave flattering numbers with intervals twice as wide. Growing the benchmark moved groundedness 0.98 -> 0.96 and revealed a behaviour-match failure the small set could not see.
 
-The main result is that two of the pipeline stages did not pay for themselves. Switching the planner and verifier off made the system cheaper and faster and no worse on any quality metric.
-
-A three-config progressive-removal ablation compared the full Planner -> Retriever -> Verifier -> retry loop against progressively simpler pipelines:
+A three-config progressive-removal ablation compares the full Planner -> Retriever -> Verifier -> retry loop against progressively simpler pipelines. On the dev split (70 questions, judged):
 
 | Config | Pipeline | Calls | Cost/query | Latency | Evidence recall | Grounded | Correct |
 |---|---|---|---|---|---|---|---|
-| A | retrieve -> synthesize | 1.0 | $0.0159 | 9.9s | 1.00 | 0.98 | 1.00 |
-| B | + planner | 2.0 | $0.0207 | 13.9s | 0.88 | 0.99 | 0.97 |
-| C | + verifier/retry *(old default)* | 3.4 | $0.0490 | 15.6s | 0.88 | 0.98 | 0.98 |
+| A | retrieve -> synthesize | 1.0 | $0.0156 | 10.2s | 0.94 | 0.96 | 0.97 |
+| B | + planner | 2.0 | $0.0262 | 14.3s | 1.00 | 0.98 | 0.99 |
+| C | + verifier/retry | 3.0 | $0.0414 | 16.5s | 1.00 | 0.97 | 0.99 |
 
-Config A matched or beat the full pipeline on every quality metric at 3.1x lower cost and 1.6x lower latency, and no question came out better under C. A is the default now. The stages stay behind config flags rather than being deleted, since the ablation only covers this corpus and this question set, see [§7](#7-evaluation-and-metrics).
+The verifier (C) adds no evidence recall over B and is slightly worse on the judged metrics, so it stays off. The planner (B) takes evidence recall from 0.94 to 1.00 on dev, but on the held-out 30 questions A and B score an identical 0.93, so the benefit does not replicate. Config A is the default: the planner's edge is real on one split, gone on the other, and not worth 1.7x the cost per query on every question. It stays behind `USE_PLANNER` for corpora where retrieval is weaker. Full per-split numbers and the earlier n=10 run in [§7](#7-evaluation-and-metrics).
 
-Brackets are 95% percentile-bootstrap confidence intervals. The figures above are n=100; the ablation table is n=10, so its intervals are much wider.
+Brackets are 95% percentile-bootstrap confidence intervals.
 
 **Stack:** Python · LangGraph · Claude · ChromaDB (dense) + BM25 + Reciprocal Rank Fusion · Streamlit · pytest + GitHub Actions CI · Docker.
 
@@ -102,7 +100,7 @@ The thing that actually shapes the design is the corpus: 733 individual help-top
 
 1. **Ingests** Ricoh PDF manuals using PyMuPDF with metadata-preserving chunking (500 words, 50-word overlap).
 2. **Retrieves** relevant passages via a **hybrid engine** combining semantic vector search (ChromaDB + MiniLM) and keyword search (BM25), fused with Reciprocal Rank Fusion.
-3. **Runs** a LangGraph state machine whose composition is set by measurement: the Planner and Verifier stages exist but are **off by default**, because an ablation showed the single-retrieval path matched or beat the full loop at 3.1× lower cost ([§7](#7-evaluation-and-metrics)).
+3. **Runs** a LangGraph state machine whose composition is set by measurement: the Planner and Verifier stages exist but are **off by default**, because an ablation showed the verifier earns nothing and the planner's help does not replicate across splits ([§7](#7-evaluation-and-metrics)).
 4. **Generates** grounded answers with strict `[Document Name, Page X]` citations - refusing to answer when evidence is insufficient.
 5. **Visualises** the full reasoning process in a "Glass Box" Streamlit dashboard.
 6. **Polyglot Support:** Automatically detects user language (e.g., Spanish, Japanese, Hindi) and answers in that language while preserving English citations.
@@ -150,7 +148,7 @@ Cited answer plus the Glass Box view
 ### Why this architecture?
 - **Hybrid retrieval** because pure vector search misses exact matches on error codes (`SC542`) and model numbers (`IM C3500`), while pure BM25 misses semantic similarity.
 - **RRF fusion** because BM25 and cosine similarity scores are incommensurable - rank-based fusion avoids score normalisation issues.
-- **Agentic loop, built, measured, and switched off.** The original rationale was that single-pass retrieval misses evidence on multi-part questions and the verify-retry pattern catches the gaps. That was a hypothesis, and on this corpus it turned out to be false: the loop retrieved *worse* than the raw question and cost 3.1× more. The stages remain behind config flags because the rationale may well hold on a corpus with weaker retrieval. It simply does not hold here ([§7](#7-evaluation-and-metrics)).
+- **Agentic loop, built, measured, and switched off by default.** The rationale was that single-pass retrieval misses evidence on multi-part questions and a plan-then-verify loop catches the gaps. At n=100 the verifier still earns nothing, and the planner helps retrieval on the dev split but not the held-out one, so the loop is not worth 1.7x the cost per query here. It stays behind config flags for a corpus where retrieval is weaker ([§7](#7-evaluation-and-metrics)).
 
 ---
 
@@ -278,9 +276,12 @@ At **production settings** (`top_k=10, final_k=5`), retrieval on the raw questio
 | Raw question, single retrieval | 1.00 (8/8) | 0 |
 | Full agentic pipeline | 0.88 | ~4 |
 
-The planner degrades Q1 and Q9 by rewriting the question into sub-queries that retrieve worse than the original, and never improves any question. **The most defensible next change to this system is to delete work, not add it.** Route simple lookups straight to retrieval and reserve the agentic path for questions that demonstrably need it.
+At n=10 the planner degraded Q1 and Q9 by rewriting the question into sub-queries that retrieved worse than the original, and improved none. That pointed toward deleting the agentic layer. The n=100 re-run below shows it was a two-question artifact: at n=100 the planner does help retrieval on the dev split. Read the next section, not this line, for the current picture.
 
-### The ablation
+### The ablation (n=10)
+
+This is the run that first set the default. It was later re-run at n=100, which
+revised the planner half of the conclusion; that follow-up is the next section.
 
 Retrieval recall is not answer quality, so "the planner hurts retrieval" was not sufficient grounds to remove it. The agent gathers *more* evidence on some questions (Q4: 17 chunks, Q7: 8), and extra context could plausibly raise groundedness even while document recall looks worse. The verifier's job, catching insufficient evidence, shows up in refusal behaviour, not recall at all.
 
@@ -311,6 +312,37 @@ The verifier is cheap in *time* (one-word output) and expensive in *money* (it r
 **The system spent most on questions it could not answer.** Q2 and Q3, the two correct refusals, cost $0.146 and $0.122 against a $0.026 median, because the retry loop fires precisely when evidence looks insufficient. **52% of the benchmark's total cost went to 2 of 10 questions, both unanswerable.** Retrying cannot help when the corpus lacks the answer.
 
 **Limits of this conclusion, stated plainly.** It holds for *this* corpus (733 mostly single-page articles where one retrieval already achieves recall@5 = 1.00 on these 10 questions, 0.94 across all 100) and *this* 10-question set, which contains no genuinely multi-hop questions. On a corpus with weak retrieval, the planner's ability to re-query is exactly the mechanism that would pay for itself, the literature's case for agentic RAG is that it repairs weak retrieval, and there is nothing here to repair. That is why the stages are disabled by configuration (`USE_PLANNER`, `USE_VERIFIER`) rather than deleted.
+
+### The ablation, re-run at n=100
+
+The n=10 run above concluded that the planner *hurt* retrieval (evidence recall 1.00 for config A vs 0.88 for B and C) and switched it off. That was the weakest-powered claim in the project, so `python -m eval.ablation --n100` re-ran it against the 100-question set: dev (70) with the judge, holdout (30) on the objective metrics only.
+
+**Dev split (70 questions, judged):**
+
+| Config | Calls/q | Cost/q | Latency | Evidence recall | Grounded | Correct | Behaviour |
+|---|---|---|---|---|---|---|---|
+| A retrieve -> synthesize | 1.0 | $0.0156 | 10.2s | 0.943 | 0.963 | 0.972 | 0.986 |
+| B + planner | 2.0 | $0.0262 | 14.3s | **1.000** | 0.977 | 0.994 | 1.000 |
+| C + verifier/retry | 3.0 | $0.0414 | 16.5s | 1.000 | 0.972 | 0.989 | 1.000 |
+
+**Holdout split (30 questions, no judge):**
+
+| Config | Evidence recall | Behaviour |
+|---|---|---|
+| A | 0.933 | 1.000 |
+| B | 0.933 | 1.000 |
+
+Two things changed and one did not.
+
+**The planner is not harmful.** The n=10 finding that it rewrote questions into worse sub-queries was two questions out of ten and did not generalise. At n=100 the planner *helps* on dev, taking evidence recall from 0.943 to 1.000, which is the objective no-judge metric, so it is four real questions where A's single retrieval missed the document and B's sub-queries found it.
+
+**But the benefit does not replicate.** On the held-out 30, A and B score an identical 0.933 evidence recall with zero per-question differences. A planner with a general benefit should show it on both splits. It shows it on one. That is the signature of a small effect that is inside sampling noise at n=30 to 70, not a reliable win.
+
+**The verifier still earns nothing.** Config C matches B on evidence recall (both 1.000) and is slightly *lower* on grounded and correct. Same as at n=10.
+
+So config A stays the default. The honest change is to the reasoning: the planner is roughly neutral here rather than harmful, and it stays behind `USE_PLANNER` for a corpus where retrieval is weak enough for its re-querying to matter. The correctness and behaviour gaps on dev (0.972 -> 0.994, 0.986 -> 1.000) are inside the judge's ±0.10 noise floor and are not load-bearing.
+
+Raw per-config dumps are in `eval/ablation/generated_questions_dev/` (`--n100`) and `_holdout/` (`--split holdout --configs A B --no-judge`).
 
 ### Tool calling
 
@@ -376,11 +408,16 @@ What the router actually does is escalate after the fact: run the cheap path,
 and if the synthesizer emits the refusal marker, hand the question to the tool
 loop and take that answer. The trigger is the model's own "I cannot answer this
 from the evidence", which is a call already paid for, so the confident majority
-costs exactly one call. Only 2 of the 100 questions refuse, so there is little
-here for a router to gain, and whether escalating those 2 produces a better
-answer needs the judged harness. Off by default (`USE_ROUTER`); the eval harness
-runs through it the same way `run_agent` does, so the judged run is possible
-without touching the harness again.
+costs exactly one call.
+
+Judged on the dev 70 (`USE_ROUTER=true python -m src.eval_harness --ground-truth
+eval/generated_questions.json --split dev`), it escalated exactly one question.
+Against plain config A it moved behaviour 0.986 -> 1.000, evidence recall 0.943
+-> 0.957 and correctness 0.972 -> 0.980, for +0.04 calls and +$0.001 per query.
+Real, but with one escalation most of that is run-to-run variance. The router is
+a cheap safety net for the occasional wrong refusal, not a quality lever; the
+planner (config B above) is the lever, and it still beats the router on evidence
+recall (1.000 vs 0.957). Off by default (`USE_ROUTER`).
 
 ### A diagnostic I got wrong
 
@@ -405,7 +442,7 @@ Retrieval is **bit-identical across repeated runs** (verified across fresh clien
 A second signal points the same way: on **Q6**, the retriever alone scores recall@5 = 0.00 while end-to-end evidence recall is 1.00: the planner's query decomposition surfaced a document the raw query missed. That is the clearest case in the set of the agentic layer earning its cost.
 
 **Honest caveats:**
-- **The ablation is n=10.** Its CIs are wide by construction; one question moves any mean by ~10 points. The headline metrics are n=100, but the ablation that switched the planner and verifier off was not re-run at that size, so the pipeline-composition conclusion rests on the weaker sample. `python -m eval.ablation --n100` runs it on the 100-question dev split; that run needs a funded key and is still the top priority.
+- **The ablation split is dev-heavy.** It has been run at n=100 (see the section above), but the judged half is the 70-question dev split; holdout was measured on objective metrics only. The planner's dev-split edge on the judged metrics has not been confirmed with the judge on holdout.
 - **Single judge, model-graded.** No human-labelled agreement (Cohen's κ) has been measured yet, so the judge itself is unvalidated. `eval/human_labels.json` is a prepared 30-item worksheet (passages included) waiting on the labelling pass.
 - **Citation precision measures the weak thing** (see table above) and 1.00 should be read accordingly.
 - **Latency ~19s** reflects 4-5 sequential LLM calls; fine for assisted lookup, too slow for live phone support.
@@ -662,12 +699,12 @@ Ricoh/
 
 Ordered by what most improves the system, not by what is easiest to demo.
 
-| Priority | Work | Why |
+| Priority | Work | Status |
 |---|---|---|
-| 1 | Run the A/B/C ablation at n=100 | `python -m eval.ablation --n100` wires it to the 100-question dev split (output lands in its own subdirectory so the n=10 artifacts stay put). The run costs API spend and has not been paid for, so the conclusion that switched two stages off still rests on n=10. |
-| 2 | Judge calibration: hand-label 30, report Cohen's κ | `eval/human_labels.json` is a ready worksheet: 30 sampled answers with the retrieved passages included, so groundedness can be judged without a separate lookup. The labelling pass is the remaining work; the judge's agreement with a human is still unmeasured. |
-| 3 | Better embedding model, wider pool, rerank | `python -m eval.sweep_embeddings` measured MiniLM against bge-small at n=100, retrieval only. bge-small does not beat it, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. bge-base and the reranker rows are the remaining runs. Detail in [§7](#7-evaluation-and-metrics). |
-| 4 | Adaptive routing | Built as `src/router.py`: run the cheap path, escalate to the tool loop only when it refuses. A pre-retrieval confidence signal was tried first and `eval/calibrate_router.py` showed it does not separate the retrieval misses from the hits on this corpus. Off by default (`USE_ROUTER`) until a judged run confirms the escalation helps. |
+| 1 | Re-run the A/B/C ablation at n=100 | **Done.** The n=10 "planner is harmful" finding did not hold: the planner helps on dev, not on holdout, verifier still earns nothing. Config A stays default. [§7](#7-evaluation-and-metrics). Remaining: the judge on the holdout split. |
+| 2 | Judge calibration: hand-label 30, report Cohen's κ | Worksheet ready (`eval/human_labels.json`, passages included). The labelling pass is the last open item on the eval side. |
+| 3 | Better embedding model, wider pool, rerank | **Done for bge-small:** it does not beat MiniLM at n=100, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. bge-base and the `--rerank` rows still to run. [§7](#7-evaluation-and-metrics). |
+| 4 | Adaptive routing | **Done.** `src/router.py` escalates to the tool loop on a refusal (a pre-retrieval confidence signal was tried first and does not separate misses from hits). Judged on dev: escalates rarely, small gain over config A, within judge noise. Off by default (`USE_ROUTER`). |
 | 5 | Strip print-to-PDF boilerplate at ingest | 75% of chunks carry an identical header/breadcrumb (~4-6% of words). Low-risk cleanup. |
 | 6 | Claim->span attribution instead of filename matching | Current citation precision only catches fabricated filenames. |
 | 7 | Tracing, per-request cost/latency budgets, index built in CI | Production surface. |
