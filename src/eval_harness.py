@@ -81,10 +81,8 @@ GROUND_TRUTH_PATH: Path = PROJECT_ROOT / "eval" / "ground_truth.json"
 METRICS_PATH: Path = PROJECT_ROOT / "eval" / "metrics.json"
 REPORT_PATH: Path = PROJECT_ROOT / "eval" / "eval_report.md"
 
-# A refusal is detected by this canonical phrase (the synthesizer is
-# instructed to emit it verbatim, in the user's language - we match the
-# English form used by the test set).
-REFUSAL_MARKER = "information unavailable"
+# Defined next to the synthesizer prompt; re-exported so existing imports work.
+from src.agent import REFUSAL_MARKER, is_refusal as _is_refusal  # noqa: E402,F401
 
 
 # 1. LLM-AS-JUDGE
@@ -284,27 +282,28 @@ def _citation_precision(cited: set[str], evidence_docs: set[str]) -> float | Non
     return valid / len(cited)
 
 
-def _is_refusal(answer: str) -> bool:
-    """Detect the canonical refusal, robustly.
-
-    The synthesizer answers in the *user's* language, so a refusal that was
-    only ever emitted in translated form would be invisible here and would
-    be silently scored as an answer, inflating behaviour-match and
-    correctness on exactly the questions the system handled correctly.
-
-    The synthesizer prompt therefore requires the English canonical
-    sentence verbatim in every refusal, with any translation appended
-    after it.  Whitespace is normalised so a line break inside the phrase
-    does not defeat the match.
-    """
-    return REFUSAL_MARKER in " ".join(answer.lower().split())
-
-
 # 3. AGENT RUNNER (returns full state, like the Streamlit app)
 
 def _run_agent_full(
     query: str, use_planner: bool = True, use_verifier: bool = True
 ) -> dict[str, Any]:
+    # The router and the tool loop replace the graph, so score their path, not it.
+    from src.config import USE_ROUTER, USE_TOOL_LOOP
+
+    if USE_ROUTER:
+        from src.router import route
+
+        return route(query)
+    if USE_TOOL_LOOP:
+        from src.tools import run_tool_loop
+
+        loop = run_tool_loop(query)
+        return {
+            "final_answer": loop["answer"],
+            "retrieved_evidence": loop.get("evidence", []),
+            "sub_queries": loop.get("queries", []),
+        }
+
     agent = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
     return dict(agent.invoke(initial_state(query, use_planner=use_planner)))
 
