@@ -1,35 +1,27 @@
 """Progressive-removal ablation: does each pipeline stage pay for itself?
 
-The pipeline is Planner -> Retriever -> Verifier -> retry -> Synthesizer, about
-four LLM calls a query. A single retrieval on the raw question already finds
-every expected document (8/8) while the full pipeline reaches 0.88, so on
-retrieval alone the agentic layer is net negative.
-
-That alone is not enough to remove it. The agent accumulates more evidence on
-some questions because it retrieves once per sub-query, and the verifier exists
-to catch insufficient evidence, which shows up in refusal behaviour rather than
-in recall. So run the same benchmark with the same retriever and judge, varying
-only how much of the pipeline runs:
+Runs the same benchmark with the same retriever and judge, varying only how much
+of the pipeline runs:
 
     A  retrieve_only   retrieve(raw question) -> synthesize        ~1 LLM call
     B  planner         + query decomposition + entity pass         ~2 calls
-    C  full            + verifier and retry loop                   ~4 calls
+    C  full            + verifier and retry loop                   ~3 calls
 
 Each rung adds one mechanism, so a difference between adjacent rungs is
-attributable to that mechanism. If A ties or beats C, the planner and verifier
-go. If C wins on some questions, a router is justified and the data says what it
-should key on.
+attributable to it. Judge noise on borderline answers runs up to 0.10, so a
+difference under that, or one or two questions flipping, is not a result; the
+script prints per-question deltas for that reason.
 
-Note there are only 10 questions here, and judge noise on borderline answers
-runs up to 0.10 (see eval/judge_variance.py), so a one-question difference is
-not a result. The script prints per-question deltas for that reason.
-
-Cost: 3 configs x 10 questions = 30 agent runs plus 30 judge calls.
+The default run is the curated 10-question set. `--n100` runs the 70-question
+dev split with the judge; that run revised the n=10 conclusion (README section
+7): the verifier still earns nothing, the planner helps on dev but not holdout.
 
 Usage:
-    python -m eval.ablation                 # all three configs
+    python -m eval.ablation                 # curated 10 questions
+    python -m eval.ablation --n100          # 70-question dev split
     python -m eval.ablation --configs A C   # just the endpoints
     python -m eval.ablation --no-judge      # objective metrics only
+    python -m eval.ablation --ground-truth eval/generated_questions.json --split holdout --configs A B --no-judge
 """
 
 from __future__ import annotations
@@ -62,7 +54,7 @@ CONFIGS: dict[str, dict[str, Any]] = {
         "name": "full",
         "use_planner": True,
         "use_verifier": True,
-        "describes": "+ verifier and retry (production default)",
+        "describes": "+ verifier and retry loop",
     },
 }
 

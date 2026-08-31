@@ -206,9 +206,9 @@ USE_TOOL_LOOP: bool = os.getenv("USE_TOOL_LOOP", "false").lower() in ("1", "true
 
 # Router (opt-in). Runs the cheap path and escalates to the tool loop only when
 # the synthesizer refuses. Takes precedence over USE_TOOL_LOOP and the
-# planner/verifier flags. See src/router.py. Off by default because only two of
-# the hundred benchmark questions refuse, so there is little to gain until a
-# judged run says the escalation helps.
+# planner/verifier flags. See src/router.py. Off by default: only one or two of
+# the hundred benchmark questions refuse, and the judged dev run showed the gain
+# over config A sits inside judge noise.
 USE_ROUTER: bool = os.getenv("USE_ROUTER", "false").lower() in ("1", "true", "yes")
 
 # Semantic answer cache (opt-in, off by default)

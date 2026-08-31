@@ -85,6 +85,3 @@ IMPLEMENTATION_WALKTHROUGH.md
 evaluation_report.md
 evaluation_results.csv
 ROADMAP.md
-
-# Tagged one-off eval runs (metrics_<tag>.json); the .md report is the kept evidence.
-eval/metrics_*_*.json
