@@ -50,6 +50,10 @@ RPD-en-US/
 chroma_db/
 .chroma/
 
+# Per-model indexes built by the embedding sweep. Rebuild with
+# `python -m eval.sweep_embeddings --build <model>`.
+eval/indexes/
+
 # ---------- Jupyter notebook checkpoints ----------
 .ipynb_checkpoints/
 
@@ -68,6 +72,7 @@ traces/
 # Raw per-config ablation dumps - regenerate with `python -m eval.ablation`.
 # The .md reports and comparison.json are the committed evidence.
 eval/ablation/*_*.json
+eval/ablation/**/*_*.json
 
 # Personal judge-calibration worksheet - regenerate with
 # `python -m eval.label_for_kappa --sample N`. Once filled in with real

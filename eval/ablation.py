@@ -40,9 +40,10 @@ from pathlib import Path
 from typing import Any
 
 from src.config import PROJECT_ROOT
-from src.eval_harness import evaluate, write_outputs
+from src.eval_harness import GROUND_TRUTH_PATH, evaluate, write_outputs
 
 OUT_DIR: Path = PROJECT_ROOT / "eval" / "ablation"
+GENERATED_QUESTIONS_PATH: Path = PROJECT_ROOT / "eval" / "generated_questions.json"
 
 CONFIGS: dict[str, dict[str, Any]] = {
     "A": {
@@ -81,8 +82,22 @@ def _mean_of(summary: dict[str, Any], key: str) -> float | None:
     return stat
 
 
-def run(config_keys: list[str], use_judge: bool) -> int:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+def run(
+    config_keys: list[str],
+    use_judge: bool,
+    ground_truth_path: Path = GROUND_TRUTH_PATH,
+    split: str | None = None,
+) -> int:
+    # The 10-question run keeps writing into eval/ablation/ (the README links its
+    # files). Anything else goes to a named subdir so they don't clobber.
+    is_default = ground_truth_path == GROUND_TRUTH_PATH and split is None
+    out_dir = OUT_DIR
+    if not is_default:
+        tag = ground_truth_path.stem
+        if split:
+            tag += f"_{split}"
+        out_dir = OUT_DIR / tag
+    out_dir.mkdir(parents=True, exist_ok=True)
     reports: dict[str, dict[str, Any]] = {}
 
     for key in config_keys:
@@ -94,22 +109,24 @@ def run(config_keys: list[str], use_judge: bool) -> int:
             use_judge=use_judge,
             use_planner=cfg["use_planner"],
             use_verifier=cfg["use_verifier"],
+            ground_truth_path=ground_truth_path,
+            split=split,
         )
         write_outputs(
             report,
-            metrics_path=OUT_DIR / f"{key}_{cfg['name']}.json",
-            report_path=OUT_DIR / f"{key}_{cfg['name']}.md",
+            metrics_path=out_dir / f"{key}_{cfg['name']}.json",
+            report_path=out_dir / f"{key}_{cfg['name']}.md",
         )
         reports[key] = report
 
     _print_comparison(reports, use_judge)
-    (OUT_DIR / "comparison.json").write_text(
+    (out_dir / "comparison.json").write_text(
         json.dumps(
             {k: r["summary"] for k, r in reports.items()}, indent=2, ensure_ascii=False
         ),
         encoding="utf-8",
     )
-    print(f"\nComparison written to {OUT_DIR / 'comparison.json'}")
+    print(f"\nComparison written to {out_dir / 'comparison.json'}")
     return 0
 
 
@@ -167,10 +184,11 @@ def _print_comparison(reports: dict[str, dict[str, Any]], use_judge: bool) -> No
                 f"${dc:+.5f}"
             )
 
+    n = next(iter(reports.values()))["summary"]["questions"]
     print("\n" + "-" * 72)
     print("Interpretation guard-rails:")
-    print("  * n=10. Judge noise on borderline answers reaches 0.10.")
-    print("    A mean difference under ~0.10, or a single question flipping,")
+    print(f"  * n={n}. Judge noise on borderline answers reaches 0.10.")
+    print(f"    A mean difference under ~0.10, or {'a single question' if n <= 20 else 'one or two questions'} flipping,")
     print("    is NOT evidence of a real effect.")
     print("  * If the cheap config ties, the expensive stages are not earning")
     print("    their cost on THIS benchmark - which is a statement about this")
@@ -183,5 +201,26 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Pipeline component ablation")
     ap.add_argument("--configs", nargs="+", default=["A", "B", "C"], choices=list(CONFIGS))
     ap.add_argument("--no-judge", action="store_true")
+    ap.add_argument(
+        "--ground-truth", type=Path, default=GROUND_TRUTH_PATH,
+        help="Question set to run (default: the curated 10-question set)",
+    )
+    ap.add_argument(
+        "--split", default=None,
+        help="Only run questions with this split value, e.g. dev / holdout",
+    )
+    ap.add_argument(
+        "--n100", action="store_true",
+        help="Shorthand for --ground-truth eval/generated_questions.json --split dev",
+    )
     args = ap.parse_args()
-    raise SystemExit(run(args.configs, use_judge=not args.no_judge))
+
+    gt_path = args.ground_truth
+    split = args.split
+    if args.n100:
+        gt_path = GENERATED_QUESTIONS_PATH
+        split = "dev"
+
+    raise SystemExit(
+        run(args.configs, use_judge=not args.no_judge, ground_truth_path=gt_path, split=split)
+    )
