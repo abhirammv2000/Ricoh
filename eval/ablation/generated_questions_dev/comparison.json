@@ -1,0 +1,281 @@
+{
+  "A": {
+    "questions": 70,
+    "behavior_match_rate": 0.986,
+    "evidence_recall": {
+      "mean": 0.943,
+      "ci95": [
+        0.886,
+        0.986
+      ],
+      "scored_n": 70
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.743,
+      "recall@3": 0.871,
+      "recall@5": 0.943
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 70
+    },
+    "mean_latency_seconds": 10.23,
+    "max_latency_seconds": 18.16,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.01563,
+      "max_cost_per_query_usd": 0.022368,
+      "total_agent_cost_usd": 1.094091,
+      "eval_judge_cost_usd": 1.899105,
+      "mean_llm_calls_per_query": 1.0,
+      "mean_input_tokens": 2759,
+      "mean_output_tokens": 490,
+      "by_stage": {
+        "retrieval": {
+          "calls": 70,
+          "seconds": 3.53,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 0.5,
+          "pct_of_cost": 0.0
+        },
+        "synthesizer": {
+          "calls": 70,
+          "seconds": 711.07,
+          "cost_usd": 1.094091,
+          "pct_of_llm_seconds": 99.5,
+          "pct_of_cost": 100.0
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.963,
+      "ci95": [
+        0.95,
+        0.975
+      ],
+      "scored_n": 70
+    },
+    "correctness": {
+      "mean": 0.972,
+      "ci95": [
+        0.955,
+        0.987
+      ],
+      "scored_n": 70
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 44,
+        "question": "Which AFP-related feature do I need to install first before I can use any of the other AFP features in RICOH ProcessDirector?",
+        "evidence_recall": 0.0
+      },
+      "groundedness": {
+        "id": 47,
+        "question": "What's the difference between a Kodak PDF printer device and a Passthrough printer device, and which one should I use if my printer model is supported by both?",
+        "groundedness": 0.75
+      },
+      "correctness": {
+        "id": 58,
+        "question": "After finishing the page group and document property definitions in the Acrobat plug-in, where does the control file need to be sent, and what permission is required for that location?",
+        "correctness": 0.6
+      }
+    }
+  },
+  "B": {
+    "questions": 70,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 70
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.743,
+      "recall@3": 0.871,
+      "recall@5": 0.943
+    },
+    "citation_precision": {
+      "mean": 0.993,
+      "ci95": [
+        0.982,
+        1.0
+      ],
+      "scored_n": 70
+    },
+    "mean_latency_seconds": 14.33,
+    "max_latency_seconds": 23.79,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.026204,
+      "max_cost_per_query_usd": 0.045891,
+      "total_agent_cost_usd": 1.834278,
+      "eval_judge_cost_usd": 3.19317,
+      "mean_llm_calls_per_query": 2.0,
+      "mean_input_tokens": 5660,
+      "mean_output_tokens": 615,
+      "by_stage": {
+        "planner": {
+          "calls": 70,
+          "seconds": 193.53,
+          "cost_usd": 0.150057,
+          "pct_of_llm_seconds": 19.3,
+          "pct_of_cost": 8.2
+        },
+        "retrieval": {
+          "calls": 396,
+          "seconds": 12.55,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 1.3,
+          "pct_of_cost": 0.0
+        },
+        "synthesizer": {
+          "calls": 70,
+          "seconds": 796.77,
+          "cost_usd": 1.684221,
+          "pct_of_llm_seconds": 79.5,
+          "pct_of_cost": 91.8
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.977,
+      "ci95": [
+        0.97,
+        0.984
+      ],
+      "scored_n": 70
+    },
+    "correctness": {
+      "mean": 0.994,
+      "ci95": [
+        0.984,
+        1.0
+      ],
+      "scored_n": 70
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 31,
+        "question": "When converting line data to AFP, what information does a page definition control during composition?",
+        "evidence_recall": 1.0
+      },
+      "groundedness": {
+        "id": 46,
+        "question": "When using a CopyToFolder step to send jobs to a printer hot folder, what functionality is lost compared to using a Passthrough printer?",
+        "groundedness": 0.9
+      },
+      "correctness": {
+        "id": 75,
+        "question": "When setting up a Xerox PDF printer for banner pages, what happens if the Header copies and Trailer copies job properties are set to 0, even if banner pages are turned on at the printer level?",
+        "correctness": 0.75
+      }
+    }
+  },
+  "C": {
+    "questions": 70,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 70
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.743,
+      "recall@3": 0.871,
+      "recall@5": 0.943
+    },
+    "citation_precision": {
+      "mean": 0.996,
+      "ci95": [
+        0.989,
+        1.0
+      ],
+      "scored_n": 70
+    },
+    "mean_latency_seconds": 16.49,
+    "max_latency_seconds": 27.43,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.041398,
+      "max_cost_per_query_usd": 0.077058,
+      "total_agent_cost_usd": 2.897883,
+      "eval_judge_cost_usd": 3.14597,
+      "mean_llm_calls_per_query": 3.0,
+      "mean_input_tokens": 10691,
+      "mean_output_tokens": 622,
+      "by_stage": {
+        "planner": {
+          "calls": 70,
+          "seconds": 212.77,
+          "cost_usd": 0.149172,
+          "pct_of_llm_seconds": 18.4,
+          "pct_of_cost": 5.1
+        },
+        "retrieval": {
+          "calls": 393,
+          "seconds": 23.0,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 2.0,
+          "pct_of_cost": 0.0
+        },
+        "verifier": {
+          "calls": 70,
+          "seconds": 128.84,
+          "cost_usd": 1.089138,
+          "pct_of_llm_seconds": 11.2,
+          "pct_of_cost": 37.6
+        },
+        "synthesizer": {
+          "calls": 70,
+          "seconds": 788.66,
+          "cost_usd": 1.659573,
+          "pct_of_llm_seconds": 68.4,
+          "pct_of_cost": 57.3
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.972,
+      "ci95": [
+        0.964,
+        0.98
+      ],
+      "scored_n": 70
+    },
+    "correctness": {
+      "mean": 0.989,
+      "ci95": [
+        0.978,
+        0.997
+      ],
+      "scored_n": 70
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 31,
+        "question": "When converting line data to AFP, what information does a page definition control during composition?",
+        "evidence_recall": 1.0
+      },
+      "groundedness": {
+        "id": 47,
+        "question": "What's the difference between a Kodak PDF printer device and a Passthrough printer device, and which one should I use if my printer model is supported by both?",
+        "groundedness": 0.85
+      },
+      "correctness": {
+        "id": 75,
+        "question": "When setting up a Xerox PDF printer for banner pages, what happens if the Header copies and Trailer copies job properties are set to 0, even if banner pages are turned on at the printer level?",
+        "correctness": 0.7
+      }
+    }
+  }
+}

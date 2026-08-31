@@ -174,32 +174,18 @@ RERANK_CANDIDATE_POOL: int = 20
 # Accepted values: "anthropic" | "google"
 DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
 
-# Pipeline composition
-# Which agentic stages run in production.
+# Pipeline composition. Which agentic stages run in production; both default
+# off (eval/ablation.py, README section 7).
 #
-# Both default to FALSE as of 2026-08-01, on evidence.  A three-config
-# progressive-removal ablation (eval/ablation.py, results in
-# eval/ablation/comparison.json) compared:
+# The verifier never pays for itself: at n=10 and n=100 it adds no evidence
+# recall over the planner-only pipeline and is slightly worse on the judged
+# metrics.
 #
-#   A  retrieve -> synthesize           1.0 calls  $0.0159/q   9.9s
-#   B  + planner                        2.0 calls  $0.0207/q  13.9s
-#   C  + verifier/retry  (old default)  3.4 calls  $0.0490/q  15.6s
-#
-# Config A matched or beat the full pipeline on every quality metric ,
-# evidence recall 1.00 vs 0.88, correctness 1.00 vs 0.98, groundedness and
-# behaviour-match tied within judge noise, while costing 3.1x less and
-# running 1.6x faster.  No question was measurably better under C.
-#
-# Notably, behaviour-match stays 1.00 without the verifier: the synthesizer
-# prompt's own refusal rule already handles insufficient evidence, so the
-# verifier was duplicating work the synthesizer does anyway.
-#
-# Scope of that claim: it holds for THIS corpus (733 mostly single-page
-# help articles, where a single retrieval already achieves recall@5 = 1.00)
-# and THIS 10-question benchmark, which contains no genuinely multi-hop
-# questions.  On a corpus where retrieval is weak, the planner's ability to
-# re-query is exactly the mechanism that would earn its cost, which is why
-# the stages are disabled by config rather than deleted from the codebase.
+# The planner is more of a judgement call. At n=10 it looked harmful; at n=100
+# it helps on the dev split (evidence recall 0.94 -> 1.00) but not on holdout
+# (0.93 either way). A benefit that shows on one random split and not the other
+# is not worth 1.7x the cost per query, so it stays off here, but it is the
+# mechanism that would matter on a corpus where retrieval is weaker.
 USE_PLANNER: bool = os.getenv("USE_PLANNER", "false").lower() in ("1", "true", "yes")
 USE_VERIFIER: bool = os.getenv("USE_VERIFIER", "false").lower() in ("1", "true", "yes")
 
