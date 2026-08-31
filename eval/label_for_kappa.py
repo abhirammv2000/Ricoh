@@ -47,11 +47,38 @@ WORKSHEET_PATH: Path = PROJECT_ROOT / "eval" / "human_labels.json"
 BINARY_THRESHOLD = 0.8
 
 
+def _reconstruct_evidence(question: str) -> list[dict[str, Any]]:
+    """Re-retrieve the passages, so groundedness is labellable.
+
+    The metrics file has only the evidence doc names, not the text. Retrieval on
+    the raw question is deterministic, so for a config-A run this reproduces what
+    the judge saw. Not valid if the run used the planner or the index changed.
+    """
+    import src.config as cfg
+    from src.retriever import get_retriever
+
+    passages = get_retriever().retrieve(
+        query=question, top_k=cfg.RETRIEVAL_TOP_K, final_k=cfg.RETRIEVAL_FINAL_K
+    )
+    return [
+        {
+            "source": p.get("source_document", "unknown"),
+            "page": p.get("page_number", "?"),
+            "text": (p.get("text", "") or "").strip(),
+        }
+        for p in passages
+    ]
+
+
 def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
     report = json.loads(io.open(metrics_path, encoding="utf-8").read())
     rows = [r for r in report["per_question"] if r.get("groundedness") is not None]
     if not rows:
         raise SystemExit(f"No judged rows in {metrics_path}")
+
+    if report.get("config", {}).get("use_planner"):
+        print("WARNING: this run used the planner, so the reconstructed evidence")
+        print("  may not match what the judge saw. Use a config-A run.")
 
     rng = random.Random(seed)
     sample = rng.sample(rows, min(n, len(rows)))
@@ -63,8 +90,8 @@ def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
                 "id": r["id"],
                 "question": r["question"],
                 "answer": r["answer"],
-                "evidence_docs": r.get("evidence_docs", []),
                 "expected_behavior": r.get("expected_behavior"),
+                "evidence": _reconstruct_evidence(r["question"]),
                 # --- FILL THESE IN: 1 = acceptable, 0 = not acceptable ---
                 "human_grounded": None,
                 "human_correct": None,
@@ -77,14 +104,18 @@ def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
     payload = {
         "_instructions": (
             "For each item set human_grounded and human_correct to 1 or 0. "
-            "grounded = every claim in the answer is supported by the cited "
-            "documents. correct = the answer actually answers the question "
+            "grounded = every claim in the answer is supported by the passages "
+            "in 'evidence'. correct = the answer actually answers the question "
             "(or correctly refuses, when expected_behavior is 'refuse'). "
             "The judge's own scores are deliberately not shown here, seeing "
             "them first would anchor your labels and inflate agreement. "
             "Then run: python -m eval.label_for_kappa --score"
         ),
         "source_metrics": str(metrics_path.name),
+        "evidence_note": (
+            "'evidence' is re-retrieved at build time; rebuild the worksheet if "
+            "the index changes."
+        ),
         "binary_threshold": BINARY_THRESHOLD,
         "seed": seed,
         "items": items,
