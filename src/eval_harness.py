@@ -377,10 +377,11 @@ def evaluate(
                 iterations = state.get("iterations", 0)
                 sub_queries = state.get("sub_queries", [])
                 entities = state.get("entities", [])
+                router_decision = state.get("router_decision")
             except Exception as exc:  # pragma: no cover - depends on live API
                 logger.error("Agent failed on Q%d: %s", qid, exc)
                 answer, evidence, iterations = f"ERROR: {exc}", [], 0
-                sub_queries, entities = [], []
+                sub_queries, entities, router_decision = [], [], None
         latency = round(time.perf_counter() - t0, 2)
 
         ev_docs = _evidence_docs(evidence)
@@ -408,6 +409,8 @@ def evaluate(
             # what made the planner regression visible at all.
             "sub_queries": sub_queries,
             "entities": entities,
+            # "direct" or "escalate" when USE_ROUTER is on, else None.
+            "router_decision": router_decision,
             # End-to-end: did the expected doc reach the synthesizer at all,
             # across every sub-query / entity pass / retry?
             "evidence_recall": _evidence_recall(
