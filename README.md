@@ -357,6 +357,31 @@ is another reason the wider run matters.
 USE_TOOL_LOOP=true streamlit run app/main.py   # model runs its own searches
 ```
 
+### Routing: escalate only what needs it
+
+The tool loop helps a handful of questions and costs 1.8x on all of them, so
+running it unconditionally is the wrong trade. `src/router.py` runs it
+selectively.
+
+The first design read a confidence signal off the one retrieval (top RRF score,
+rank-1 to rank-2 margin, how many distinct documents are in the top 5) and
+escalated when it looked weak. `python -m eval.calibrate_router` measured whether
+any of those separate the questions that missed from the ones that hit. On the
+dev split they do not: for `top_rrf` the hits span `0.0164` to `0.0328` and the
+misses span `0.0164` to `0.0323`, so any cutoff that catches all 4 misses also
+escalates 27 of the 66 questions that were already fine. That signal is a dead
+end on this corpus and the calibration script records why.
+
+What the router actually does is escalate after the fact: run the cheap path,
+and if the synthesizer emits the refusal marker, hand the question to the tool
+loop and take that answer. The trigger is the model's own "I cannot answer this
+from the evidence", which is a call already paid for, so the confident majority
+costs exactly one call. Only 2 of the 100 questions refuse, so there is little
+here for a router to gain, and whether escalating those 2 produces a better
+answer needs the judged harness. Off by default (`USE_ROUTER`); the eval harness
+runs through it the same way `run_agent` does, so the judged run is possible
+without touching the harness again.
+
 ### A diagnostic I got wrong
 
 An earlier version of this section claimed `recall@5 = 0.81` and "worst rank 8", concluding that `final_k=5` was truncating good results. **That was wrong, and the cause was my own diagnostic.** It measured retrieval with `top_k=50`, a candidate pool the agent never uses, on the assumption that a wider pool could only reveal more.
@@ -380,22 +405,35 @@ Retrieval is **bit-identical across repeated runs** (verified across fresh clien
 A second signal points the same way: on **Q6**, the retriever alone scores recall@5 = 0.00 while end-to-end evidence recall is 1.00: the planner's query decomposition surfaced a document the raw query missed. That is the clearest case in the set of the agentic layer earning its cost.
 
 **Honest caveats:**
-- **The ablation is n=10.** Its CIs are wide by construction; one question moves any mean by ~10 points. The headline metrics are n=100, but the ablation that switched the planner and verifier off was not re-run at that size, so the pipeline-composition conclusion rests on the weaker sample. Re-running it at n=100 is the top priority.
-- **Single judge, model-graded.** No human-labelled agreement (Cohen's κ) has been measured yet, so the judge itself is unvalidated.
+- **The ablation is n=10.** Its CIs are wide by construction; one question moves any mean by ~10 points. The headline metrics are n=100, but the ablation that switched the planner and verifier off was not re-run at that size, so the pipeline-composition conclusion rests on the weaker sample. `python -m eval.ablation --n100` runs it on the 100-question dev split; that run needs a funded key and is still the top priority.
+- **Single judge, model-graded.** No human-labelled agreement (Cohen's κ) has been measured yet, so the judge itself is unvalidated. `eval/human_labels.json` is a prepared 30-item worksheet (passages included) waiting on the labelling pass.
 - **Citation precision measures the weak thing** (see table above) and 1.00 should be read accordingly.
 - **Latency ~19s** reflects 4-5 sequential LLM calls; fine for assisted lookup, too slow for live phone support.
 - **Means hide the worst case.** The generated report lists worst-case rows for exactly this reason. Here, correctness bottoms out at 0.80 on Q9.
 
-### Enhanced retrieval A/B, withdrawn
+### Embedding model sweep
 
-An earlier A/B of stronger embeddings (`BAAI/bge-small-en-v1.5`) plus the cross-encoder reranker reported a recall gain of 0.78 -> 0.89. **That comparison is withdrawn.** It was produced under the old harness: self-judged, with the mislabeled ground truth described below, and using the metric definition since renamed. It also rested on a single-question difference at n=10, well inside the noise floor. The eval set is now large enough (n=100) to resolve a difference of that size, so re-running it is no longer blocked, only unstarted.
+The retriever runs on `all-MiniLM-L6-v2`, ChromaDB's built-in default and a 2021 model. An earlier A/B against `BAAI/bge-small-en-v1.5` plus the reranker reported a recall gain of 0.78 to 0.89. **That number is withdrawn:** it was self-judged, used the mislabeled ground truth described below, rested on a single question at n=10, and used a metric definition since renamed.
 
-The opt-in path still exists (it pulls in torch):
+`eval/sweep_embeddings.py` replaces it with a retrieval-only sweep over the 100-question set: recall@1/3/5, MRR and nDCG@5 per (embedding model, candidate pool), on dev / holdout / all. No LLM, so it is exact and free. Each model gets its own index under `eval/indexes/`; the cross-encoder reranker is behind `--rerank` because its per-candidate transformer pass dominates the run.
+
+At `top_k=10`, over all 100 questions:
+
+| model | recall@1 | recall@3 | recall@5 | MRR | missed |
+|---|---|---|---|---|---|
+| all-MiniLM-L6-v2 (current) | 0.78 | 0.89 | 0.94 | 0.85 | 6 |
+| bge-small-en-v1.5 | 0.79 | 0.91 | 0.93 | 0.85 | 7 |
+
+**The withdrawn gain does not reproduce at n=100.** bge-small is a wash: recall@3 is up 0.02, recall@5 is down 0.01, MRR is identical, and it misses one more question than MiniLM. It does not even fail on the same questions, it fixes one (Q83) and breaks two others (Q46, Q92). On the dev split bge-small's recall@1 looks better (0.80 vs 0.74); on holdout it looks worse (0.77 vs 0.87). A model whose ranking flips between splits is not a real improvement. The 2021 embedding model is not what is costing retrieval quality on this single-page corpus, so MiniLM stays.
+
+The sweep also confirms the RRF non-monotonicity from the diagnostic below: widening the pool to `top_k=20` without a reranker moves MiniLM's recall@5 from 0.94 to 0.92 and its miss count from 6 to 8.
+
+bge-base and the `--rerank` rows are not run here: each needs a fresh torch pass over the whole corpus, which is slow without a GPU. The command:
 
 ```bash
 pip install -r requirements-enhanced.txt
-EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 RERANKER_ENABLED=true python -m src.retriever      # rebuild index
-EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 RERANKER_ENABLED=true python -m src.eval_harness
+python -m eval.sweep_embeddings --build bge-base
+python -m eval.sweep_embeddings --measure --rerank
 ```
 
 Contextual Retrieval and semantic chunking were deliberately **not** implemented: both target long multi-page documents and would cost real ingest-time API calls for little gain on a single-page corpus.
@@ -551,7 +589,7 @@ pip install -r requirements-reranker.txt
 RERANKER_ENABLED=true streamlit run app/main.py
 ```
 
-It fuses a larger candidate pool, re-scores with `cross-encoder/ms-marco-MiniLM-L-6-v2`, and trims to the top-k. Lazy-loaded and cached, so the default lightweight path is untouched.
+It fuses a larger candidate pool, re-scores with `cross-encoder/ms-marco-MiniLM-L-6-v2`, and trims to the top-k. Lazy-loaded and cached, so the default lightweight path is untouched. Whether it earns its latency on this corpus is measured by `python -m eval.sweep_embeddings --measure --rerank` ([§7](#7-evaluation-and-metrics)).
 
 ## 13. Deployment
 
@@ -585,6 +623,7 @@ Ricoh/
 │   ├── retriever.py             # Hybrid retrieval (ChromaDB + BM25 + RRF + optional reranker)
 │   ├── llm_factory.py           # LLM provider abstraction
 │   ├── agent.py                 # LangGraph agentic state machine
+│   ├── router.py                # Cheap path, escalate to the tool loop on a refusal
 │   ├── evaluate.py              # Latency/citation smoke test
 │   └── eval_harness.py          # Quality eval harness (evidence recall, retriever recall@N, groundedness)
 ├── eval/
@@ -625,10 +664,10 @@ Ordered by what most improves the system, not by what is easiest to demo.
 
 | Priority | Work | Why |
 |---|---|---|
-| 1 | Re-run the A/B/C ablation at n=100 | ~~Expand the eval set to 100+ questions with a held-out slice~~ done: the benchmark is now 100 questions with a 70/30 split. The ablation itself is still n=10, so the conclusion that switched two stages off is the weakest-powered claim left in the project. |
-| 2 | Judge calibration: hand-label ~50, report Cohen's κ | The judge's noise floor is measured (0.00-0.10) but its *agreement with humans* is not. Chance-corrected, not raw. |
-| 3 | Widen candidate pool (top-10 -> top-50) + rerank to 5 | Worst observed rank is 8, so the ranking headroom is provable, not hoped-for. |
-| ~~4~~ | ~~Adaptive routing~~ | Done differently. The ablation showed no question benefited from the agentic path, so routing was unnecessary. The stages were switched off outright. A router would have added a classifier to choose between a better option and a worse one. |
+| 1 | Run the A/B/C ablation at n=100 | `python -m eval.ablation --n100` wires it to the 100-question dev split (output lands in its own subdirectory so the n=10 artifacts stay put). The run costs API spend and has not been paid for, so the conclusion that switched two stages off still rests on n=10. |
+| 2 | Judge calibration: hand-label 30, report Cohen's κ | `eval/human_labels.json` is a ready worksheet: 30 sampled answers with the retrieved passages included, so groundedness can be judged without a separate lookup. The labelling pass is the remaining work; the judge's agreement with a human is still unmeasured. |
+| 3 | Better embedding model, wider pool, rerank | `python -m eval.sweep_embeddings` measured MiniLM against bge-small at n=100, retrieval only. bge-small does not beat it, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. bge-base and the reranker rows are the remaining runs. Detail in [§7](#7-evaluation-and-metrics). |
+| 4 | Adaptive routing | Built as `src/router.py`: run the cheap path, escalate to the tool loop only when it refuses. A pre-retrieval confidence signal was tried first and `eval/calibrate_router.py` showed it does not separate the retrieval misses from the hits on this corpus. Off by default (`USE_ROUTER`) until a judged run confirms the escalation helps. |
 | 5 | Strip print-to-PDF boilerplate at ingest | 75% of chunks carry an identical header/breadcrumb (~4-6% of words). Low-risk cleanup. |
 | 6 | Claim->span attribution instead of filename matching | Current citation precision only catches fabricated filenames. |
 | 7 | Tracing, per-request cost/latency budgets, index built in CI | Production surface. |
