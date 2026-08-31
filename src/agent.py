@@ -42,6 +42,7 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
     RETRIEVAL_FINAL_K,
     RETRIEVAL_TOP_K,
     USE_PLANNER,
+    USE_ROUTER,
     USE_TOOL_LOOP,
     USE_VERIFIER,
 )
@@ -146,6 +147,16 @@ Evidence:
 
 Answer:
 """
+
+
+# The synthesizer emits this English sentence verbatim when it cannot answer
+# (rule 4 of SYNTHESIZER_PROMPT). The harness and the router both key off it.
+# Match is case- and whitespace-insensitive, and a translation may follow.
+REFUSAL_MARKER = "information unavailable"
+
+
+def is_refusal(answer: str) -> bool:
+    return REFUSAL_MARKER in " ".join(answer.lower().split())
 
 
 # 3. HELPER - format evidence for prompts
@@ -504,6 +515,16 @@ def run_agent(
             with span("cache", cache_hit=True, kind=hit.kind, similarity=hit.similarity):
                 pass
             return hit.answer
+
+    # Router (USE_ROUTER): cheap path, escalate to the tool loop on a refusal.
+    # Takes precedence over the tool loop and the planner/verifier flags.
+    if USE_ROUTER:
+        from src.router import route_and_run
+
+        answer = route_and_run(query)
+        if cache is not None:
+            cache.store(query, answer)
+        return answer
 
     # Tool-calling path (USE_TOOL_LOOP, off by default). The model runs its own
     # searches instead of taking one fixed retrieval, so it bypasses the graph

@@ -218,6 +218,13 @@ USE_VERIFIER: bool = os.getenv("USE_VERIFIER", "false").lower() in ("1", "true",
 # is the kind of move the rest of this project exists to argue against.
 USE_TOOL_LOOP: bool = os.getenv("USE_TOOL_LOOP", "false").lower() in ("1", "true", "yes")
 
+# Router (opt-in). Runs the cheap path and escalates to the tool loop only when
+# the synthesizer refuses. Takes precedence over USE_TOOL_LOOP and the
+# planner/verifier flags. See src/router.py. Off by default because only two of
+# the hundred benchmark questions refuse, so there is little to gain until a
+# judged run says the escalation helps.
+USE_ROUTER: bool = os.getenv("USE_ROUTER", "false").lower() in ("1", "true", "yes")
+
 # Semantic answer cache (opt-in, off by default)
 # When on, run_agent returns a stored answer for an identical or near-duplicate
 # query instead of paying for the synthesizer again. Serving a cached answer for
