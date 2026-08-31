@@ -116,14 +116,16 @@ def _get_embedding_function():
     )
 
 
-def _get_reranker():
+def _get_reranker(enabled: bool | None = None):
     """Lazily load the cross-encoder reranker (cached).
 
     Returns ``None`` if reranking is disabled.  Raises a helpful error
-    if enabled but the optional dependency is not installed.
+    if enabled but the optional dependency is not installed. ``enabled``
+    defaults to the ``RERANKER_ENABLED`` flag; the sweep passes it explicitly.
     """
     global _RERANKER
-    if not RERANKER_ENABLED:
+    want = RERANKER_ENABLED if enabled is None else enabled
+    if not want:
         return None
     if _RERANKER is None:
         try:
@@ -157,6 +159,7 @@ class HybridRetriever:
         self,
         persist_dir: str | Path = CHROMA_DIR,
         collection_name: str = CHROMA_COLLECTION_NAME,
+        embedding_function: Any = None,
     ) -> None:
         """Create or load a persistent ChromaDB client + collection.
 
@@ -166,6 +169,8 @@ class HybridRetriever:
         Args:
             persist_dir:     Directory for ChromaDB's SQLite storage.
             collection_name: Name of the Chroma collection to use.
+            embedding_function: Use this instead of the one from
+                ``EMBEDDING_MODEL``. ``None`` in production; the sweep passes one.
         """
         self._persist_dir = Path(persist_dir)
         self._persist_dir.mkdir(parents=True, exist_ok=True)
@@ -195,7 +200,7 @@ class HybridRetriever:
             "name": collection_name,
             "metadata": {"hnsw:space": "cosine"},  # cosine similarity
         }
-        embedding_fn = _get_embedding_function()
+        embedding_fn = embedding_function or _get_embedding_function()
         if embedding_fn is not None:
             collection_kwargs["embedding_function"] = embedding_fn
 
@@ -470,6 +475,7 @@ class HybridRetriever:
         query: str,
         top_k: int = RETRIEVAL_TOP_K,
         final_k: int = RETRIEVAL_FINAL_K,
+        rerank: bool | None = None,
     ) -> list[dict[str, Any]]:
         """Run hybrid retrieval: vector + BM25 -> RRF fusion.
 
@@ -479,6 +485,7 @@ class HybridRetriever:
             query:   Natural-language question.
             top_k:   Candidates per retrieval method.
             final_k: How many fused results to return.
+            rerank:  Override ``RERANKER_ENABLED`` for this call (sweep only).
 
         Returns:
             Up to ``final_k`` chunk dicts, each containing:
@@ -502,7 +509,7 @@ class HybridRetriever:
                 len(bm25_results),
             )
 
-            reranker = _get_reranker()
+            reranker = _get_reranker(rerank)
 
             # With a reranker, fuse a LARGER pool first so the cross-encoder
             # has more candidates to reorder, then trim to final_k.
