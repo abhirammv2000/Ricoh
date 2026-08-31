@@ -244,7 +244,7 @@ The judge is perfectly stable on clear-cut answers and jitters by up to 0.10 on 
 
 So the honest conclusion is: **this eval cannot detect whether self-preference was inflating the scores.** The judge was changed because grading your own output is methodologically indefensible regardless of what the number does, not because the change was shown to matter. An earlier draft of this README claimed the scores "barely moved, so self-preference was not materially inflating them". That was a confounded comparison (different ground truth *and* different agent outputs between the two runs) asserting a conclusion the data cannot support.
 
-**The general rule this establishes:** no claim about a metric change on this benchmark is credible until the change exceeds the judge's measured noise floor. That is a large part of why expanding the eval set is priority 1.
+**The general rule this establishes:** no claim about a metric change on this benchmark is credible until the change exceeds the judge's measured noise floor. It is why the eval set was grown to 100 and why the ablation was re-run at that size.
 
 ### Measured results
 
@@ -445,7 +445,7 @@ A second signal points the same way: on **Q6**, the retriever alone scores recal
 - **The ablation split is dev-heavy.** It has been run at n=100 (see the section above), but the judged half is the 70-question dev split; holdout was measured on objective metrics only. The planner's dev-split edge on the judged metrics has not been confirmed with the judge on holdout.
 - **Single judge, model-graded.** No human-labelled agreement (Cohen's κ) has been measured yet, so the judge itself is unvalidated. `eval/human_labels.json` is a prepared 30-item worksheet (passages included) waiting on the labelling pass.
 - **Citation precision measures the weak thing** (see table above) and 1.00 should be read accordingly.
-- **Latency ~19s** reflects 4-5 sequential LLM calls; fine for assisted lookup, too slow for live phone support.
+- **Latency ~10s** on the default single-call path; fine for assisted lookup, too slow for live phone support. The planner and verifier flags push it to 14 to 17s.
 - **Means hide the worst case.** The generated report lists worst-case rows for exactly this reason. Here, correctness bottoms out at 0.80 on Q9.
 
 ### Embedding model sweep
@@ -665,14 +665,20 @@ Ricoh/
 │   └── eval_harness.py          # Quality eval harness (evidence recall, retriever recall@N, groundedness)
 ├── eval/
 │   ├── ground_truth.json        # Curated expected answers/sources
+│   ├── generated_questions.json # The 100-question set, 70/30 dev/holdout
 │   ├── metrics.json             # Harness output, default config (generated)
-│   ├── metrics_enhanced.json    # Harness output, bge + reranker A/B (generated)
-│   ├── eval_report.md           # Harness output (generated)
+│   ├── eval_report_n100.md      # Harness output, 100 questions (generated)
+│   ├── ablation.py              # Progressive-removal pipeline ablation
+│   ├── sweep_embeddings.py      # Retrieval-only embedding-model comparison
+│   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
+│   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring
 │   └── verify_unanswerable.py   # Audits the "refuse" labels against the full corpus
 ├── tests/                       # pytest suite (offline, LLM mocked)
 │   ├── test_ingest.py
 │   ├── test_retriever.py
 │   ├── test_agent.py
+│   ├── test_router.py
+│   ├── test_sweep_embeddings.py
 │   └── test_eval_metrics.py
 ├── .github/workflows/ci.yml     # GitHub Actions CI
 ├── notebooks/                   # Exploration notebooks
