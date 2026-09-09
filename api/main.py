@@ -17,6 +17,7 @@ Run locally:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import os
@@ -29,7 +30,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from src.agent import StreamResult, run_agent, stream_agent
+from src.agent import StreamResult, UnsupportedAsyncConfig, arun_agent, run_agent, stream_agent
 from src.guardrails import screen_input
 from src.instrumentation import record_run
 from src.ratelimit import TokenBucketLimiter
@@ -93,16 +94,28 @@ def health() -> dict:
 
 
 @api.post("/query", response_model=QueryResponse, dependencies=[Depends(rate_limit)])
-def query(req: QueryRequest) -> QueryResponse:
+async def query(req: QueryRequest) -> QueryResponse:
     """Answer one question and return the answer with its cost and latency.
 
     The whole call is wrapped in record_run, so it is traced exactly like a UI
     request and shows up in traces/traces.jsonl alongside the rest.
+
+    Runs arun_agent, the async path, so a slow synthesis call awaits on the
+    event loop instead of holding a worker thread. arun_agent only covers the
+    production default (no planner/verifier/tool-loop/router, no semantic
+    cache); if any of those is on it raises UnsupportedAsyncConfig, caught
+    here to fall back to the sync run_agent in a worker thread via
+    asyncio.to_thread, so the endpoint is correct for every configuration and
+    only loses the async benefit for the ones that were never the
+    concurrency-sensitive case.
     """
     _screen(req.query)
     started = time.perf_counter()
     with record_run(query=req.query) as rec:
-        answer = run_agent(req.query)
+        try:
+            answer = await arun_agent(req.query)
+        except UnsupportedAsyncConfig:
+            answer = await asyncio.to_thread(run_agent, req.query)
     return QueryResponse(
         answer=answer,
         cost_usd=rec.total_cost_usd,

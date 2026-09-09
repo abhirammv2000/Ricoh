@@ -20,3 +20,7 @@ class FakeLLM:
     def invoke(self, prompt: str):  # noqa: D401 - mimics LangChain
         self.calls.append(prompt)
         return SimpleNamespace(content=self._response)
+
+    async def ainvoke(self, prompt: str):
+        self.calls.append(prompt)
+        return SimpleNamespace(content=self._response)

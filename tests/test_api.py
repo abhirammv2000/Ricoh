@@ -31,13 +31,39 @@ def test_health_ok():
     assert r.json() == {"status": "ok"}
 
 
+async def _fake_arun_agent(q: str) -> str:
+    return "shut it down with stopaiw [a.pdf, Page 1]"
+
+
 def test_query_returns_answer_and_trace(monkeypatch):
+    # /query tries arun_agent first (the default config in this test
+    # environment does not raise UnsupportedAsyncConfig), so that is the seam
+    # that must be mocked. run_agent is also patched, in case the fallback
+    # path ever fires, so this test cannot depend on real API access whichever
+    # branch runs.
+    monkeypatch.setattr(apimod, "arun_agent", _fake_arun_agent)
     monkeypatch.setattr(apimod, "run_agent", lambda q: "shut it down with stopaiw [a.pdf, Page 1]")
     r = client.post("/query", json={"query": "how do I shut it down?"})
     assert r.status_code == 200
     body = r.json()
     assert "stopaiw" in body["answer"]
     assert set(body) == {"answer", "cost_usd", "llm_calls", "latency_seconds"}
+
+
+def test_query_falls_back_to_sync_agent_when_async_unsupported(monkeypatch):
+    # arun_agent raises UnsupportedAsyncConfig whenever a non-default flag
+    # (planner, verifier, tool loop, router, semantic cache) is on. The
+    # endpoint must catch exactly that and fall back to run_agent, not swallow
+    # every RuntimeError, so this confirms the fallback branch actually works
+    # end to end rather than assuming it from reading the code.
+    async def _raise(q: str) -> str:
+        raise apimod.UnsupportedAsyncConfig("planner is on")
+
+    monkeypatch.setattr(apimod, "arun_agent", _raise)
+    monkeypatch.setattr(apimod, "run_agent", lambda q: "fell back [a.pdf, Page 1]")
+    r = client.post("/query", json={"query": "how do I shut it down?"})
+    assert r.status_code == 200
+    assert "fell back" in r.json()["answer"]
 
 
 def test_query_rejects_empty_input():
@@ -88,6 +114,7 @@ def test_stream_emits_tokens_then_done(monkeypatch):
 def test_rate_limit_returns_429_with_retry_after(monkeypatch):
     # Install a bucket of exactly one token, so the second request is throttled.
     apimod._limiter = TokenBucketLimiter(rate_per_sec=0.001, capacity=1)
+    monkeypatch.setattr(apimod, "arun_agent", _fake_arun_agent)
     monkeypatch.setattr(apimod, "run_agent", lambda q: "ok [a.pdf, Page 1]")
 
     first = client.post("/query", json={"query": "how do I print a test page?"})
