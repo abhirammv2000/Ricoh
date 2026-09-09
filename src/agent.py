@@ -31,7 +31,7 @@ Design decisions
 
 from __future__ import annotations
 
-import json
+import asyncio
 import logging
 import re
 import time
@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
+from pydantic import BaseModel, ValidationError
 
 from src.config import (  # noqa: F401 - triggers config.py logging setup
     RETRIEVAL_FINAL_K,
@@ -49,6 +50,7 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
     USE_TOOL_LOOP,
     USE_VERIFIER,
 )
+from src.instrumentation import ainvoke as instrumented_ainvoke
 from src.instrumentation import invoke as instrumented_invoke
 from src.instrumentation import span
 from src.llm_factory import get_llm
@@ -182,6 +184,22 @@ def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
 
 # 4. GRAPH NODES
 
+class PlannerOutput(BaseModel):
+    """Expected shape of the planner's JSON.
+
+    json.loads succeeding is not the same as the shape being right. A model
+    that returns {"sub_queries": "how do I reset it", "entities": []}, a plain
+    string instead of a list, would pass json.loads, then retriever_node's
+    ``for sq in state["sub_queries"]`` would iterate the string character by
+    character, one-letter queries silently sent to the retriever. Validating
+    against this model turns that into the same handled fallback as malformed
+    JSON, rather than a retrieval bug with no error anywhere in the trace.
+    """
+
+    sub_queries: list[str]
+    entities: list[str] = []
+
+
 def planner_node(state: AgentState) -> dict[str, Any]:
     """Node 1 - Decompose the user query into sub-queries.
 
@@ -217,11 +235,15 @@ def planner_node(state: AgentState) -> dict[str, Any]:
     content = re.sub(r"\s*```$", "", content)
 
     try:
-        parsed = json.loads(content)
-        sub_queries = parsed.get("sub_queries", [state["user_query"]])
-        entities = parsed.get("entities", [])
-    except (json.JSONDecodeError, KeyError):
-        logger.warning("Planner JSON parse failed. Using raw query.")
+        parsed = PlannerOutput.model_validate_json(content)
+        sub_queries = parsed.sub_queries or [state["user_query"]]
+        entities = parsed.entities
+    except ValidationError as exc:
+        # model_validate_json raises ValidationError for malformed JSON syntax
+        # as well as a valid-JSON-wrong-shape response (verified: pydantic 2.13
+        # reports both as json_invalid / type errors through this one path),
+        # so one except clause covers both failure modes.
+        logger.warning("Planner output failed validation (%s). Using raw query.", exc)
         sub_queries = [state["user_query"]]
         entities = []
 
@@ -548,6 +570,62 @@ def run_agent(
     if cache is not None:
         cache.store(query, answer)
     return answer
+
+
+class UnsupportedAsyncConfig(RuntimeError):
+    """arun_agent was called while a flag it does not support is enabled.
+
+    A distinct type rather than a bare RuntimeError, so a caller catching this
+    to fall back to run_agent cannot also swallow an unrelated RuntimeError
+    raised by an actual failure inside the retriever or the LLM call.
+    """
+
+
+async def arun_agent(query: str) -> str:
+    """Async twin of run_agent(), scoped to exactly the production default.
+
+    Only the plain retrieve-then-synthesize path (USE_PLANNER, USE_VERIFIER,
+    USE_TOOL_LOOP, USE_ROUTER, and the semantic cache all off) has an async
+    version. Those flags each add their own LLM and retrieval calls that have
+    not been converted, so this raises rather than silently running a mix of
+    async and blocking sync work, which would be worse than the fully-sync
+    path it is meant to improve on.
+
+    Retrieval runs in a worker thread (asyncio.to_thread): it is local disk and
+    CPU work (ChromaDB, BM25, ONNX embedding), not I/O the event loop can await
+    natively, and running it inline would block every concurrent request. The
+    synthesizer call uses instrumentation.ainvoke, which awaits
+    ChatAnthropic.ainvoke(), verified to call anthropic's AsyncClient rather
+    than a thread-wrapped sync call, so it is a genuine non-blocking await.
+
+    This does not go through build_agent_graph/retriever_node/synthesizer_node.
+    For this exact configuration (no entities, a single sub-query) those nodes
+    do nothing beyond what is reproduced here, so this is a faithful mirror of
+    that path's behaviour, not a second implementation that can drift from it,
+    as long as this configuration is what production actually runs.
+    """
+    if USE_PLANNER or USE_VERIFIER or USE_TOOL_LOOP or USE_ROUTER:
+        raise UnsupportedAsyncConfig(
+            "arun_agent only supports the default pipeline (no planner, "
+            "verifier, tool loop, or router). Use run_agent for any other "
+            "configuration."
+        )
+    if get_semantic_cache() is not None:
+        raise UnsupportedAsyncConfig(
+            "arun_agent does not support the semantic cache yet. Use "
+            "run_agent, or disable SEMANTIC_CACHE_ENABLED."
+        )
+
+    llm = get_llm()
+    evidence = await asyncio.to_thread(
+        get_retriever().retrieve,
+        query,
+        top_k=RETRIEVAL_TOP_K,
+        final_k=RETRIEVAL_FINAL_K,
+    )
+    evidence_block = _format_evidence_block(evidence)
+    prompt = SYNTHESIZER_PROMPT.format(user_query=query, evidence_block=evidence_block)
+    return await instrumented_ainvoke(llm, prompt, stage="synthesizer")
 
 
 @dataclass
