@@ -16,9 +16,12 @@ from src.agent import (
     UnsupportedAsyncConfig,
     arun_agent,
     planner_node,
+    record_citation_guardrail,
     should_retry_or_synthesize,
+    synthesizer_node,
     verifier_node,
 )
+from src.instrumentation import record_run
 from tests.helpers import FakeLLM
 
 
@@ -99,6 +102,65 @@ def test_verifier_defaults_to_sufficient_on_garbage(monkeypatch):
     _patch_llm(monkeypatch, "maybe?", FakeLLM)
     out = verifier_node({"user_query": "q", "retrieved_evidence": [], "iterations": 1})
     assert out["verification_status"] == "SUFFICIENT"
+
+
+# Citation guardrail
+# Pre-LLM screening (src/guardrails.py) checks what goes into the model.
+# record_citation_guardrail is the post-LLM half: does every citation in the
+# answer actually name a document that was retrieved. These test the function
+# directly, then confirm each of the three places that produce a final answer
+# actually calls it, so a future edit to any of those three cannot silently
+# drop the check.
+
+_EVIDENCE = [{"source_document": "a.pdf", "page_number": 1, "text": "..."}]
+
+
+def test_citation_guardrail_records_valid_citation():
+    with record_run(query="q", persist=False) as rec:
+        record_citation_guardrail("shut it down [a.pdf, Page 1]", _EVIDENCE)
+    assert len(rec.spans) == 1
+    assert rec.spans[0].stage == "citation_guardrail"
+    assert rec.spans[0].attributes["valid"] is True
+    assert rec.spans[0].attributes["fabricated"] == []
+
+
+def test_citation_guardrail_records_fabricated_citation():
+    with record_run(query="q", persist=False) as rec:
+        record_citation_guardrail("see [ghost.pdf, Page 3]", _EVIDENCE)
+    assert len(rec.spans) == 1
+    assert rec.spans[0].attributes["valid"] is False
+    assert rec.spans[0].attributes["fabricated"] == ["ghost.pdf"]
+
+
+def test_citation_guardrail_records_nothing_for_a_refusal():
+    # A refusal cites nothing. Recording a span here would just be noise on
+    # the common case, so the function returns before calling span() at all.
+    with record_run(query="q", persist=False) as rec:
+        record_citation_guardrail("Information unavailable in provided documents.", _EVIDENCE)
+    assert rec.spans == []
+
+
+def test_synthesizer_node_calls_the_guardrail(monkeypatch):
+    monkeypatch.setattr(agent, "get_llm", lambda *a, **k: FakeLLM("bad [ghost.pdf, Page 1]"))
+    with record_run(query="q", persist=False) as rec:
+        synthesizer_node({"user_query": "q", "retrieved_evidence": _EVIDENCE})
+    stages = [s.stage for s in rec.spans]
+    assert "citation_guardrail" in stages
+
+
+def test_arun_agent_calls_the_guardrail(monkeypatch):
+    class _FakeRetriever:
+        def retrieve(self, query, top_k, final_k):
+            return _EVIDENCE
+
+    _patch_async_defaults(monkeypatch)
+    monkeypatch.setattr(agent, "get_llm", lambda *a, **k: FakeLLM("bad [ghost.pdf, Page 1]"))
+    monkeypatch.setattr(agent, "get_retriever", lambda: _FakeRetriever())
+
+    with record_run(query="q", persist=False) as rec:
+        asyncio.run(arun_agent("q"))
+    stages = [s.stage for s in rec.spans]
+    assert "citation_guardrail" in stages
 
 
 # Pipeline configuration / ablation wiring
