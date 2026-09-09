@@ -400,3 +400,55 @@ def invoke(llm: Any, prompt: str, stage: str) -> str:
         )
 
     return response_text(response)
+
+
+async def ainvoke(llm: Any, prompt: str, stage: str) -> str:
+    """Async twin of invoke(): same span, `await llm.ainvoke(prompt)` instead.
+
+    Only meaningful when llm.ainvoke() is a real non-blocking call rather than
+    a sync call wrapped in a thread (verified for ChatAnthropic: it calls
+    anthropic.AsyncClient.messages.create under _agenerate). Calling this on a
+    model whose ainvoke() falls back to a thread offers no latency benefit over
+    invoke(), it just moves where the blocking happens.
+
+    _CURRENT is a plain ContextVar, not a thread-local: a single asyncio Task
+    keeps one Context for its whole lifetime, so a value set with record_run()
+    before this call is awaited is still visible here and after, with no
+    special handling needed, unlike crossing a real thread boundary.
+    """
+    rec = _CURRENT.get()
+    model = getattr(llm, "model", None) or getattr(llm, "model_name", "unknown")
+
+    started = time.perf_counter()
+    try:
+        response = await llm.ainvoke(prompt)
+    except Exception as exc:
+        if rec is not None:
+            rec.spans.append(
+                Span(
+                    stage=stage,
+                    model=str(model),
+                    latency_seconds=round(time.perf_counter() - started, 3),
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            )
+        raise
+    elapsed = time.perf_counter() - started
+
+    if rec is not None:
+        usage = getattr(response, "usage_metadata", None) or {}
+        details = usage.get("input_token_details") or {}
+        rec.spans.append(
+            Span(
+                stage=stage,
+                model=str(model),
+                input_tokens=int(usage.get("input_tokens", 0) or 0),
+                output_tokens=int(usage.get("output_tokens", 0) or 0),
+                cache_read_tokens=int(details.get("cache_read", 0) or 0),
+                cache_write_tokens=int(details.get("cache_creation", 0) or 0),
+                latency_seconds=round(elapsed, 3),
+                cost_usd=round(_cost(str(model), usage), 6),
+            )
+        )
+
+    return response_text(response)
