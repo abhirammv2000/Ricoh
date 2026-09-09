@@ -164,6 +164,53 @@ def is_refusal(answer: str) -> bool:
     return REFUSAL_MARKER in " ".join(answer.lower().split())
 
 
+# Citation format the synthesizer prompt requires: [Document Name, Page X].
+# Canonical here so eval_harness.py imports it instead of keeping its own
+# copy, the same relationship REFUSAL_MARKER already has with the harness.
+CITATION_RE = re.compile(r"\[([^\]]+?),\s*Page\s*\d+\]", re.IGNORECASE)
+
+
+def cited_docs(answer: str) -> set[str]:
+    """Distinct document names the answer cites, by the [Doc, Page X] format."""
+    return {m.strip() for m in CITATION_RE.findall(answer)}
+
+
+def record_citation_guardrail(answer: str, evidence: list[dict[str, Any]]) -> None:
+    """Record whether every citation in the answer names a retrieved document.
+
+    Pre-LLM screening (src/guardrails.py) checks what goes into the model.
+    Nothing checked what comes out, so a fabricated citation, a document the
+    model named but never actually retrieved, would ship with no guardrail
+    catching it and no record of it happening.
+
+    This does not touch the answer. Citation precision has measured 1.00 on
+    the full 100-question benchmark, so this has never fired in practice, and
+    editing generated prose on a failure mode with a measured 0% observed rate
+    is exactly the over-engineering this project's own ablation work argues
+    against: the fix on evidence this thin is to make the failure visible, not
+    to build a correction loop for a problem that has not been observed. If it
+    ever does fire, the trace shows exactly which document was fabricated,
+    which is the evidence a real fix would then be built from.
+
+    Costs one regex pass and a set comparison, no LLM call, so it runs
+    unconditionally rather than behind a flag.
+    """
+    cited = cited_docs(answer)
+    if not cited:
+        return  # a refusal cites nothing; nothing to check
+    evidence_docs = {e.get("source_document", "") for e in evidence if e.get("source_document")}
+    fabricated = sorted(cited - evidence_docs)
+    with span(
+        "citation_guardrail",
+        cited=sorted(cited),
+        fabricated=fabricated,
+        valid=not fabricated,
+    ):
+        pass
+    if fabricated:
+        logger.warning("Answer cites document(s) not in evidence: %s", fabricated)
+
+
 # 3. HELPER - format evidence for prompts
 
 def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
@@ -364,6 +411,7 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
     )
 
     answer = instrumented_invoke(llm, prompt, stage="synthesizer")
+    record_citation_guardrail(answer, state["retrieved_evidence"])
 
     print(f"\nSYNTHESIZER - Answer generated ({len(answer)} chars)")
 
@@ -625,7 +673,9 @@ async def arun_agent(query: str) -> str:
     )
     evidence_block = _format_evidence_block(evidence)
     prompt = SYNTHESIZER_PROMPT.format(user_query=query, evidence_block=evidence_block)
-    return await instrumented_ainvoke(llm, prompt, stage="synthesizer")
+    answer = await instrumented_ainvoke(llm, prompt, stage="synthesizer")
+    record_citation_guardrail(answer, evidence)
+    return answer
 
 
 @dataclass

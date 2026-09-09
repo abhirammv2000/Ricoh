@@ -82,6 +82,12 @@ def show_detail(t: dict[str, Any]) -> None:
             )
             for c in chunks:
                 print(f"        - {c['doc']} p.{c['page']}  rrf={c['rrf']}")
+        if s.get("stage") == "citation_guardrail":
+            if attrs.get("valid", True):
+                print(f"      citations OK: {attrs.get('cited', [])}")
+            else:
+                print(f"      CITATION MISMATCH: cited {attrs.get('fabricated')} "
+                      f"not in retrieved evidence")
 
 
 def main() -> int:

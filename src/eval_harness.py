@@ -82,7 +82,9 @@ METRICS_PATH: Path = PROJECT_ROOT / "eval" / "metrics.json"
 REPORT_PATH: Path = PROJECT_ROOT / "eval" / "eval_report.md"
 
 # Defined next to the synthesizer prompt; re-exported so existing imports work.
+from src.agent import CITATION_RE as _CITATION_RE  # noqa: E402,F401
 from src.agent import REFUSAL_MARKER, is_refusal as _is_refusal  # noqa: E402,F401
+from src.agent import cited_docs as _cited_docs  # noqa: E402,F401
 
 
 # 1. LLM-AS-JUDGE
@@ -163,13 +165,12 @@ def _judge(
 
 
 # 2. OBJECTIVE METRICS (no LLM)
-
-_CITATION_RE = re.compile(r"\[([^\]]+?),\s*Page\s*\d+\]", re.IGNORECASE)
-
-
-def _cited_docs(answer: str) -> set[str]:
-    """Distinct document names cited in the answer text."""
-    return {m.strip() for m in _CITATION_RE.findall(answer)}
+#
+# _CITATION_RE and _cited_docs are imported from src.agent above: that is now
+# the canonical citation-extraction logic, shared with the production
+# citation guardrail (src.agent.record_citation_guardrail), so the eval
+# metric and the live check can never drift apart into two different
+# definitions of what counts as a citation.
 
 
 def _evidence_docs(evidence: list[dict[str, Any]]) -> set[str]:

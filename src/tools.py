@@ -118,9 +118,25 @@ def run_tool_loop(question: str, max_calls: int = MAX_TOOL_CALLS) -> dict[str, A
         {"role": "user", "content": question},
     ]
 
+    # Lazy import: src.agent only reaches src.tools the same way, inside
+    # run_agent's USE_TOOL_LOOP branch, never at module load. A top-level
+    # import here would work today but starts relying on which module happens
+    # to load first, so this keeps both sides lazy on purpose.
+    from src.agent import record_citation_guardrail
+
     evidence: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     queries: list[str] = []
+
+    def _result(response: Any) -> dict[str, Any]:
+        answer = response_text(response)
+        record_citation_guardrail(answer, evidence)
+        return {
+            "answer": answer,
+            "evidence": evidence,
+            "queries": queries,
+            "tool_calls": len(queries),
+        }
 
     for turn in range(max_calls + 1):
         # On the final turn the tool is withdrawn, which forces an answer
@@ -130,12 +146,7 @@ def run_tool_loop(question: str, max_calls: int = MAX_TOOL_CALLS) -> dict[str, A
 
         calls = getattr(response, "tool_calls", None) or []
         if not calls:
-            return {
-                "answer": response_text(response),
-                "evidence": evidence,
-                "queries": queries,
-                "tool_calls": len(queries),
-            }
+            return _result(response)
 
         messages.append(response)
         for call in calls:
@@ -157,9 +168,4 @@ def run_tool_loop(question: str, max_calls: int = MAX_TOOL_CALLS) -> dict[str, A
             )
 
     # Unreachable in practice: the final turn has no tool to call.
-    return {
-        "answer": response_text(response),
-        "evidence": evidence,
-        "queries": queries,
-        "tool_calls": len(queries),
-    }
+    return _result(response)
