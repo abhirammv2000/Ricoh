@@ -44,6 +44,7 @@ for _quiet in ("src.ingest", "src.retriever", "chromadb", "httpx", "httpcore"):
     logging.getLogger(_quiet).setLevel(logging.WARNING)
 
 from src.agent import stream_agent, StreamResult
+from src.guardrails import screen_input
 from src.ingest import ingest_all
 from src.instrumentation import record_run
 from src.retriever import HybridRetriever
@@ -443,6 +444,14 @@ if user_input := st.chat_input("Ask a Ricoh technical support question..."):
             "seconds and try again. This cap keeps the public demo's API cost "
             "bounded."
         )
+        st.stop()
+
+    # Same prompt-injection screen the API applies at api/main.py's edge. This
+    # is the public entry point (Docker/Render), so it needs the same cheap
+    # outer layer, not just the architectural grounding defense.
+    verdict = screen_input(user_input)
+    if not verdict.allowed:
+        st.warning(f"This question can't be processed: {verdict.reason}")
         st.stop()
 
     # Display user message
