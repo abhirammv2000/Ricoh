@@ -8,9 +8,13 @@ verifier verdict normalisation.
 
 from __future__ import annotations
 
+import asyncio
+
 import src.agent as agent
 from src.agent import (
     MAX_ITERATIONS,
+    UnsupportedAsyncConfig,
+    arun_agent,
     planner_node,
     should_retry_or_synthesize,
     verifier_node,
@@ -63,6 +67,19 @@ def test_planner_falls_back_on_bad_json(monkeypatch):
     assert out["entities"] == []
 
 
+def test_planner_falls_back_on_valid_json_wrong_shape(monkeypatch):
+    # Valid JSON that json.loads would have accepted, but sub_queries is a
+    # string, not a list. Before the pydantic schema this would silently reach
+    # retriever_node's `for sq in state["sub_queries"]` and iterate the string
+    # one character at a time. The schema must catch this the same way it
+    # catches malformed JSON, not let it through as a "successful" parse.
+    resp = '{"sub_queries": "fix SC542", "entities": []}'
+    _patch_llm(monkeypatch, resp, FakeLLM)
+    out = planner_node({"user_query": "orig query", "iterations": 0, "retrieved_evidence": []})
+    assert out["sub_queries"] == ["orig query"]
+    assert out["entities"] == []
+
+
 # Verifier verdict normalisation
 
 def test_verifier_accepts_sufficient(monkeypatch):
@@ -93,6 +110,60 @@ def test_verifier_defaults_to_sufficient_on_garbage(monkeypatch):
 import pytest
 
 from src.agent import build_agent_graph, get_agent_graph, initial_state
+
+
+# arun_agent - async default-path runner
+# Retrieval and the LLM are both faked, matching the sync node tests above:
+# these check arun_agent's own logic (the config guard, wiring retrieval into
+# the prompt, awaiting the LLM), not real retrieval or real model behaviour.
+
+class _FakeRetriever:
+    def __init__(self, evidence):
+        self._evidence = evidence
+        self.calls: list[tuple] = []
+
+    def retrieve(self, query, top_k, final_k):
+        self.calls.append((query, top_k, final_k))
+        return self._evidence
+
+
+def _patch_async_defaults(monkeypatch, *, semantic_cache=None, **flags):
+    """Set every flag arun_agent checks to its production default, then
+    override with whatever the test passes. Keeps each test's monkeypatch
+    block down to only the one thing it is actually varying."""
+    for name in ("USE_PLANNER", "USE_VERIFIER", "USE_TOOL_LOOP", "USE_ROUTER"):
+        monkeypatch.setattr(agent, name, flags.get(name, False))
+    monkeypatch.setattr(agent, "get_semantic_cache", lambda: semantic_cache)
+
+
+def test_arun_agent_runs_retrieval_then_synthesis(monkeypatch):
+    evidence = [{"source_document": "a.pdf", "page_number": 1, "text": "shut it down with stopaiw"}]
+    retriever = _FakeRetriever(evidence)
+    _patch_async_defaults(monkeypatch)
+    monkeypatch.setattr(agent, "get_llm", lambda *a, **k: FakeLLM("answer [a.pdf, Page 1]"))
+    monkeypatch.setattr(agent, "get_retriever", lambda: retriever)
+
+    answer = asyncio.run(arun_agent("how do I shut it down?"))
+
+    assert answer == "answer [a.pdf, Page 1]"
+    assert retriever.calls == [
+        ("how do I shut it down?", agent.RETRIEVAL_TOP_K, agent.RETRIEVAL_FINAL_K)
+    ]
+
+
+@pytest.mark.parametrize(
+    "flag", ["USE_PLANNER", "USE_VERIFIER", "USE_TOOL_LOOP", "USE_ROUTER"]
+)
+def test_arun_agent_raises_when_a_non_default_flag_is_on(monkeypatch, flag):
+    _patch_async_defaults(monkeypatch, **{flag: True})
+    with pytest.raises(UnsupportedAsyncConfig):
+        asyncio.run(arun_agent("q"))
+
+
+def test_arun_agent_raises_when_semantic_cache_enabled(monkeypatch):
+    _patch_async_defaults(monkeypatch, semantic_cache=object())
+    with pytest.raises(UnsupportedAsyncConfig):
+        asyncio.run(arun_agent("q"))
 
 
 def _node_names(graph):
