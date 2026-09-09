@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 import src.tools as tools
+from src.instrumentation import record_run
 
 
 class ScriptedLLM:
@@ -120,3 +121,32 @@ def test_format_results_labels_every_passage_for_citation():
 
 def test_format_results_says_so_when_nothing_was_found():
     assert "No passages" in tools._format_results([])
+
+
+# Citation guardrail wiring
+# run_tool_loop has two return points (a clean stop, and the forced-answer
+# turn), both of which produce a final answer independently of
+# synthesizer_node / arun_agent. Each must still call the same guardrail.
+
+def test_run_tool_loop_calls_the_guardrail_on_a_clean_stop(monkeypatch, fake_retrieval):
+    # search_docs (fake_retrieval) returns a chunk from "alpha.pdf"; the final
+    # answer cites a different document that was never retrieved.
+    llm = ScriptedLLM([[_call("alpha")], "answer citing [ghost.pdf, Page 1]"])
+    monkeypatch.setattr(tools, "get_llm", lambda: llm)
+    with record_run(query="q", persist=False) as rec:
+        tools.run_tool_loop("q")
+    stages = [s.stage for s in rec.spans]
+    assert "citation_guardrail" in stages
+    guard = next(s for s in rec.spans if s.stage == "citation_guardrail")
+    assert guard.attributes["fabricated"] == ["ghost.pdf"]
+
+
+def test_run_tool_loop_calls_the_guardrail_on_the_forced_answer_turn(monkeypatch, fake_retrieval):
+    # Two searches exhaust max_calls=2, so the third turn gets the unbound
+    # model and is forced to answer. That is the second return point.
+    llm = ScriptedLLM([[_call("alpha")], [_call("beta", "t2")], "answer citing [ghost.pdf, Page 1]"])
+    monkeypatch.setattr(tools, "get_llm", lambda: llm)
+    with record_run(query="q", persist=False) as rec:
+        tools.run_tool_loop("q", max_calls=2)
+    guard = next(s for s in rec.spans if s.stage == "citation_guardrail")
+    assert guard.attributes["fabricated"] == ["ghost.pdf"]
