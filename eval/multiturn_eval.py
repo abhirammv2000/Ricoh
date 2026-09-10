@@ -64,9 +64,16 @@ def _distinct_docs(evidence: list[dict[str, Any]]) -> list[str]:
 
 
 def _recall(expected: list[str], docs: list[str]) -> float:
+    """1.0 if any expected document reached the top final_k, else 0.0.
+
+    Any-hit, not fraction: for a support follow-up the question is "did the
+    answer have a document that can answer it", and several turns list more
+    than one document that independently would (e.g. the generic
+    custom-properties article and the document-specific one).
+    """
     if not expected:
         return 0.0
-    return sum(1 for e in expected if e in docs[:RETRIEVAL_FINAL_K]) / len(expected)
+    return 1.0 if set(expected) & set(docs[:RETRIEVAL_FINAL_K]) else 0.0
 
 
 def evaluate(use_judge: bool = True) -> dict[str, Any]:
