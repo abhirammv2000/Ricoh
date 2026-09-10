@@ -188,7 +188,7 @@ Cited answer plus the Glass Box view
 ### LLM: Claude Sonnet (Anthropic)
 - **Why:** Strong instruction-following, reliable JSON output for the planner, low hallucination rate, and cheap enough to run 4-5 calls per question.
 - **On temperature:** set to 0.0 to *reduce* output variance. It does **not** make generation deterministic. Temperature 0 has never guaranteed identical outputs. Measured run-to-run variation in the planner's sub-queries is the main source of end-to-end variance in this system; retrieval itself is bit-identical across runs.
-- **Other providers:** `src/llm_factory.py` wires OpenAI and Gemini (the latter via its OpenAI-compatible endpoint) behind the same interface, and `eval/provider_bakeoff.py` runs the synthesizer on each against a shared retrieval and one fixed judge. An unjudged run has gpt-4o-mini and gemini-3.6-flash at roughly 30x lower cost per query than Sonnet; whether they hold answer quality is the judged run staged in `eval/run_paid_batch.sh` ([§16](#16-roadmap)).
+- **Other providers:** `src/llm_factory.py` wires OpenAI and Gemini (the latter via its OpenAI-compatible endpoint) behind the same interface, and `eval/provider_bakeoff.py` runs the synthesizer on each against a shared retrieval and one fixed judge. Judged result ([§7](#7-evaluation-and-metrics)): `gemini-3.6-flash` holds answer quality at 1/50th the cost per query, `gpt-4o-mini` drops correctness 0.21. So the model matters, not just the price.
 
 ### Prompt Engineering (4 specialised prompts)
 1. **Planner prompt:** Decomposes queries into sub-queries + extracts entities. Outputs structured JSON. Includes retry-aware context injection.
@@ -358,24 +358,24 @@ The n=10 run above concluded that the planner *hurt* retrieval (evidence recall 
 | B + planner | 2.0 | $0.0262 | 14.3s | **1.000** | 0.977 | 0.994 | 1.000 |
 | C + verifier/retry | 3.0 | $0.0414 | 16.5s | 1.000 | 0.972 | 0.989 | 1.000 |
 
-**Holdout split (30 questions, no judge):**
+**Holdout split (30 questions, now judged):**
 
-| Config | Evidence recall | Behaviour |
-|---|---|---|
-| A | 0.933 | 1.000 |
-| B | 0.933 | 1.000 |
+| Config | Evidence recall | Grounded | Correct | Behaviour |
+|---|---|---|---|---|
+| A | 0.933 | 0.963 | 0.968 | 1.000 |
+| B | 0.933 | 0.972 | 0.982 | 1.000 |
 
 Two things changed and one did not.
 
 **The planner is not harmful.** The n=10 finding that it rewrote questions into worse sub-queries was two questions out of ten and did not generalise. At n=100 the planner *helps* on dev, taking evidence recall from 0.943 to 1.000, which is the objective no-judge metric, so it is four real questions where A's single retrieval missed the document and B's sub-queries found it.
 
-**But the benefit does not replicate.** On the held-out 30, A and B score an identical 0.933 evidence recall with zero per-question differences. A planner with a general benefit should show it on both splits. It shows it on one. That is the signature of a small effect that is inside sampling noise at n=30 to 70, not a reliable win.
+**But the benefit does not replicate.** On the held-out 30, A and B score an identical 0.933 evidence recall with zero per-question differences. The judged run added later confirms it: groundedness moves 0.963 -> 0.972 and correctness 0.968 -> 0.982, both inside the judge's ~0.10 noise floor. A planner with a general benefit should show it on both splits. It shows it on one. That is the signature of a small effect that is inside sampling noise at n=30 to 70, not a reliable win.
 
 **The verifier still earns nothing.** Config C matches B on evidence recall (both 1.000) and is slightly *lower* on grounded and correct. Same as at n=10.
 
 So config A stays the default. The honest change is to the reasoning: the planner is roughly neutral here rather than harmful, and it stays behind `USE_PLANNER` for a corpus where retrieval is weak enough for its re-querying to matter. The correctness and behaviour gaps on dev (0.972 -> 0.994, 0.986 -> 1.000) are inside the judge's ±0.10 noise floor and are not load-bearing.
 
-Raw per-config dumps are in `eval/ablation/generated_questions_dev/` (`--n100`) and `_holdout/` (`--split holdout --configs A B --no-judge`).
+Raw per-config dumps are in `eval/ablation/generated_questions_dev/` (`--n100`) and `_holdout/` (`--split holdout --configs A B`).
 
 ### The ablation on a multi-hop set
 
@@ -494,18 +494,31 @@ the numbers above still describe what a one-shot question does.
 
 **How well it works.** `eval/multiturn_questions.json` is 12 conversation chains
 (36 turns); `eval/multiturn_eval.py` walks each chain carrying the real prior
-answers as history. A quick check over the 24 follow-up turns (prior turns as
-context) resolved the reference every time, at a mean cosine of 0.91 to the
-hand-written standalone target: "what about those?" became "in which
+answers as history and judges every turn against the hand-written standalone
+intent.
+
+*The rewrite is good.* Mean cosine to the hand-written standalone target is
+**0.93** across the 24 follow-ups. "what about those?" became "in which
 representations can AFP Enhancer create an Intelligent Mail barcode?", "what
 about the application servers?" became "what operating system do the application
-servers run on?". Each rewrite is one Sonnet call, about $0.001.
+servers run on?".
 
-**Judged run staged.** Whether the condensed follow-ups then get *answered* as
-well as cold questions needs the LLM judge on every turn; that run is in
-`eval/run_paid_batch.sh` and is blocked on Anthropic credits. Until it lands,
-this is a mechanism with a measured retrieval result, not a measured
-answer-quality result.
+*The retrieval lift is the point.* Retriever recall on the raw follow-up is
+**0.56**; after condensation it is **0.79**. Several follow-ups ("which step
+template do I add for it?", "how would I track two deadlines?") retrieve nothing
+on their own and land the right document once rewritten.
+
+*Answer quality on follow-ups is close to cold questions, with a caveat.*
+Judged: groundedness 0.947 on follow-ups vs 0.949 on first turns (identical),
+correctness 0.823 vs 0.892. The 7-point correctness gap is not uniform: it is
+almost entirely three chains where the eval set itself is shaky, the `workflow`
+chain (whose curated key facts do not match what the retrieved article states)
+and the `custom-props` chain (whose expected document the retriever also misses
+on a *cold* question, the same weakness as multi-hop Q8). On the nine clean
+chains, follow-ups score as well as first turns. Groundedness holding steady is
+the load-bearing result: the system is not hallucinating on follow-ups, it is
+occasionally answering an under-specified or mislabeled question. Per-turn table
+in `eval/multiturn_report.md`.
 
 ### A diagnostic I got wrong
 
@@ -576,6 +589,18 @@ python -m eval.sweep_embeddings --measure --rerank
 ```
 
 Contextual Retrieval and semantic chunking were deliberately **not** implemented: both target long multi-page documents and would cost real ingest-time API calls for little gain on a single-page corpus.
+
+### Cross-provider bakeoff
+
+The system runs on `claude-sonnet-4-6`. `src/llm_factory.py` also wires OpenAI and Gemini (the latter through its OpenAI-compatible endpoint), and `eval/provider_bakeoff.py` runs config A on each against a *shared, identical* retrieval and the same `claude-opus-5` judge, so any difference is the synthesizer model. On 20 questions from the dev split:
+
+| model | cost/query | latency | out tokens | groundedness | correctness | behaviour |
+|---|---|---|---|---|---|---|
+| claude-sonnet-4-6 | $0.0151 | 9.9s | 476 | 0.980 | 0.993 | 1.00 |
+| gemini-3.6-flash | $0.0003 | 5.2s | 240 | 0.998 | 0.953 | 1.00 |
+| gpt-4o-mini | $0.0005 | 2.6s | 146 | 0.962 | 0.779 | 0.90 |
+
+**Gemini Flash is a real cost lever; GPT-4o-mini is not.** Gemini holds groundedness (actually higher) and lands correctness 0.953 vs 0.993, a 0.04 gap inside the judge's ~0.10 noise floor, at **1/50th the cost per query** and roughly 2x faster. GPT-4o-mini drops correctness by 0.21, well outside noise, and refuses two questions it should have answered. So "swap to a cheap model" is not one decision, it depends which cheap model: on this task Gemini Flash would be a defensible production choice, `gpt-4o-mini` would be a downgrade. The Anthropic judge is held constant precisely so this comparison is not itself provider-biased.
 
 ### A correction on Q2 and Q3
 
@@ -821,7 +846,7 @@ Ordered by what most improves the system, not by what is easiest to demo.
 
 | Priority | Work | Status |
 |---|---|---|
-| 1 | Re-run the A/B/C ablation at n=100 | **Done.** The n=10 "planner is harmful" finding did not hold: the planner helps on dev, not on holdout, verifier still earns nothing. Config A stays default. [§7](#7-evaluation-and-metrics). The judge on the holdout split is staged in `eval/run_paid_batch.sh`. |
+| 1 | Re-run the A/B/C ablation at n=100 | **Done, including the judge on holdout.** The n=10 "planner is harmful" finding did not hold: the planner helps evidence recall on dev, not on holdout; the judged holdout run confirms groundedness and correctness move inside the noise floor. Verifier earns nothing on any split. Config A stays default. [§7](#7-evaluation-and-metrics). |
 | 2 | Judge calibration: hand-label 30, report Cohen's κ | Worksheet ready (`eval/human_labels.json`, passages included); a RAGAS faithfulness cross-check is done and consistent with the judge ([§7](#7-evaluation-and-metrics)). The human labelling pass is the last open item on the eval side. |
 | 3 | Better embedding model, wider pool, rerank | **Done.** bge-small does not beat MiniLM at n=100, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. The reranker takes all-100 recall@5 from 0.94 to 0.97 and halves the miss count, but the gain is dev-only and it doubles latency, so it stays behind `RERANKER_ENABLED`. bge-base not built (no GPU). [§7](#7-evaluation-and-metrics). |
 | 4 | Adaptive routing | **Done.** `src/router.py` escalates to the tool loop on a refusal (a pre-retrieval confidence signal was tried first and does not separate misses from hits). Judged on dev: escalates rarely, small gain over config A, within judge noise. Off by default (`USE_ROUTER`). |
@@ -829,7 +854,7 @@ Ordered by what most improves the system, not by what is easiest to demo.
 | 6 | Claim->span attribution instead of filename matching | **Two free proxies tried, both reverted; RAGAS faithfulness is the working answer.** A MiniLM-cosine proxy and then a local NLI model (`nli-deberta-v3-base`) were each built and run over the 100 answers. Both produced numbers that contradict the judge's 0.96 groundedness (the NLI run flagged 8% of citations as "contradicted"). The cause is the synthesizer's answer style: it restructures sources into tables, worked examples and numbered steps, and answers non-English questions in the user's language, so sentence-level entailment against the raw chunk is not a fair test. Claim decomposition by an LLM handles that, which is what the RAGAS faithfulness cross-check does ([§7](#7-evaluation-and-metrics)). A deeper per-claim attribution metric still needs a dedicated judged pass. |
 | 7 | Tracing, per-request cost/latency budgets, index built in CI | Tracing, per-request instrumentation and a per-request dashboard drill-down are done ([Observability](#observability)). A retrieval regression gate runs in CI against `demo_index`, and also fails if the index drifts from the benchmark it serves ([§11](#11-testing-and-ci)). A full-corpus index built in CI still needs the source PDFs it does not have; `demo_index` stays a committed artifact. |
 | 8 | A genuinely multi-hop question set + ablation on it | **Done.** `eval/multihop_questions.json` is 20 hand-written two-document questions (8 of which one retrieval misses a required doc). Judged A/B/C: the planner takes evidence recall 0.78 -> 0.82, recovering a document on 2 of the 20, but grounded and correct stay inside the judge noise floor, and the verifier still earns nothing. The real bottleneck turned out to be synthesis (config A correctness 0.909, down from ~0.97 on single-hop), which no config addresses. Config A stays default. [§7](#7-evaluation-and-metrics). |
-| 9 | Judged multi-turn conversation eval | **Staged.** `eval/multiturn_questions.json` is 12 conversation chains (36 turns); `eval/multiturn_eval.py` walks each chain carrying real prior answers as history and judges every turn, splitting first turns from follow-ups. A free check on the 24 follow-ups showed condensation resolves the reference every time (mean cosine 0.91 to the hand-written target). The judged run is in `eval/run_paid_batch.sh`. |
-| 10 | Cross-provider bakeoff | **Staged.** `src/llm_factory.py` now wires OpenAI and Gemini (the latter through its OpenAI-compatible endpoint); `eval/provider_bakeoff.py` runs config A on each provider against a shared retrieval and the same opus judge. An unjudged run put gpt-4o-mini at $0.0005/query and gemini-3.6-flash at $0.0003/query, both roughly 30x cheaper than Sonnet's $0.014, with evidence recall held at 1.00. The judged comparison (does the cheaper model hold groundedness and correctness?) is in `eval/run_paid_batch.sh`. |
+| 9 | Judged multi-turn conversation eval | **Done.** 12 chains, 36 turns, every turn judged. Condensation lifts follow-up retriever recall 0.56 -> 0.79 and the rewrites hit 0.93 cosine to the hand-written target. Follow-up groundedness matches cold questions (0.947 vs 0.949); the correctness gap (0.823 vs 0.892) is concentrated in two chains where the eval set's own labels are shaky. [§7](#7-evaluation-and-metrics). |
+| 10 | Cross-provider bakeoff | **Done.** `src/llm_factory.py` wires OpenAI and Gemini; `eval/provider_bakeoff.py` runs config A on each against a shared retrieval and one fixed opus judge. `gemini-3.6-flash` holds correctness (0.953 vs Sonnet 0.993, inside noise) at 1/50th the cost; `gpt-4o-mini` drops correctness 0.21 and refuses two questions it should answer. The cheap-model choice is model-specific, not just price. [§7](#7-evaluation-and-metrics). |
 
 **Deliberately deferred:** multi-lingual answering is currently a liability rather than a feature. The refusal marker is English-only, so a translated-only refusal would be scored as an answer. The synthesizer now pins the English canonical sentence to keep the eval sound, but full language support needs a language-aware detector before it is worth advertising.
