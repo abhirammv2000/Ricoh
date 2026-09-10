@@ -33,3 +33,28 @@ jobs:
         # No ANTHROPIC_API_KEY is set: the suite mocks the LLM and only
         # exercises offline logic, so it must pass without any secret.
         run: pytest
+
+  retrieval-gate:
+    name: Retrieval regression gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Retrieval regression gate
+        # Runs real hybrid retrieval against the committed demo_index (no API
+        # key, ChromaDB's bundled MiniLM) and fails if recall@k on the seed
+        # questions drops below eval/ci_baseline.json.
+        run: python -m eval.ci_gate
