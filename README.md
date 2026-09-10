@@ -79,10 +79,12 @@ everything above that minimum, the retrieved evidence, is different on every
 request. The pricing table still models `cache_read` and `cache_write` so the
 door is open if a future prompt grows a large reusable prefix.
 
-**Honest gaps:** the app ships an aggregate cost and latency dashboard
-(`src/perf.py`), but per-request drill-down, the chunk attribution behind one
-past trace, is CLI-only. Production traffic is not sampled back into the eval
-set.
+The dashboard also drills into one past request: pick a trace and see its
+per-stage cost and, for the retrieval span, exactly which chunks fed the answer
+at what rank and RRF score. That view was CLI-only (`src/trace_view.py`); it and
+the dashboard now share `perf.format_trace` so they cannot disagree.
+
+**Honest gap:** production traffic is not sampled back into the eval set.
 
 ---
 
