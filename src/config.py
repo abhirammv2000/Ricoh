@@ -28,8 +28,12 @@ os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 from dotenv import load_dotenv
 
-# Load .env (if present) so API keys are available via os.getenv
-load_dotenv()
+# Load .env (if present) so API keys are available via os.getenv.
+# override=True: the .env file is the source of truth for local runs, so a
+# stale API key left in the shell environment does not silently shadow it. A
+# real deployment sets env vars and ships no .env, so nothing is overridden
+# there.
+load_dotenv(override=True)
 
 # Centralised logging configuration
 # We configure logging ONCE here.  All modules use
