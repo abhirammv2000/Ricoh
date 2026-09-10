@@ -117,6 +117,39 @@ def measure(index_dir: Path = DEMO_INDEX) -> dict[str, Any]:
     }
 
 
+def manifest_drift() -> list[str]:
+    """Ways the committed demo_index no longer matches what it should serve.
+
+    demo_index is a binary artifact built by src/build_demo_index.py from the
+    corpus. CI has neither the corpus nor a way to rebuild it, so this checks
+    the cheap invariant instead: the documents the curated benchmark
+    (eval/ground_truth.json) depends on must all be baked into the index. If a
+    question gains a new expected source and the index is not rebuilt, the live
+    demo silently cannot answer it, and this is what says so.
+    """
+    from src.build_demo_index import _referenced_docs
+
+    problems: list[str] = []
+    manifest_path = DEMO_INDEX / "manifest.json"
+    if not manifest_path.exists():
+        return [f"{manifest_path} is missing"]
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    baked = set(manifest.get("benchmark_referenced", []))
+    needed = _referenced_docs()
+    missing = sorted(needed - baked)
+    if missing:
+        problems.append(
+            f"ground_truth.json needs {missing} but they are not in the demo index"
+        )
+
+    counted = manifest.get("document_count")
+    listed = len(manifest.get("benchmark_referenced", [])) + len(manifest.get("sampled", []))
+    if isinstance(counted, int) and counted != listed:
+        problems.append(f"manifest document_count is {counted} but it lists {listed} documents")
+    return problems
+
+
 def _load_baseline() -> dict[str, Any]:
     if not BASELINE.exists():
         raise SystemExit(
@@ -138,6 +171,14 @@ def regressions(current: dict[str, Any], baseline: dict[str, Any]) -> list[str]:
 
 
 def check() -> int:
+    drift = manifest_drift()
+    if drift:
+        print("demo_index is out of sync with the benchmark it serves:")
+        for line in drift:
+            print(f"  {line}")
+        print("\nrebuild it: python -m src.build_demo_index  (needs the corpus in data/)")
+        return 1
+
     current = measure()
     baseline = _load_baseline()
 
