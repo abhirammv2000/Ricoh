@@ -360,6 +360,57 @@ def render_perf_dashboard() -> None:
             ]
         )
 
+    # Per-request drill-down: which chunks produced one past answer, at what
+    # rank and RRF score. This was CLI-only (src/trace_view.py) until now.
+    st.divider()
+    st.caption("Drill into one request")
+    recent = list(reversed(records))[:30]
+
+    def _label(i: int) -> str:
+        r = recent[i]
+        return f"{r.get('started_at', '')[:19]}  ${r.get('total_cost_usd', 0):.4f}  {r.get('query', '')[:48]}"
+
+    picked = st.selectbox(
+        "Request", range(len(recent)), format_func=_label, key="trace_drilldown"
+    )
+    _render_trace(perf.format_trace(recent[picked]))
+
+
+def _render_trace(t: dict) -> None:
+    """Render one formatted trace (src.perf.format_trace) in the dashboard."""
+    st.markdown(
+        f"**{t['llm_calls']} LLM calls · ${t['total_cost_usd']:.5f} · "
+        f"{t['total_traced_seconds']:.1f}s · "
+        f"{t['total_input_tokens']:,} in / {t['total_output_tokens']:,} out**"
+    )
+    st.caption(f"`{t['trace_id']}`  ·  {t['query']}")
+
+    for i, s in enumerate(t["spans"], 1):
+        head = f"{i}. **{s['stage']}** ({s['kind']}) — {s['latency_seconds']:.2f}s"
+        if s["kind"] == "llm":
+            head += f", ${s['cost_usd']:.5f}, {s['input_tokens']:,}in/{s['output_tokens']:,}out"
+        st.markdown(head)
+        if s.get("error"):
+            st.error(s["error"])
+        r = s.get("retrieval")
+        if r:
+            st.caption(
+                f"vector {r['vector_hits']} · bm25 {r['bm25_hits']}"
+                f"{' · reranked' if r['reranked'] else ''}"
+            )
+            st.table(
+                [
+                    {"rank": j, "document": c["doc"], "page": c["page"], "rrf": c["rrf"]}
+                    for j, c in enumerate(r["chunks"], 1)
+                ]
+            )
+        g = s.get("citation_guardrail")
+        if g:
+            if g["valid"]:
+                st.caption(f"citations check out: {g['cited']}")
+            else:
+                st.warning(f"cited but not retrieved: {g['fabricated']}")
+
 
 # 7. SIDEBAR
 
