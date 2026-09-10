@@ -6,8 +6,15 @@ config.py when that argument is left out.
 
 Providers:
     anthropic   ChatAnthropic, needs ANTHROPIC_API_KEY
-    openai      not wired up yet
-    google      not wired up yet
+    openai      ChatOpenAI, needs OPENAI_API_KEY
+    google      Gemini through its OpenAI-compatible endpoint, needs
+                GEMINI_API_KEY (or GOOGLE_API_KEY). Uses the openai client
+                rather than langchain-google-genai, whose google-ai
+                dependency drags in protobuf 6 and breaks streamlit.
+
+Anthropic is the production provider. openai and google exist for the
+cross-provider bakeoff (eval/provider_bakeoff.py) and are not on the default
+path.
 """
 
 from __future__ import annotations
@@ -55,9 +62,13 @@ def response_text(response: Any) -> str:
 # price matters, and Sonnet 4.6 still accepts temperature=0.
 _DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-sonnet-4-6",
-    "openai": "gpt-4o",
-    "google": "gemini-1.5-pro",
+    "openai": "gpt-4o-mini",
+    "google": "gemini-3.6-flash",
 }
+
+# Gemini speaks an OpenAI-compatible dialect at this endpoint, so one client
+# library (openai, via langchain-openai) covers both non-Anthropic providers.
+_GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 # Models that dropped the sampling parameters (temperature, top_p, top_k).
 # Opus 4.7 and later, and Sonnet 5, reject them with a 400; Sonnet 4.6 and
@@ -155,19 +166,25 @@ def get_llm(
 
         return ChatAnthropic(model=model, **kwargs)
 
-    # openai: stub for now, wire up when we need it.
-    elif provider == "openai":
-        raise NotImplementedError(
-            "OpenAI provider not yet wired up. "
-            "Install langchain-openai and add OPENAI_API_KEY."
-        )
+    elif provider in ("openai", "google"):
+        from langchain_openai import ChatOpenAI  # imported lazily
 
-    # google: stub for now, wire up when we need it.
-    elif provider == "google":
-        raise NotImplementedError(
-            "Google provider not yet wired up. "
-            "Install langchain-google-genai and add GOOGLE_API_KEY."
-        )
+        if provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+            base_url = None
+            key_name = "OPENAI_API_KEY"
+        else:
+            api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            base_url = _GEMINI_OPENAI_BASE_URL
+            key_name = "GEMINI_API_KEY"
+        if not api_key:
+            raise EnvironmentError(f"{key_name} not found. Add it to your .env file.")
+
+        kwargs.setdefault("max_tokens", max_tokens)
+        kwargs.setdefault("timeout", _DEFAULT_TIMEOUT_SECONDS)
+        kwargs.setdefault("max_retries", _DEFAULT_MAX_RETRIES)
+        kwargs.setdefault("temperature", temperature)
+        return ChatOpenAI(model=model, api_key=api_key, base_url=base_url, **kwargs)
 
     else:
         raise ValueError(

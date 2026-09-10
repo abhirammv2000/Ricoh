@@ -75,6 +75,13 @@ PRICING: dict[str, ModelPrice] = {
     "claude-sonnet-5": ModelPrice(3.0, 15.0),
     "claude-sonnet-4-6": ModelPrice(3.0, 15.0),
     "claude-haiku-4-5": ModelPrice(1.0, 5.0),
+    # Non-Anthropic models, used only by the cross-provider bakeoff. Prefix
+    # match in _price() resolves "gpt-4o-mini" before "gpt-4o" (longer key wins).
+    "gpt-4o-mini": ModelPrice(0.15, 0.60),
+    "gpt-4o": ModelPrice(2.50, 10.0),
+    "gemini-3.6-flash": ModelPrice(0.10, 0.40),
+    "gemini-2.0-flash": ModelPrice(0.10, 0.40),
+    "gemini-1.5-flash": ModelPrice(0.075, 0.30),
 }
 PRICING_SNAPSHOT_DATE = "2026-08-01"
 
