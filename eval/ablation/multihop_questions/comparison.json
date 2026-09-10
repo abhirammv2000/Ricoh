@@ -1,0 +1,302 @@
+{
+  "A": {
+    "questions": 20,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 0.775,
+      "ci95": [
+        0.65,
+        0.9
+      ],
+      "scored_n": 20
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.275,
+      "recall@3": 0.625,
+      "recall@5": 0.775
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 20
+    },
+    "mean_latency_seconds": 16.0,
+    "max_latency_seconds": 29.6,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.0205,
+      "max_cost_per_query_usd": 0.030336,
+      "total_agent_cost_usd": 0.409992,
+      "eval_judge_cost_usd": 0.653325,
+      "mean_llm_calls_per_query": 1.0,
+      "mean_input_tokens": 3007,
+      "mean_output_tokens": 765,
+      "by_stage": {
+        "retrieval": {
+          "calls": 20,
+          "seconds": 2.9,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 0.9,
+          "pct_of_cost": 0.0
+        },
+        "synthesizer": {
+          "calls": 20,
+          "seconds": 315.32,
+          "cost_usd": 0.409992,
+          "pct_of_llm_seconds": 99.1,
+          "pct_of_cost": 100.0
+        },
+        "citation_guardrail": {
+          "calls": 20,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 0.0,
+          "pct_of_cost": 0.0
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.973,
+      "ci95": [
+        0.958,
+        0.988
+      ],
+      "scored_n": 20
+    },
+    "correctness": {
+      "mean": 0.909,
+      "ci95": [
+        0.848,
+        0.959
+      ],
+      "scored_n": 20
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 8,
+        "question": "How do I create a custom document property in RICOH ProcessDirector, and what do I have to do with it before I can use it to sort or split AFP documents?",
+        "evidence_recall": 0.0
+      },
+      "groundedness": {
+        "id": 20,
+        "question": "What does the Reports feature add to RICOH ProcessDirector, and which data collectors can I configure with it?",
+        "groundedness": 0.9
+      },
+      "correctness": {
+        "id": 12,
+        "question": "The PDF Document Support feature uses RICOH ProcessDirector Plug-in for Adobe Acrobat. What does it let you do with the individual documents in a PDF file, and where is the markup saved?",
+        "correctness": 0.55
+      }
+    }
+  },
+  "B": {
+    "questions": 20,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 0.825,
+      "ci95": [
+        0.7,
+        0.95
+      ],
+      "scored_n": 20
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.275,
+      "recall@3": 0.625,
+      "recall@5": 0.775
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 20
+    },
+    "mean_latency_seconds": 25.43,
+    "max_latency_seconds": 45.16,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.03172,
+      "max_cost_per_query_usd": 0.05532,
+      "total_agent_cost_usd": 0.63441,
+      "eval_judge_cost_usd": 1.019695,
+      "mean_llm_calls_per_query": 2.0,
+      "mean_input_tokens": 5802,
+      "mean_output_tokens": 954,
+      "by_stage": {
+        "planner": {
+          "calls": 20,
+          "seconds": 100.92,
+          "cost_usd": 0.039156,
+          "pct_of_llm_seconds": 19.9,
+          "pct_of_cost": 6.2
+        },
+        "retrieval": {
+          "calls": 90,
+          "seconds": 19.3,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 3.8,
+          "pct_of_cost": 0.0
+        },
+        "synthesizer": {
+          "calls": 20,
+          "seconds": 388.0,
+          "cost_usd": 0.595254,
+          "pct_of_llm_seconds": 76.3,
+          "pct_of_cost": 93.8
+        },
+        "citation_guardrail": {
+          "calls": 20,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 0.0,
+          "pct_of_cost": 0.0
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.98,
+      "ci95": [
+        0.971,
+        0.989
+      ],
+      "scored_n": 20
+    },
+    "correctness": {
+      "mean": 0.919,
+      "ci95": [
+        0.852,
+        0.971
+      ],
+      "scored_n": 20
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 8,
+        "question": "How do I create a custom document property in RICOH ProcessDirector, and what do I have to do with it before I can use it to sort or split AFP documents?",
+        "evidence_recall": 0.0
+      },
+      "groundedness": {
+        "id": 8,
+        "question": "How do I create a custom document property in RICOH ProcessDirector, and what do I have to do with it before I can use it to sort or split AFP documents?",
+        "groundedness": 0.95
+      },
+      "correctness": {
+        "id": 12,
+        "question": "The PDF Document Support feature uses RICOH ProcessDirector Plug-in for Adobe Acrobat. What does it let you do with the individual documents in a PDF file, and where is the markup saved?",
+        "correctness": 0.45
+      }
+    }
+  },
+  "C": {
+    "questions": 20,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 0.825,
+      "ci95": [
+        0.7,
+        0.95
+      ],
+      "scored_n": 20
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.275,
+      "recall@3": 0.625,
+      "recall@5": 0.775
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 20
+    },
+    "mean_latency_seconds": 26.26,
+    "max_latency_seconds": 51.33,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.048501,
+      "max_cost_per_query_usd": 0.078042,
+      "total_agent_cost_usd": 0.970023,
+      "eval_judge_cost_usd": 1.02628,
+      "mean_llm_calls_per_query": 3.0,
+      "mean_input_tokens": 11303,
+      "mean_output_tokens": 973,
+      "by_stage": {
+        "planner": {
+          "calls": 20,
+          "seconds": 76.82,
+          "cost_usd": 0.039231,
+          "pct_of_llm_seconds": 14.6,
+          "pct_of_cost": 4.0
+        },
+        "retrieval": {
+          "calls": 90,
+          "seconds": 9.44,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 1.8,
+          "pct_of_cost": 0.0
+        },
+        "verifier": {
+          "calls": 20,
+          "seconds": 56.73,
+          "cost_usd": 0.329481,
+          "pct_of_llm_seconds": 10.8,
+          "pct_of_cost": 34.0
+        },
+        "synthesizer": {
+          "calls": 20,
+          "seconds": 382.07,
+          "cost_usd": 0.601311,
+          "pct_of_llm_seconds": 72.8,
+          "pct_of_cost": 62.0
+        },
+        "citation_guardrail": {
+          "calls": 20,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 0.0,
+          "pct_of_cost": 0.0
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.979,
+      "ci95": [
+        0.966,
+        0.99
+      ],
+      "scored_n": 20
+    },
+    "correctness": {
+      "mean": 0.911,
+      "ci95": [
+        0.837,
+        0.967
+      ],
+      "scored_n": 20
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 8,
+        "question": "How do I create a custom document property in RICOH ProcessDirector, and what do I have to do with it before I can use it to sort or split AFP documents?",
+        "evidence_recall": 0.0
+      },
+      "groundedness": {
+        "id": 11,
+        "question": "In RICOH Visual Workbench, what is the difference between editing the text value of an index tag itself and editing the text for an index tag that is linked to a property?",
+        "groundedness": 0.92
+      },
+      "correctness": {
+        "id": 12,
+        "question": "The PDF Document Support feature uses RICOH ProcessDirector Plug-in for Adobe Acrobat. What does it let you do with the individual documents in a PDF file, and where is the markup saved?",
+        "correctness": 0.4
+      }
+    }
+  }
+}
