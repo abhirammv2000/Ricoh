@@ -1,0 +1,11 @@
+# Optional: OpenAI and Gemini, for the cross-provider bakeoff
+# (eval/provider_bakeoff.py). Not needed to run the app or the default eval.
+#
+# Gemini is reached through its OpenAI-compatible endpoint, so langchain-openai
+# is the only package required for both. langchain-google-genai is deliberately
+# avoided: its google-ai-generativelanguage dependency pulls protobuf 6, which
+# conflicts with streamlit.
+#
+#   pip install -r requirements-providers.txt
+#   # then set OPENAI_API_KEY and GEMINI_API_KEY in .env
+langchain-openai==0.2.14

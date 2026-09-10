@@ -44,3 +44,39 @@ def test_missing_api_key_raises_before_any_network_call():
     os.environ.pop("ANTHROPIC_API_KEY", None)
     with pytest.raises(EnvironmentError, match="ANTHROPIC_API_KEY"):
         get_llm()
+
+
+# Cross-provider wiring. These build the client offline (no network) and only
+# check that the right key is required and the right endpoint is used.
+
+
+def test_openai_provider_builds_with_its_key(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-dummy")
+    llm = get_llm(provider="openai")
+    assert llm.model_name == "gpt-4o-mini"
+    assert llm.openai_api_base in (None, "https://api.openai.com/v1")
+
+
+def test_google_provider_uses_the_gemini_openai_endpoint(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "gemini-dummy")
+    llm = get_llm(provider="google")
+    assert llm.model_name == "gemini-3.6-flash"
+    assert "generativelanguage.googleapis.com" in llm.openai_api_base
+
+
+def test_openai_provider_without_a_key_raises(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(EnvironmentError, match="OPENAI_API_KEY"):
+        get_llm(provider="openai")
+
+
+def test_google_provider_without_a_key_raises(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    with pytest.raises(EnvironmentError, match="GEMINI_API_KEY"):
+        get_llm(provider="google")
+
+
+def test_unknown_provider_still_raises():
+    with pytest.raises(ValueError, match="Unknown LLM provider"):
+        get_llm(provider="fictional")
