@@ -23,39 +23,72 @@
       ],
       "scored_n": 30
     },
-    "mean_latency_seconds": 11.32,
-    "max_latency_seconds": 23.56,
+    "mean_latency_seconds": 12.09,
+    "max_latency_seconds": 21.69,
     "cost": {
       "pricing_snapshot": "2026-08-01",
-      "mean_cost_per_query_usd": 0.015796,
-      "max_cost_per_query_usd": 0.02544,
-      "total_agent_cost_usd": 0.473886,
-      "eval_judge_cost_usd": 0.0,
+      "mean_cost_per_query_usd": 0.016065,
+      "max_cost_per_query_usd": 0.02475,
+      "total_agent_cost_usd": 0.481941,
+      "eval_judge_cost_usd": 0.837845,
       "mean_llm_calls_per_query": 1.0,
       "mean_input_tokens": 2832,
-      "mean_output_tokens": 487,
+      "mean_output_tokens": 505,
       "by_stage": {
         "retrieval": {
           "calls": 30,
-          "seconds": 2.26,
+          "seconds": 1.59,
           "cost_usd": 0.0,
-          "pct_of_llm_seconds": 0.7,
+          "pct_of_llm_seconds": 0.4,
           "pct_of_cost": 0.0
         },
         "synthesizer": {
           "calls": 30,
-          "seconds": 335.14,
-          "cost_usd": 0.473886,
-          "pct_of_llm_seconds": 99.3,
+          "seconds": 359.73,
+          "cost_usd": 0.481941,
+          "pct_of_llm_seconds": 99.6,
           "pct_of_cost": 100.0
+        },
+        "citation_guardrail": {
+          "calls": 30,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 0.0,
+          "pct_of_cost": 0.0
         }
       }
+    },
+    "groundedness": {
+      "mean": 0.963,
+      "ci95": [
+        0.941,
+        0.982
+      ],
+      "scored_n": 30
+    },
+    "correctness": {
+      "mean": 0.968,
+      "ci95": [
+        0.915,
+        1.0
+      ],
+      "scored_n": 30
     },
     "worst_case": {
       "evidence_recall": {
         "id": 9,
         "question": "What operating systems does RICOH ProcessDirector run on, and how do users access it?",
         "evidence_recall": 0.0
+      },
+      "groundedness": {
+        "id": 14,
+        "question": "Which specific RICOH Pro 8400 series printer models are supported in ProcessDirector, and what digital front end do they require?",
+        "groundedness": 0.8
+      },
+      "correctness": {
+        "id": 9,
+        "question": "What operating systems does RICOH ProcessDirector run on, and how do users access it?",
+        "correctness": 0.35
       }
     }
   },
@@ -83,46 +116,79 @@
       ],
       "scored_n": 30
     },
-    "mean_latency_seconds": 15.92,
-    "max_latency_seconds": 32.36,
+    "mean_latency_seconds": 18.68,
+    "max_latency_seconds": 31.66,
     "cost": {
       "pricing_snapshot": "2026-08-01",
-      "mean_cost_per_query_usd": 0.027555,
-      "max_cost_per_query_usd": 0.050595,
-      "total_agent_cost_usd": 0.82665,
-      "eval_judge_cost_usd": 0.0,
+      "mean_cost_per_query_usd": 0.026754,
+      "max_cost_per_query_usd": 0.048474,
+      "total_agent_cost_usd": 0.802608,
+      "eval_judge_cost_usd": 1.3941,
       "mean_llm_calls_per_query": 2.0,
-      "mean_input_tokens": 5828,
-      "mean_output_tokens": 671,
+      "mean_input_tokens": 5567,
+      "mean_output_tokens": 670,
       "by_stage": {
         "planner": {
           "calls": 30,
-          "seconds": 89.06,
-          "cost_usd": 0.062628,
-          "pct_of_llm_seconds": 18.7,
+          "seconds": 122.63,
+          "cost_usd": 0.060948,
+          "pct_of_llm_seconds": 21.9,
           "pct_of_cost": 7.6
         },
         "retrieval": {
-          "calls": 171,
-          "seconds": 10.52,
+          "calls": 165,
+          "seconds": 23.15,
           "cost_usd": 0.0,
-          "pct_of_llm_seconds": 2.2,
+          "pct_of_llm_seconds": 4.1,
           "pct_of_cost": 0.0
         },
         "synthesizer": {
           "calls": 30,
-          "seconds": 377.87,
-          "cost_usd": 0.764022,
-          "pct_of_llm_seconds": 79.1,
+          "seconds": 414.34,
+          "cost_usd": 0.74166,
+          "pct_of_llm_seconds": 74.0,
           "pct_of_cost": 92.4
+        },
+        "citation_guardrail": {
+          "calls": 30,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 0.0,
+          "pct_of_cost": 0.0
         }
       }
+    },
+    "groundedness": {
+      "mean": 0.972,
+      "ci95": [
+        0.96,
+        0.983
+      ],
+      "scored_n": 30
+    },
+    "correctness": {
+      "mean": 0.982,
+      "ci95": [
+        0.958,
+        1.0
+      ],
+      "scored_n": 30
     },
     "worst_case": {
       "evidence_recall": {
         "id": 9,
         "question": "What operating systems does RICOH ProcessDirector run on, and how do users access it?",
         "evidence_recall": 0.0
+      },
+      "groundedness": {
+        "id": 25,
+        "question": "When setting up inserter control file rules, where should I copy the sample rules files to, and why is that location recommended?",
+        "groundedness": 0.88
+      },
+      "correctness": {
+        "id": 9,
+        "question": "What operating systems does RICOH ProcessDirector run on, and how do users access it?",
+        "correctness": 0.75
       }
     }
   }

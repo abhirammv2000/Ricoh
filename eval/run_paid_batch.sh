@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 #
 # The four judged evaluation runs that need a funded ANTHROPIC_API_KEY (both the
-# synthesizer and the opus judge). Everything else in eval/ is free or was
-# already run. Steps are independent; one failing does not stop the others.
+# synthesizer and the opus judge). All four have been run once and their
+# results are written up in README section 7; this script reproduces them.
+# Steps are independent; one failing does not stop the others.
 #
 #   bash eval/run_paid_batch.sh
 #
-# Rough cost at 2026 prices, ~$7 total:
-#   1  cross-provider bakeoff, judged, n=20         ~$1.6
-#   2  multi-hop ablation A/B/C, judged, 20 qs      ~$2.5
-#   3  multi-turn conversation eval, judged         ~$1.4
-#   4  judged holdout ablation A/B, 30 qs           ~$1.5
+# Actual cost of the first run, 2026 prices:
+#   1  cross-provider bakeoff, judged, n=20         $1.80
+#   2  multi-hop ablation A/B/C, judged, 20 qs      $4.71
+#   3  multi-turn conversation eval, judged         $1.67
+#   4  judged holdout ablation A/B, 30 qs           $3.51
+#   total                                           ~$11.7
 #
-# After it finishes, fill the numbers into README section 7 (the multi-hop,
-# multi-turn and bakeoff subsections) from:
+# Outputs:
 #   eval/provider_bakeoff.md
-#   eval/ablation/multihop_questions/comparison.json  (+ the A/B/C .md reports)
+#   eval/ablation/multihop_questions/  (A/B/C reports + comparison.json)
 #   eval/multiturn_report.md
-#   eval/ablation/generated_questions_holdout/  (now with judge columns)
+#   eval/ablation/generated_questions_holdout/
 set -u
 PY=./.venv/Scripts/python.exe
 step() { echo; echo "==================== $* ===================="; echo; }
