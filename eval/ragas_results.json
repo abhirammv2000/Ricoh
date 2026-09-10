@@ -1,0 +1,112 @@
+{
+  "source": "ragas_input.jsonl",
+  "ragas_model": "claude-sonnet-4-6",
+  "ragas_version": "0.2.14",
+  "threshold": 0.8,
+  "n": 12,
+  "n_scored": 12,
+  "unscored_ids": [],
+  "mean_ragas_faithfulness": 0.9,
+  "mean_judge_groundedness": 0.959,
+  "pearson_r": 0.371,
+  "binary_agreement": {
+    "n": 12,
+    "raw_agreement": 0.75,
+    "chance_agreement": 0.778,
+    "cohens_kappa": -0.125
+  },
+  "disagreements": [
+    {
+      "id": 71,
+      "question": "When using a PCLOut printer, does it save AFP resources like fonts or overlays from one job so they can be reused in the next job?",
+      "ragas_faithfulness": 0.727,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 86,
+      "question": "When multiple text edit options are applied together in the AFP indexing tool, what order are they processed in?",
+      "ragas_faithfulness": 0.8,
+      "judge_groundedness": 0.75
+    },
+    {
+      "id": 26,
+      "question": "When sorting an AFP job by customer last name, does RICOH ProcessDirector require the document database to be set up, and which step templates are involved in the sort process?",
+      "ragas_faithfulness": 0.778,
+      "judge_groundedness": 0.95
+    }
+  ],
+  "per_question": [
+    {
+      "id": 71,
+      "question": "When using a PCLOut printer, does it save AFP resources like fonts or overlays from one job so they can be reused in the next job?",
+      "ragas_faithfulness": 0.727,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 91,
+      "question": "When RICOH ProcessDirector reports print volume to Avanti Slingshot, what units can it use?",
+      "ragas_faithfulness": 0.909,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 86,
+      "question": "When multiple text edit options are applied together in the AFP indexing tool, what order are they processed in?",
+      "ragas_faithfulness": 0.8,
+      "judge_groundedness": 0.75
+    },
+    {
+      "id": 36,
+      "question": "When setting up an inserter that doesn't produce any results files, what should I set the Completion method to, and why?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 70,
+      "question": "When using the Time batching method, what happens to files that were already sitting in the hot folder before the configured start date and time kicks in?",
+      "ragas_faithfulness": 0.909,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 20,
+      "question": "In AFP Editor, when I set the barcode area's X and Y origin, what is the reference point used — is it measured from the physical sheet edge or something else?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 13,
+      "question": "When using EFI Fiery controllers with Ricoh PDF printers, what does the % Printed property actually indicate, and at what point does it show as complete?",
+      "ragas_faithfulness": 0.923,
+      "judge_groundedness": 0.93
+    },
+    {
+      "id": 29,
+      "question": "Why do printed colors look different from what I see on the monitor even after the printer is properly calibrated?",
+      "ragas_faithfulness": 0.853,
+      "judge_groundedness": 0.93
+    },
+    {
+      "id": 35,
+      "question": "When setting up a Kodak PDF printer for banner pages, what happens if the Header copies and Trailer copies job properties are set to 0, even if banner pages are enabled on the printer?",
+      "ragas_faithfulness": 0.9,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 26,
+      "question": "When sorting an AFP job by customer last name, does RICOH ProcessDirector require the document database to be set up, and which step templates are involved in the sort process?",
+      "ragas_faithfulness": 0.778,
+      "judge_groundedness": 0.95
+    },
+    {
+      "id": 48,
+      "question": "What does an inserter controller object actually define or control in RICOH ProcessDirector — like what settings or behaviors does it govern?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 0.95
+    },
+    {
+      "id": 4,
+      "question": "When I install a new feature using Feature Manager, does it start working right away or do I need to buy a license first? What happens if I never buy it?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    }
+  ]
+}
