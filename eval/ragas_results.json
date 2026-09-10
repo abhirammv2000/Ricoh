@@ -3,17 +3,17 @@
   "ragas_model": "claude-sonnet-4-6",
   "ragas_version": "0.2.14",
   "threshold": 0.8,
-  "n": 12,
-  "n_scored": 12,
+  "n": 50,
+  "n_scored": 50,
   "unscored_ids": [],
-  "mean_ragas_faithfulness": 0.9,
-  "mean_judge_groundedness": 0.959,
-  "pearson_r": 0.371,
+  "mean_ragas_faithfulness": 0.937,
+  "mean_judge_groundedness": 0.971,
+  "pearson_r": 0.101,
   "binary_agreement": {
-    "n": 12,
-    "raw_agreement": 0.75,
-    "chance_agreement": 0.778,
-    "cohens_kappa": -0.125
+    "n": 50,
+    "raw_agreement": 0.86,
+    "chance_agreement": 0.865,
+    "cohens_kappa": -0.036
   },
   "disagreements": [
     {
@@ -25,7 +25,7 @@
     {
       "id": 86,
       "question": "When multiple text edit options are applied together in the AFP indexing tool, what order are they processed in?",
-      "ragas_faithfulness": 0.8,
+      "ragas_faithfulness": 0.929,
       "judge_groundedness": 0.75
     },
     {
@@ -33,6 +33,30 @@
       "question": "When sorting an AFP job by customer last name, does RICOH ProcessDirector require the document database to be set up, and which step templates are involved in the sort process?",
       "ragas_faithfulness": 0.778,
       "judge_groundedness": 0.95
+    },
+    {
+      "id": 31,
+      "question": "When converting line data to AFP, what information does a page definition control during composition?",
+      "ragas_faithfulness": 0.733,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 25,
+      "question": "When setting up inserter control file rules, where should I copy the sample rules files to, and why is that location recommended?",
+      "ragas_faithfulness": 0.786,
+      "judge_groundedness": 0.9
+    },
+    {
+      "id": 28,
+      "question": "If I want to reuse a printer or input device configuration on a different RICOH ProcessDirector system, what's the process to move it over?",
+      "ragas_faithfulness": 0.667,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 94,
+      "question": "Where do I put custom JRXML files for PDF banner pages on the primary server, and what job properties need to be updated to use them?",
+      "ragas_faithfulness": 0.714,
+      "judge_groundedness": 0.93
     }
   ],
   "per_question": [
@@ -45,13 +69,13 @@
     {
       "id": 91,
       "question": "When RICOH ProcessDirector reports print volume to Avanti Slingshot, what units can it use?",
-      "ragas_faithfulness": 0.909,
+      "ragas_faithfulness": 1.0,
       "judge_groundedness": 1.0
     },
     {
       "id": 86,
       "question": "When multiple text edit options are applied together in the AFP indexing tool, what order are they processed in?",
-      "ragas_faithfulness": 0.8,
+      "ragas_faithfulness": 0.929,
       "judge_groundedness": 0.75
     },
     {
@@ -67,6 +91,12 @@
       "judge_groundedness": 1.0
     },
     {
+      "id": 98,
+      "question": "If a PDF 2.0 file goes through a workflow where no steps modify the PDF, does it get converted to PDF 1.7, and what happens if banner pages are enabled when sending to a Ricoh PDF printer?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
       "id": 20,
       "question": "In AFP Editor, when I set the barcode area's X and Y origin, what is the reference point used — is it measured from the physical sheet edge or something else?",
       "ragas_faithfulness": 1.0,
@@ -79,15 +109,21 @@
       "judge_groundedness": 0.93
     },
     {
+      "id": 99,
+      "question": "If I deactivate a custom property to change its settings and then reactivate it, do I need to manually re-add it to the objects it was previously connected to?",
+      "ragas_faithfulness": 0.933,
+      "judge_groundedness": 0.93
+    },
+    {
       "id": 29,
       "question": "Why do printed colors look different from what I see on the monitor even after the printer is properly calibrated?",
-      "ragas_faithfulness": 0.853,
+      "ragas_faithfulness": 0.941,
       "judge_groundedness": 0.93
     },
     {
       "id": 35,
       "question": "When setting up a Kodak PDF printer for banner pages, what happens if the Header copies and Trailer copies job properties are set to 0, even if banner pages are enabled on the printer?",
-      "ragas_faithfulness": 0.9,
+      "ragas_faithfulness": 0.889,
       "judge_groundedness": 1.0
     },
     {
@@ -105,6 +141,222 @@
     {
       "id": 4,
       "question": "When I install a new feature using Feature Manager, does it start working right away or do I need to buy a license first? What happens if I never buy it?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 76,
+      "question": "When setting up a barcode in AFP Editor, what kinds of data sources can I combine to encode into the barcode symbol?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 0.97
+    },
+    {
+      "id": 9,
+      "question": "What operating systems does RICOH ProcessDirector run on, and how do users access it?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 0.85
+    },
+    {
+      "id": 21,
+      "question": "When setting up page inserts in the Acrobat plug-in, what step in ProcessDirector actually applies those inserts to documents in a job?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 0.95
+    },
+    {
+      "id": 72,
+      "question": "What tools do I use to define page groups for PDF versus AFP files when setting up jobs for an inserter?",
+      "ragas_faithfulness": 0.947,
+      "judge_groundedness": 0.97
+    },
+    {
+      "id": 57,
+      "question": "When setting up manual reconciliation, where exactly in the workflow should the SetPropertiesForReconcile step be placed, and what does it actually do?",
+      "ragas_faithfulness": 0.917,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 24,
+      "question": "When setting up Slingshot to send jobs to ProcessDirector, what URL format should I enter for the JMF HTTP URL on the Connection Options tab?",
+      "ragas_faithfulness": 0.889,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 78,
+      "question": "Can I configure a second SMTP server for sending job emails, and if so, can it also handle system notification emails?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 96,
+      "question": "In Visual Workbench, if I remove every condition from a whitespace rule, what happens to that rule's condition setting?",
+      "ragas_faithfulness": 0.818,
+      "judge_groundedness": 0.95
+    },
+    {
+      "id": 37,
+      "question": "When setting up a PCLOut printer on Linux SLES 12.0 using YaST, what value do I enter in the Queue Name field and what protocol should I select?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 79,
+      "question": "When adding a JPEG or GIF image to white space in Visual Workbench, what are the default dimensions if I don't specify a size?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 45,
+      "question": "When checking the Avanti Slingshot Integration Log to confirm a job was successfully picked up by RICOH ProcessDirector, what specific values should I see in the Method, Purpose, and Result Details columns for the Import entries?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 0.97
+    },
+    {
+      "id": 32,
+      "question": "How do I open the property notebook for a printer or input device from the Administration page in RICOH ProcessDirector?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 31,
+      "question": "When converting line data to AFP, what information does a page definition control during composition?",
+      "ragas_faithfulness": 0.733,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 18,
+      "question": "When a job was created on a monitor or camera and the colors don't match what the printer outputs, what setting can be used to tell the printer how to handle colors it can't reproduce?",
+      "ragas_faithfulness": 0.933,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 85,
+      "question": "When I install a new color conversion CMR using AFP Resource Installer, what does the software automatically do, and how does that help the printer?",
+      "ragas_faithfulness": 0.8,
+      "judge_groundedness": 0.96
+    },
+    {
+      "id": 41,
+      "question": "When replacing POSTNET barcodes with IMBs in AFP Editor, how many total digits must the Mailer ID and Serial number fields combine to contain, and what happens if the Mailer ID value is shorter than expected?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 92,
+      "question": "What steps do I follow in RICOH Visual Workbench to remove a hidden area that was set up through AFP Editor?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 0.93
+    },
+    {
+      "id": 69,
+      "question": "A customer has InfoPrint 4100 printers and wants to add agent photos to letterhead but the black and white images look too dark and flat. What specific hardware/software upgrades does Ricoh recommend to get better grayscale image quality on those printers?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 77,
+      "question": "When using AFP format, do I need a separate control file to define documents within a job's data stream?",
+      "ragas_faithfulness": 0.909,
+      "judge_groundedness": 0.95
+    },
+    {
+      "id": 5,
+      "question": "What tool can I use to connect directly to the Reports database and run SQL queries without needing a separate BI tool?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 54,
+      "question": "Which printer types in ProcessDirector can report back job status while printing, and how does it handle status monitoring for Passthrough and PCLOut printers?",
+      "ragas_faithfulness": 0.938,
+      "judge_groundedness": 0.93
+    },
+    {
+      "id": 52,
+      "question": "When a job is made up of multiple input files, which workflow does the parent job use versus the child jobs on an input device?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 0.92
+    },
+    {
+      "id": 6,
+      "question": "What is the difference between a document property mapping and an order property mapping in ProcessDirector?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 0.95
+    },
+    {
+      "id": 11,
+      "question": "When a job ticket includes both a product ID and a media name, which one does RICOH ProcessDirector check first when setting the Media property for a job?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 67,
+      "question": "When using IBM DB2 as the main database and wanting to use the built-in PostgreSQL for Reports, what extra software do I need to install on the primary computer?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 75,
+      "question": "When setting up a Xerox PDF printer for banner pages, what happens if the Header copies and Trailer copies job properties are set to 0, even if banner pages are turned on at the printer level?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 73,
+      "question": "When setting up a workflow for the Advanced Transform feature that handles jobs in multiple datastream formats, what should I set the input stream property to?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 1,
+      "question": "When setting up to retrieve orders from a MarcomCentral store, what does the SOAP web service input device need to be based on, and what web service does it call?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 23,
+      "question": "When setting up a connector rule to route jobs that fail to an alternate workflow path, what property, comparison operator, and value do I need to configure to detect the error condition?",
+      "ragas_faithfulness": 1.0,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 74,
+      "question": "If I define a custom document property name in the Acrobat plug-in instead of picking one from the RICOH ProcessDirector list, what functionality do I lose?",
+      "ragas_faithfulness": 0.889,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 25,
+      "question": "When setting up inserter control file rules, where should I copy the sample rules files to, and why is that location recommended?",
+      "ragas_faithfulness": 0.786,
+      "judge_groundedness": 0.9
+    },
+    {
+      "id": 28,
+      "question": "If I want to reuse a printer or input device configuration on a different RICOH ProcessDirector system, what's the process to move it over?",
+      "ragas_faithfulness": 0.667,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 94,
+      "question": "Where do I put custom JRXML files for PDF banner pages on the primary server, and what job properties need to be updated to use them?",
+      "ragas_faithfulness": 0.714,
+      "judge_groundedness": 0.93
+    },
+    {
+      "id": 7,
+      "question": "When setting up a second SMTP server in ProcessDirector, which types of emails will use it versus which ones are stuck going through the default server?",
+      "ragas_faithfulness": 0.933,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 56,
+      "question": "What are the two example use cases described for extracting documents out of a PDF print job before it prints?",
+      "ragas_faithfulness": 0.923,
+      "judge_groundedness": 1.0
+    },
+    {
+      "id": 39,
+      "question": "In RICOH Visual Workbench, how do I remove a condition that controls which barcode gets selected in AFP Editor?",
       "ragas_faithfulness": 1.0,
       "judge_groundedness": 1.0
     }

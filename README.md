@@ -270,14 +270,14 @@ So the honest conclusion is: **this eval cannot detect whether self-preference w
 
 The groundedness number still rests on one hand-rolled judge. `eval/ragas_eval.py` adds a third angle (after judge-noise and cross-judge): [RAGAS](https://docs.ragas.io), a widely used RAG-eval library, computing **faithfulness**, its analog of groundedness, with its own prompts and its own decomposition of the answer into atomic claims. RAGAS pins langchain/langgraph to 1.x and cannot share this project's env, so it runs in a throwaway virtualenv against a JSONL exported by `eval/ragas_export.py`; nothing in the RAGAS step imports `src`.
 
-On 12 questions sampled from the n=100 run (`claude-sonnet-4-6` for RAGAS, against the harness's `claude-opus-5`):
+On 50 questions sampled from the n=100 run (`claude-sonnet-4-6` for RAGAS, against the harness's `claude-opus-5`):
 
 | | mean |
 |---|---|
-| RAGAS faithfulness | 0.90 |
-| Our groundedness judge | 0.96 |
+| RAGAS faithfulness | 0.937 |
+| Our groundedness judge | 0.971 |
 
-RAGAS runs about 0.06 lower and the two correlate weakly (Pearson r = 0.37). The three disagreements are all answers RAGAS scored 0.73 to 0.80 while the judge scored 0.75 to 1.00, RAGAS penalising a partially-supported claim harder because it scores claims one at a time. **The chance-corrected agreement is uninformative here** (kappa -0.12): at n=12 with both raters scoring nearly everything acceptable, there is no room for kappa to move, which is the same base-rate trap `eval/label_for_kappa.py` documents. So this neither validates the judge nor contradicts it. It shows the scores are not wildly off and the judge is not scoring in a way a second framework finds bizarre; only human labels close the real gap. Full output in [eval/ragas_results.md](eval/ragas_results.md).
+RAGAS runs about 0.03 lower. The seven disagreements are all answers RAGAS scored 0.67 to 0.93 while the judge scored 0.75 to 1.00, RAGAS penalising a partially-supported claim harder because it decomposes the answer and scores claims one at a time. **The chance-corrected agreement is uninformative** (kappa -0.04): both raters score nearly everything acceptable, so there is no room for kappa to move, the same base-rate trap `eval/label_for_kappa.py` documents. So this neither validates the judge nor contradicts it. It shows the scores are not wildly off and the judge is not scoring in a way a second framework finds bizarre; only human labels close the real gap. Full output in [eval/ragas_results.md](eval/ragas_results.md).
 
 ### Measured results
 
@@ -476,15 +476,16 @@ recall (1.000 vs 0.957). Off by default (`USE_ROUTER`).
 
 ### Multi-turn follow-ups
 
-Every question above is asked cold. Real support conversations are not: "how do
-I create a workflow?" is followed by "can I copy an existing one?", and the
-second question retrieves nothing useful because "one" has no referent on its
-own.
+Every question above is asked cold. Real support conversations are not: "what
+inserter brands does RICOH ProcessDirector support?" is followed by "how do I
+create a controller object if there isn't one for mine?", and the follow-up
+retrieves nothing useful because it never names inserters.
 
 `src/conversation.py` handles this the standard way. Before retrieval, a follow-up
 is rewritten into a standalone question using the last few turns as context, so
-"can I copy an existing one?" becomes "can I copy an existing workflow?" and then
-goes through the exact same pipeline as any other question.
+"do those need a serial number?" becomes "does an Intelligent Mail barcode need
+a serial number?" and then goes through the exact same pipeline as any other
+question.
 
 Two things keep this from undermining the rest of this section. The synthesizer
 still answers only from retrieved evidence, so a bad rewrite degrades to a
@@ -498,27 +499,29 @@ answers as history and judges every turn against the hand-written standalone
 intent.
 
 *The rewrite is good.* Mean cosine to the hand-written standalone target is
-**0.93** across the 24 follow-ups. "what about those?" became "in which
-representations can AFP Enhancer create an Intelligent Mail barcode?", "what
-about the application servers?" became "what operating system do the application
-servers run on?".
+**0.92** across the 24 follow-ups. "do those need a serial number?" became "does
+an Intelligent Mail barcode need a serial number?", "what about the application
+servers?" became "what operating system do the application servers run on?".
 
 *The retrieval lift is the point.* Retriever recall on the raw follow-up is
-**0.56**; after condensation it is **0.79**. Several follow-ups ("which step
+**0.63**; after condensation it is **0.88**. Several follow-ups ("which step
 template do I add for it?", "how would I track two deadlines?") retrieve nothing
 on their own and land the right document once rewritten.
 
-*Answer quality on follow-ups is close to cold questions, with a caveat.*
-Judged: groundedness 0.947 on follow-ups vs 0.949 on first turns (identical),
-correctness 0.823 vs 0.892. The 7-point correctness gap is not uniform: it is
-almost entirely three chains where the eval set itself is shaky, the `workflow`
-chain (whose curated key facts do not match what the retrieved article states)
-and the `custom-props` chain (whose expected document the retriever also misses
-on a *cold* question, the same weakness as multi-hop Q8). On the nine clean
-chains, follow-ups score as well as first turns. Groundedness holding steady is
-the load-bearing result: the system is not hallucinating on follow-ups, it is
-occasionally answering an under-specified or mislabeled question. Per-turn table
-in `eval/multiturn_report.md`.
+*Follow-ups are answered as well as cold questions.* Judged: groundedness 0.959
+on follow-ups vs 0.983 on first turns, correctness 0.929 vs 0.944, behaviour
+match 1.00 on both. Every gap is inside the judge's noise floor. Groundedness
+holding is the load-bearing result: the system is not hallucinating on
+follow-ups.
+
+*Two honest wrinkles.* One chain (`custom-props`) still scores poorly, and its
+first turn scores poorly too, so it is a retrieval/labeling weak spot unrelated
+to multi-turn. And on two turns condensation *hurt* retrieval by adding a term
+that pulled the query toward a broader overview document ("what data collectors
+can I set up with it?" -> "...with the Reports feature?" retrieved the Reports
+overview instead of the data-collector page). Over-specification is a real
+failure mode of query rewriting, small here but worth naming. Per-turn table in
+`eval/multiturn_report.md`.
 
 ### A diagnostic I got wrong
 
@@ -544,7 +547,7 @@ A second signal points the same way: on **Q6**, the retriever alone scores recal
 
 **Honest caveats:**
 - **The ablation split is dev-heavy.** It has been run at n=100 (see the section above), but the judged half is the 70-question dev split; holdout was measured on objective metrics only. The planner's dev-split edge on the judged metrics has not been confirmed with the judge on holdout.
-- **Single judge, model-graded.** No human-labelled agreement (Cohen's κ) has been measured yet, so the judge itself is unvalidated. `eval/human_labels.json` is a prepared 30-item worksheet (passages included) waiting on the labelling pass. A RAGAS cross-check (above) is consistent with the judge but is still model-graded and cannot substitute for human labels.
+- **Single judge, model-graded.** No human-labelled agreement (Cohen's κ) has been measured yet, so the judge itself is unvalidated. `eval/human_labels.json` is a prepared 30-item worksheet (passages included) waiting on the labelling pass. The RAGAS cross-check on 50 answers (above) is consistent with the judge but is still model-graded and cannot substitute for human labels.
 - **Citation precision measures the weak thing** (see table above) and 1.00 should be read accordingly.
 - **Latency ~10s** on the default single-call path; fine for assisted lookup, too slow for live phone support. The planner and verifier flags push it to 14 to 17s.
 - **Means hide the worst case.** The generated report lists worst-case rows for exactly this reason. Here, correctness bottoms out at 0.80 on Q9.
@@ -850,14 +853,14 @@ Ordered by what most improves the system, not by what is easiest to demo.
 | Priority | Work | Status |
 |---|---|---|
 | 1 | Re-run the A/B/C ablation at n=100 | **Done, including the judge on holdout.** The n=10 "planner is harmful" finding did not hold: the planner helps evidence recall on dev, not on holdout; the judged holdout run confirms groundedness and correctness move inside the noise floor. Verifier earns nothing on any split. Config A stays default. [§7](#7-evaluation-and-metrics). |
-| 2 | Judge calibration: hand-label 30, report Cohen's κ | Worksheet ready (`eval/human_labels.json`, passages included); a RAGAS faithfulness cross-check is done and consistent with the judge ([§7](#7-evaluation-and-metrics)). The human labelling pass is the last open item on the eval side. |
+| 2 | Judge calibration: hand-label 30, report Cohen's κ | Worksheet ready (`eval/human_labels.json`, passages included); a RAGAS faithfulness cross-check on 50 answers is consistent with the judge (0.937 vs 0.971, [§7](#7-evaluation-and-metrics)). The human labelling pass is the last open item on the eval side. |
 | 3 | Better embedding model, wider pool, rerank | **Done.** bge-small does not beat MiniLM at n=100, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. The reranker takes all-100 recall@5 from 0.94 to 0.97 and halves the miss count, but the gain is dev-only and it doubles latency, so it stays behind `RERANKER_ENABLED`. bge-base not built (no GPU). [§7](#7-evaluation-and-metrics). |
 | 4 | Adaptive routing | **Done.** `src/router.py` escalates to the tool loop on a refusal (a pre-retrieval confidence signal was tried first and does not separate misses from hits). Judged on dev: escalates rarely, small gain over config A, within judge noise. Off by default (`USE_ROUTER`). |
 | 5 | Strip print-to-PDF boilerplate at ingest | **Measured, not worth it.** Every page carries a PDF-export timestamp and an "N of M" line, but that is **1.5% of corpus words**, not the 4-6% first estimated, and both strings appear on 100% of pages so they carry zero BM25 IDF and shift every embedding identically: no measurable retrieval effect. Doing it would still force a budgeted re-eval to keep the headline numbers honest, for a sub-2% token saving. Left alone. |
 | 6 | Claim->span attribution instead of filename matching | **Two free proxies tried, both reverted; RAGAS faithfulness is the working answer.** A MiniLM-cosine proxy and then a local NLI model (`nli-deberta-v3-base`) were each built and run over the 100 answers. Both produced numbers that contradict the judge's 0.96 groundedness (the NLI run flagged 8% of citations as "contradicted"). The cause is the synthesizer's answer style: it restructures sources into tables, worked examples and numbered steps, and answers non-English questions in the user's language, so sentence-level entailment against the raw chunk is not a fair test. Claim decomposition by an LLM handles that, which is what the RAGAS faithfulness cross-check does ([§7](#7-evaluation-and-metrics)). A deeper per-claim attribution metric still needs a dedicated judged pass. |
 | 7 | Tracing, per-request cost/latency budgets, index built in CI | Tracing, per-request instrumentation and a per-request dashboard drill-down are done ([Observability](#observability)). A retrieval regression gate runs in CI against `demo_index`, and also fails if the index drifts from the benchmark it serves ([§11](#11-testing-and-ci)). A full-corpus index built in CI still needs the source PDFs it does not have; `demo_index` stays a committed artifact. |
 | 8 | A genuinely multi-hop question set + ablation on it | **Done.** `eval/multihop_questions.json` is 20 hand-written two-document questions (8 of which one retrieval misses a required doc). Judged A/B/C: the planner takes evidence recall 0.78 -> 0.82, recovering a document on 2 of the 20, but grounded and correct stay inside the judge noise floor, and the verifier still earns nothing. The real bottleneck turned out to be synthesis (config A correctness 0.909, down from ~0.97 on single-hop), which no config addresses. Config A stays default. [§7](#7-evaluation-and-metrics). |
-| 9 | Judged multi-turn conversation eval | **Done.** 12 chains, 36 turns, every turn judged. Condensation lifts follow-up retriever recall 0.56 -> 0.79 and the rewrites hit 0.93 cosine to the hand-written target. Follow-up groundedness matches cold questions (0.947 vs 0.949); the correctness gap (0.823 vs 0.892) is concentrated in two chains where the eval set's own labels are shaky. [§7](#7-evaluation-and-metrics). |
+| 9 | Judged multi-turn conversation eval | **Done.** 12 chains, 36 turns, every turn judged. Condensation lifts follow-up retriever recall 0.63 -> 0.88 and the rewrites hit 0.92 cosine to the hand-written target. Follow-ups are answered as well as cold questions: groundedness 0.959 vs 0.983, correctness 0.929 vs 0.944, behaviour 1.00 on both, all inside noise. Also surfaced that condensation can over-specify and hurt retrieval on a couple of turns. [§7](#7-evaluation-and-metrics). |
 | 10 | Cross-provider bakeoff | **Done.** `src/llm_factory.py` wires OpenAI and Gemini; `eval/provider_bakeoff.py` runs config A on each against a shared retrieval and one fixed opus judge. `gemini-3.6-flash` holds correctness (0.953 vs Sonnet 0.993, inside noise) at 1/50th the cost; `gpt-4o-mini` drops correctness 0.21 and refuses two questions it should answer. The cheap-model choice is model-specific, not just price. [§7](#7-evaluation-and-metrics). |
 
 **Deliberately deferred:** multi-lingual answering is currently a liability rather than a feature. The refusal marker is English-only, so a translated-only refusal would be scored as an answer. The synthesizer now pins the English canonical sentence to keep the eval sound, but full language support needs a language-aware detector before it is worth advertising.
