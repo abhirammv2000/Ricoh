@@ -23,7 +23,8 @@
 #   3. Set the ANTHROPIC_API_KEY secret in the dashboard.
 #
 # To change what the demo can answer, rebuild the index and redeploy:
-#   python -m src.build_demo_index --extra 60
+#   python -m src.build_demo_index            # default subset
+#   python -m src.build_demo_index --extra 60 # widen the sampled slice
 services:
   - type: web
     name: citera
