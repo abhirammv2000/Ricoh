@@ -1,0 +1,317 @@
+{
+  "_description": "Multi-turn conversation chains for evaluating src/conversation.py. Each chain is a short support dialogue: turn 1 stands on its own, later turns are follow-ups with references ('it', 'that', 'those', 'what about') that only make sense given the history. 'standalone' is the question a correct condensation should produce, used both to score the rewrite and to tell the judge what turn is really asking. Answers are grounded in the RICOH ProcessDirector corpus. Run with eval/multiturn_eval.py.",
+  "chains": [
+    {
+      "id": "workflow",
+      "turns": [
+        {
+          "question": "How do I create a workflow in RICOH ProcessDirector?",
+          "standalone": "How do I create a workflow in RICOH ProcessDirector?",
+          "expected_behavior": "answer",
+          "key_facts": ["click the Workflow tab", "you can copy an existing workflow to use as a model"],
+          "expected_sources": ["aiw_c_createworkflow.pdf"]
+        },
+        {
+          "question": "Can I copy an existing one instead of building it from scratch?",
+          "standalone": "Can I copy an existing workflow in RICOH ProcessDirector instead of building one from scratch?",
+          "expected_behavior": "answer",
+          "key_facts": ["copy an existing workflow and use it as a model", "right-click the workflow and select Copy"],
+          "expected_sources": ["aiw_c_createworkflow.pdf"]
+        },
+        {
+          "question": "What steps does it usually start and end with?",
+          "standalone": "What steps does a RICOH ProcessDirector workflow usually start and end with?",
+          "expected_behavior": "answer",
+          "key_facts": ["workflows begin with SetJobPropsFromTextFile", "workflows end with RemoveJobs"],
+          "expected_sources": ["aiw_c_createworkflow.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "shutdown",
+      "turns": [
+        {
+          "question": "What is the command to shut down the RICOH ProcessDirector base product?",
+          "standalone": "What is the command to shut down the RICOH ProcessDirector base product?",
+          "expected_behavior": "answer",
+          "key_facts": ["stopaiw"],
+          "expected_sources": ["aiw00a13.pdf"]
+        },
+        {
+          "question": "After I run that and restart, are the printers still enabled?",
+          "standalone": "After shutting down the RICOH ProcessDirector base product and restarting, are the printers still enabled?",
+          "expected_behavior": "answer",
+          "key_facts": ["after a system shutdown and restart, all the printers are disabled"],
+          "expected_sources": ["aiw00a13.pdf"]
+        },
+        {
+          "question": "How do I make them come back enabled automatically?",
+          "standalone": "How do I make RICOH ProcessDirector printers come back enabled automatically after a restart?",
+          "expected_behavior": "answer",
+          "key_facts": ["change the Remember enabled status of printers system property to Yes"],
+          "expected_sources": ["aiw00a13.pdf", "aiw00p18.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "fusionpro",
+      "turns": [
+        {
+          "question": "Does RICOH ProcessDirector work with FusionPro?",
+          "standalone": "Does RICOH ProcessDirector work with FusionPro?",
+          "expected_behavior": "answer",
+          "key_facts": ["yes, through the FusionPro Connect feature", "it connects to FusionPro Server"],
+          "expected_sources": ["aiw_fusionpro_configconnection.pdf", "aiwi0_integratefeat.pdf"]
+        },
+        {
+          "question": "What do I need to install to set up that connection?",
+          "standalone": "What do I need to install to set up the connection between RICOH ProcessDirector and FusionPro?",
+          "expected_behavior": "answer",
+          "key_facts": ["install a RICOH ProcessDirector application server feature on the machine where FusionPro is installed"],
+          "expected_sources": ["aiw_fusionpro_configconnection.pdf"]
+        },
+        {
+          "question": "Which step template do I add to the workflow for it?",
+          "standalone": "Which step template do I add to a workflow to send files to FusionPro Server?",
+          "expected_behavior": "answer",
+          "key_facts": ["add the RunFusionPro step template to a workflow"],
+          "expected_sources": ["aiw_fusionpro_configconnection.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "pclout",
+      "turns": [
+        {
+          "question": "What is a PCLOut printer in RICOH ProcessDirector?",
+          "standalone": "What is a PCLOut printer in RICOH ProcessDirector?",
+          "expected_behavior": "answer",
+          "key_facts": ["PCLOut printer devices represent PCL (Printer Command Language) printers", "they print jobs submitted in AFP format and converted to PCL"],
+          "expected_sources": ["aiw00c_Define_PCLOut.pdf"]
+        },
+        {
+          "question": "Does it save AFP fonts and overlays between jobs?",
+          "standalone": "Does a PCLOut printer save AFP fonts and overlays from one job for reuse in the next job?",
+          "expected_behavior": "answer",
+          "key_facts": ["no, PCLOut printers do not create or save AFP resources such as fonts, overlays, or page segments from previous jobs", "they do not reuse printer resources from one job to the next"],
+          "expected_sources": ["aiw00c_PCLOutLimitations.pdf"]
+        },
+        {
+          "question": "Which job actions can't I use with it?",
+          "standalone": "Which RICOH ProcessDirector job actions cannot be used with jobs sent to a PCLOut printer?",
+          "expected_behavior": "answer",
+          "key_facts": ["you cannot use the Jump and Continue actions with jobs submitted to PCLOut printers"],
+          "expected_sources": ["aiw00c_Define_PCLOut.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "inserters",
+      "turns": [
+        {
+          "question": "Which inserter manufacturers does RICOH ProcessDirector's Inserter feature support?",
+          "standalone": "Which inserter manufacturers does RICOH ProcessDirector's Inserter feature support?",
+          "expected_behavior": "answer",
+          "key_facts": ["Bowe", "Gunther", "Kern", "Pitney Bowes", "Quadient"],
+          "expected_sources": ["InserterOverview.pdf"]
+        },
+        {
+          "question": "How do I create a controller object if there isn't a sample one for mine?",
+          "standalone": "How do I create an inserter controller object in RICOH ProcessDirector if there is no supplied sample object for my controller?",
+          "expected_behavior": "answer",
+          "key_facts": ["on the Administration tab click Devices then Inserter Controllers, then click Add and fill in the required properties"],
+          "expected_sources": ["CreatingInserterControllers.pdf"]
+        },
+        {
+          "question": "Do I have to enable it afterward?",
+          "standalone": "After creating an inserter controller object in RICOH ProcessDirector, do I have to enable it?",
+          "expected_behavior": "answer",
+          "key_facts": ["yes, select the new inserter controller and click Enable to use it"],
+          "expected_sources": ["CreatingInserterControllers.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "servers-os",
+      "turns": [
+        {
+          "question": "What operating system does the RICOH ProcessDirector primary server run on?",
+          "standalone": "What operating system does the RICOH ProcessDirector primary server run on?",
+          "expected_behavior": "answer",
+          "key_facts": ["the primary server runs on Linux: Red Hat, Rocky Linux, or SUSE Linux Enterprise Server (SLES)"],
+          "expected_sources": ["aiw00o15.pdf"]
+        },
+        {
+          "question": "What about the application servers?",
+          "standalone": "What operating system do RICOH ProcessDirector application servers run on?",
+          "expected_behavior": "answer",
+          "key_facts": ["application servers run on Windows: Windows 10 or 11 Pro, or Windows Server 2019, 2022, or 2025"],
+          "expected_sources": ["aiw0appservrq.pdf"]
+        },
+        {
+          "question": "Which printer types can those be the parent server for?",
+          "standalone": "Which printer types can a RICOH ProcessDirector application server be the parent server for?",
+          "expected_behavior": "answer",
+          "key_facts": ["application servers can be the parent servers for Ricoh PDF printers, Custom PDF printers, and Passthrough printers only"],
+          "expected_sources": ["aiw0appservrq.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "turns": [
+        {
+          "question": "How do I install the RICOH ProcessDirector Security feature?",
+          "standalone": "How do I install the RICOH ProcessDirector Security feature?",
+          "expected_behavior": "answer",
+          "key_facts": ["install it using Feature Manager", "it does not need to be purchased and requires no license key"],
+          "expected_sources": ["aiw_sec_featov.pdf"]
+        },
+        {
+          "question": "What password rules can it enforce?",
+          "standalone": "What password rules can the RICOH ProcessDirector Security feature enforce?",
+          "expected_behavior": "answer",
+          "key_facts": ["minimum length", "maximum age before expiration", "enforcement of password complexity rules"],
+          "expected_sources": ["sec_c_advancedfunctions.pdf"]
+        },
+        {
+          "question": "Can I use it with our existing Active Directory?",
+          "standalone": "Can the RICOH ProcessDirector Security feature authenticate users against an existing Active Directory?",
+          "expected_behavior": "answer",
+          "key_facts": ["yes, you can use LDAP or Active Directory user IDs and passwords to authenticate into RICOH ProcessDirector"],
+          "expected_sources": ["aiw_sec_featov.pdf", "sec_c_advancedfunctions.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "custom-props",
+      "turns": [
+        {
+          "question": "How do I create a custom document property in RICOH ProcessDirector?",
+          "standalone": "How do I create a custom document property in RICOH ProcessDirector?",
+          "expected_behavior": "answer",
+          "key_facts": ["on the Administration tab click Objects then Custom properties, click Add, and select Document Property"],
+          "expected_sources": ["aiw_creating_customprop.pdf"]
+        },
+        {
+          "question": "How do I turn it on once it's created?",
+          "standalone": "How do I activate a custom document property in RICOH ProcessDirector once it is created?",
+          "expected_behavior": "answer",
+          "key_facts": ["activate the custom property by clicking the switch at the top of the dialog"],
+          "expected_sources": ["aiw_creating_customprop.pdf"]
+        },
+        {
+          "question": "How do I then use it to sort AFP documents?",
+          "standalone": "How do I use a custom document property to sort AFP documents in RICOH ProcessDirector?",
+          "expected_behavior": "answer",
+          "key_facts": ["use Document Property Designer to link the custom document property to its index tag (Tagged Logical Element)"],
+          "expected_sources": ["designingproperties.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "reports",
+      "turns": [
+        {
+          "question": "What does the RICOH ProcessDirector Reports feature do?",
+          "standalone": "What does the RICOH ProcessDirector Reports feature do?",
+          "expected_behavior": "answer",
+          "key_facts": ["it captures printer status changes, user actions, order status changes, and job and document property values", "it adds the WritePropsToReportsDatabase step template and Data collector and Data transmitter objects"],
+          "expected_sources": ["reportsPostgresql_Overview.pdf"]
+        },
+        {
+          "question": "What database does it store the data in?",
+          "standalone": "What database does the RICOH ProcessDirector Reports feature store its data in?",
+          "expected_behavior": "answer",
+          "key_facts": ["a PostgreSQL database"],
+          "expected_sources": ["reportsPostgresql_Overview.pdf"]
+        },
+        {
+          "question": "What data collectors can I set up with it?",
+          "standalone": "What data collectors can I configure with the RICOH ProcessDirector Reports feature?",
+          "expected_behavior": "answer",
+          "key_facts": ["Job Step Duration", "Job Step Progress"],
+          "expected_sources": ["reportsPostgresql_c_CaptureDataForPostgreSQL.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "avanti",
+      "turns": [
+        {
+          "question": "How do I set up RICOH ProcessDirector to send job status information to Avanti Slingshot?",
+          "standalone": "How do I set up RICOH ProcessDirector to send job status information to Avanti Slingshot?",
+          "expected_behavior": "answer",
+          "key_facts": ["you must define the URL of the Avanti Slingshot system to RICOH ProcessDirector", "specify the JMF HTTP URL for the RICOH ProcessDirector server"],
+          "expected_sources": ["avanti_r_SendingInfoToAvanti.pdf"]
+        },
+        {
+          "question": "What does that URL look like?",
+          "standalone": "What is the format of the JMF HTTP URL used to connect RICOH ProcessDirector to Avanti Slingshot?",
+          "expected_behavior": "answer",
+          "key_facts": ["http://yourserver:15080/aiwservices/v1/jmf, replacing yourserver with the server IP address or host name"],
+          "expected_sources": ["avanti_r_SendingInfoToAvanti.pdf"]
+        },
+        {
+          "question": "What do I have to set on the workflow steps for the timing data?",
+          "standalone": "What must I set on RICOH ProcessDirector workflow steps for the step timing data to be reported to Avanti Slingshot?",
+          "expected_behavior": "answer",
+          "key_facts": ["associate steps with a Slingshot cost center", "make sure a job goes through one step with a Slingshot milestone status of Complete for each cost center"],
+          "expected_sources": ["avanti_c_ModifyWorkflow.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "barcodes",
+      "turns": [
+        {
+          "question": "Which barcode types can the AFP Enhancer mode of RICOH Visual Workbench create?",
+          "standalone": "Which barcode types can the AFP Enhancer mode of RICOH Visual Workbench create?",
+          "expected_behavior": "answer",
+          "key_facts": ["Code 39", "Data Matrix", "Intelligent Mail"],
+          "expected_sources": ["vwb_barcodes_overview.pdf"]
+        },
+        {
+          "question": "For Intelligent Mail, what representations can it use?",
+          "standalone": "In which representations can AFP Enhancer create an Intelligent Mail barcode?",
+          "expected_behavior": "answer",
+          "key_facts": ["BCOCA objects", "Generic barcodes", "Font barcodes", "DrawRule barcodes"],
+          "expected_sources": ["vwb_barcodes_overview_imb_data.pdf"]
+        },
+        {
+          "question": "Do those need a serial number?",
+          "standalone": "Does an Intelligent Mail barcode need a serial number?",
+          "expected_behavior": "answer",
+          "key_facts": ["a serial number identifying each mailpiece is required when IMBs are used with the USPS Intelligent Mail Full-Service option"],
+          "expected_sources": ["vwb_barcodes_overview_imb_data.pdf"]
+        }
+      ]
+    },
+    {
+      "id": "deadline-tracker",
+      "turns": [
+        {
+          "question": "What is the Deadline Tracker feature in RICOH ProcessDirector?",
+          "standalone": "What is the Deadline Tracker feature in RICOH ProcessDirector?",
+          "expected_behavior": "answer",
+          "key_facts": ["it lets you manage progress toward delivery deadlines using deadlines and Service Level Agreement (SLA) job checkpoints", "it shows when jobs are behind schedule or might miss deadlines"],
+          "expected_sources": ["dt_o_featov.pdf"]
+        },
+        {
+          "question": "What step template does it add?",
+          "standalone": "What step template does the RICOH ProcessDirector Deadline Tracker feature add?",
+          "expected_behavior": "answer",
+          "key_facts": ["it adds a step template (SetDeadline) and three system objects"],
+          "expected_sources": ["dt_o_featov.pdf"]
+        },
+        {
+          "question": "How would I track two separate deadlines in one workflow?",
+          "standalone": "How do I track two separate deadlines within one RICOH ProcessDirector linear workflow using Deadline Tracker?",
+          "expected_behavior": "answer",
+          "key_facts": ["place two SetDeadline steps in the workflow, each one making a different step the deadline step"],
+          "expected_sources": ["dt_o_scen_deadlineworkflow.pdf"]
+        }
+      ]
+    }
+  ]
+}
