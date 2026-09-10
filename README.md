@@ -377,7 +377,27 @@ So config A stays the default. The honest change is to the reasoning: the planne
 
 Raw per-config dumps are in `eval/ablation/generated_questions_dev/` (`--n100`) and `_holdout/` (`--split holdout --configs A B --no-judge`).
 
-**The fair test of the planner is still owed.** Every question in that set is single-hop: `eval/verify_multihop.py` shows one retrieval already reaches every required document on 92 of the 100. The planner decomposes a question into sub-queries, so it can only help where one query is not enough. `eval/multihop_questions.json` is a hand-written 20-question set of two-document questions (8 of which a single retrieval demonstrably misses); the A/B/C ablation on that slice is staged in `eval/run_paid_batch.sh`. That run, not this one, is what should decide whether `USE_PLANNER` has a real use.
+### The ablation on a multi-hop set
+
+Every question in the 100-set is effectively single-hop: `eval/verify_multihop.py` shows one retrieval already reaches every required document on 92 of them. The planner decomposes a question into sub-queries, so it can only help where one query is not enough. `eval/multihop_questions.json` is a hand-written 20-question set of two-document questions (8 of which a single retrieval demonstrably misses one required document). This is the slice where the planner should earn its cost.
+
+Judged A/B/C on those 20 (`python -m eval.ablation --ground-truth eval/multihop_questions.json`):
+
+| Config | Calls | Cost/q | Latency | Evidence recall | Grounded | Correct | Behaviour |
+|---|---|---|---|---|---|---|---|
+| A retrieve -> synthesize | 1.0 | $0.0205 | 16.0s | 0.775 | 0.973 | 0.909 | 1.000 |
+| B + planner | 2.0 | $0.0317 | 25.4s | 0.825 | 0.980 | 0.919 | 1.000 |
+| C + verifier/retry | 3.0 | $0.0485 | 26.3s | 0.825 | 0.979 | 0.911 | 1.000 |
+
+**The planner has a real mechanism, and it fires rarely.** It recovered a missed document on exactly two questions (Q5 and Q14, both 0.50 -> 1.00 evidence recall) by splitting "what does feature X do *and* how do I configure it" into two searches. On the other seven questions where config A missed a document, decomposition did not help. So evidence recall goes 0.78 -> 0.82: four real questions' worth, all of it on the slice built to be hardest, at 1.5x the cost per query on every question.
+
+**It does not reach the answer.** Groundedness and correctness move by less than the judge's 0.10 noise floor (0.909 -> 0.919 correct). The recovered evidence on Q5 and Q14 did not change what the judge saw.
+
+**The verifier earns nothing here either.** Config C matches B on evidence recall and is inside noise on the judged metrics, at another 1.5x cost. Same result as n=10 and n=100.
+
+**The real bottleneck on multi-hop questions is synthesis, not retrieval or planning.** Config A correctness drops to 0.909 (from ~0.97 on the single-hop set), and bottoms out at 0.55 on Q12 and 0.60 on Q20, both questions where retrieval found evidence for both halves but the answer got one half thin or wrong. Neither the planner nor the verifier addresses "combine two retrieved facts correctly", so neither closes that gap.
+
+Config A stays the default. The planner stays behind `USE_PLANNER` with a sharper rationale than before: on this corpus its re-query mechanism only fires on about 10% of even the multi-hop questions, and when it does fire the extra evidence does not change the answer. Per-config reports in `eval/ablation/multihop_questions/`.
 
 ### Tool calling
 
@@ -808,7 +828,7 @@ Ordered by what most improves the system, not by what is easiest to demo.
 | 5 | Strip print-to-PDF boilerplate at ingest | **Measured, not worth it.** Every page carries a PDF-export timestamp and an "N of M" line, but that is **1.5% of corpus words**, not the 4-6% first estimated, and both strings appear on 100% of pages so they carry zero BM25 IDF and shift every embedding identically: no measurable retrieval effect. Doing it would still force a budgeted re-eval to keep the headline numbers honest, for a sub-2% token saving. Left alone. |
 | 6 | Claim->span attribution instead of filename matching | **Two free proxies tried, both reverted; RAGAS faithfulness is the working answer.** A MiniLM-cosine proxy and then a local NLI model (`nli-deberta-v3-base`) were each built and run over the 100 answers. Both produced numbers that contradict the judge's 0.96 groundedness (the NLI run flagged 8% of citations as "contradicted"). The cause is the synthesizer's answer style: it restructures sources into tables, worked examples and numbered steps, and answers non-English questions in the user's language, so sentence-level entailment against the raw chunk is not a fair test. Claim decomposition by an LLM handles that, which is what the RAGAS faithfulness cross-check does ([§7](#7-evaluation-and-metrics)). A deeper per-claim attribution metric still needs a dedicated judged pass. |
 | 7 | Tracing, per-request cost/latency budgets, index built in CI | Tracing, per-request instrumentation and a per-request dashboard drill-down are done ([Observability](#observability)). A retrieval regression gate runs in CI against `demo_index`, and also fails if the index drifts from the benchmark it serves ([§11](#11-testing-and-ci)). A full-corpus index built in CI still needs the source PDFs it does not have; `demo_index` stays a committed artifact. |
-| 8 | A genuinely multi-hop question set + ablation on it | **Staged.** The 100-question set has no multi-hop questions, which is why the planner looked useless in the n=100 ablation. `eval/multihop_questions.json` is 20 hand-written two-document questions; `eval/verify_multihop.py` confirms a single retrieval misses a required document on 8 of them. The judged A/B/C ablation on this slice is in `eval/run_paid_batch.sh`, blocked on Anthropic credits. This is the fair test of whether the planner's query decomposition earns its cost. |
+| 8 | A genuinely multi-hop question set + ablation on it | **Done.** `eval/multihop_questions.json` is 20 hand-written two-document questions (8 of which one retrieval misses a required doc). Judged A/B/C: the planner takes evidence recall 0.78 -> 0.82, recovering a document on 2 of the 20, but grounded and correct stay inside the judge noise floor, and the verifier still earns nothing. The real bottleneck turned out to be synthesis (config A correctness 0.909, down from ~0.97 on single-hop), which no config addresses. Config A stays default. [§7](#7-evaluation-and-metrics). |
 | 9 | Judged multi-turn conversation eval | **Staged.** `eval/multiturn_questions.json` is 12 conversation chains (36 turns); `eval/multiturn_eval.py` walks each chain carrying real prior answers as history and judges every turn, splitting first turns from follow-ups. A free check on the 24 follow-ups showed condensation resolves the reference every time (mean cosine 0.91 to the hand-written target). The judged run is in `eval/run_paid_batch.sh`. |
 | 10 | Cross-provider bakeoff | **Staged.** `src/llm_factory.py` now wires OpenAI and Gemini (the latter through its OpenAI-compatible endpoint); `eval/provider_bakeoff.py` runs config A on each provider against a shared retrieval and the same opus judge. An unjudged run put gpt-4o-mini at $0.0005/query and gemini-3.6-flash at $0.0003/query, both roughly 30x cheaper than Sonnet's $0.014, with evidence recall held at 1.00. The judged comparison (does the cheaper model hold groundedness and correctness?) is in `eval/run_paid_batch.sh`. |
 
