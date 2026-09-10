@@ -140,8 +140,12 @@ def _judge(
     stronger* model than the agent under test.  Letting a model grade its
     own output produces self-preference bias and makes the resulting
     groundedness/correctness scores uninterpretable.
+
+    Provider is pinned to Anthropic even when the agent runs on another
+    provider (``LLM_PROVIDER=google``), so the judge is stable across
+    agent-model experiments and ``JUDGE_MODEL`` (a Claude id) always resolves.
     """
-    llm = get_llm(model=JUDGE_MODEL, max_tokens=JUDGE_MAX_TOKENS)
+    llm = get_llm(provider="anthropic", model=JUDGE_MODEL, max_tokens=JUDGE_MAX_TOKENS)
     prompt = JUDGE_PROMPT.format(
         question=question,
         evidence_block=evidence_block or "(no evidence)",

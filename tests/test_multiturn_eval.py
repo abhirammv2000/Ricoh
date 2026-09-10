@@ -49,8 +49,11 @@ def test_distinct_docs_dedupes_preserving_order():
     assert _distinct_docs(ev) == ["b.pdf", "a.pdf"]
 
 
-def test_recall_is_fraction_of_expected_in_top_final_k():
-    assert _recall(["a.pdf", "b.pdf"], ["a.pdf", "x.pdf", "y.pdf"]) == 0.5
+def test_recall_is_any_hit_over_expected_sources():
+    # Any expected source in the top-k is a hit; the multi-turn set lists
+    # alternative valid documents on some turns.
+    assert _recall(["a.pdf", "b.pdf"], ["a.pdf", "x.pdf", "y.pdf"]) == 1.0
+    assert _recall(["a.pdf", "b.pdf"], ["x.pdf", "y.pdf"]) == 0.0
     assert _recall(["a.pdf"], ["a.pdf"]) == 1.0
     assert _recall([], ["a.pdf"]) == 0.0
 

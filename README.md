@@ -188,7 +188,7 @@ Cited answer plus the Glass Box view
 ### LLM: Claude Sonnet (Anthropic)
 - **Why:** Strong instruction-following, reliable JSON output for the planner, low hallucination rate, and cheap enough to run 4-5 calls per question.
 - **On temperature:** set to 0.0 to *reduce* output variance. It does **not** make generation deterministic. Temperature 0 has never guaranteed identical outputs. Measured run-to-run variation in the planner's sub-queries is the main source of end-to-end variance in this system; retrieval itself is bit-identical across runs.
-- **Other providers:** `src/llm_factory.py` wires OpenAI and Gemini (the latter via its OpenAI-compatible endpoint) behind the same interface, and `eval/provider_bakeoff.py` runs the synthesizer on each against a shared retrieval and one fixed judge. Judged result ([§7](#7-evaluation-and-metrics)): `gemini-3.6-flash` holds answer quality at 1/50th the cost per query, `gpt-4o-mini` drops correctness 0.21. So the model matters, not just the price.
+- **Other providers:** `src/llm_factory.py` wires OpenAI and Gemini (the latter via its OpenAI-compatible endpoint) behind the same interface; `LLM_PROVIDER=google pip install -r requirements-providers.txt` and a `GEMINI_API_KEY` is all it takes to run the agent on Gemini. `eval/provider_bakeoff.py` compares them against a shared retrieval and one fixed judge. Judged result ([§7](#7-evaluation-and-metrics)): `gemini-3.6-flash` holds answer quality at 1/50th the cost per query, `gpt-4o-mini` drops correctness 0.21. So the model matters, not just the price. The judge is pinned to Anthropic regardless of the agent provider, which actually makes the agent/judge pairing *more* independent when the agent is not Claude.
 
 ### Prompt Engineering (4 specialised prompts)
 1. **Planner prompt:** Decomposes queries into sub-queries + extracts entities. Outputs structured JSON. Includes retry-aware context injection.
@@ -791,6 +791,11 @@ Ricoh/
 │   ├── agent.py                 # LangGraph agentic state machine
 │   ├── conversation.py          # History-aware follow-up rewriting for multi-turn
 │   ├── router.py                # Cheap path, escalate to the tool loop on a refusal
+│   ├── tools.py                 # Tool-calling retrieval loop (USE_TOOL_LOOP)
+│   ├── guardrails.py            # Prompt-injection screen at the API edge
+│   ├── instrumentation.py       # Per-stage cost / token / latency spans
+│   ├── perf.py / trace_view.py  # Dashboard rollups and per-request drill-down
+│   ├── semantic_cache.py        # Optional answer cache (off by default)
 │   ├── evaluate.py              # Latency/citation smoke test
 │   └── eval_harness.py          # Quality eval harness (evidence recall, retriever recall@N, groundedness)
 ├── eval/
@@ -812,13 +817,11 @@ Ricoh/
 │   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
 │   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring
 │   └── verify_unanswerable.py   # Audits the "refuse" labels against the full corpus
-├── tests/                       # pytest suite (offline, LLM mocked)
-│   ├── test_ingest.py
-│   ├── test_retriever.py
-│   ├── test_agent.py
-│   ├── test_router.py
-│   ├── test_sweep_embeddings.py
-│   └── test_eval_metrics.py
+├── tests/                       # ~25 pytest modules, offline, LLM mocked
+│   ├── test_ingest.py test_retriever.py test_agent.py test_router.py
+│   ├── test_conversation.py test_tools.py test_guardrails.py
+│   ├── test_eval_metrics.py test_ci_gate.py test_perf.py ...
+│   └── (one per src/ and eval/ module worth guarding)
 ├── .github/workflows/ci.yml     # GitHub Actions CI
 ├── notebooks/                   # Exploration notebooks
 ├── chroma_db/                   # Persisted ChromaDB + BM25 index (gitignored)
