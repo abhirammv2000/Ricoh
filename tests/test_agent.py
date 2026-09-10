@@ -228,6 +228,66 @@ def test_arun_agent_raises_when_semantic_cache_enabled(monkeypatch):
         asyncio.run(arun_agent("q"))
 
 
+# Multi-turn: history condensation feeds the rewrite to everything downstream.
+
+class _CapturingGraph:
+    def __init__(self):
+        self.seen_query = None
+
+    def invoke(self, state):
+        self.seen_query = state["user_query"]
+        return {**state, "final_answer": "ok [a.pdf, Page 1]"}
+
+
+def test_run_agent_condenses_when_history_is_passed(monkeypatch):
+    graph = _CapturingGraph()
+    monkeypatch.setattr(agent, "get_agent_graph", lambda **k: graph)
+    monkeypatch.setattr(agent, "get_semantic_cache", lambda: None)
+    monkeypatch.setattr(
+        agent, "condense_query", lambda history, q: "standalone rewrite"
+    )
+
+    agent.run_agent("copy that one?", history=[agent.Turn("q", "a")])
+
+    assert graph.seen_query == "standalone rewrite"
+
+
+def test_run_agent_skips_condensation_with_no_history(monkeypatch):
+    graph = _CapturingGraph()
+    monkeypatch.setattr(agent, "get_agent_graph", lambda **k: graph)
+    monkeypatch.setattr(agent, "get_semantic_cache", lambda: None)
+
+    def _boom(*a, **k):
+        raise AssertionError("condense_query must not run without history")
+
+    monkeypatch.setattr(agent, "condense_query", _boom)
+
+    agent.run_agent("a standalone question")
+
+    assert graph.seen_query == "a standalone question"
+
+
+def test_stream_agent_records_the_rewrite_on_the_result(monkeypatch):
+    monkeypatch.setattr(
+        agent, "condense_query", lambda history, q: "the standalone version"
+    )
+
+    captured = {}
+
+    class _StreamGraph:
+        def stream(self, init, stream_mode):
+            captured["query"] = init["user_query"]
+            return iter(())
+
+    monkeypatch.setattr(agent, "get_agent_graph", lambda **k: _StreamGraph())
+
+    result = agent.StreamResult()
+    list(agent.stream_agent("follow up", result, history=[agent.Turn("q", "a")]))
+
+    assert captured["query"] == "the standalone version"
+    assert result.condensed_query == "the standalone version"
+
+
 def _node_names(graph):
     return {n for n in graph.get_graph().nodes if not n.startswith("__")}
 

@@ -35,7 +35,7 @@ import asyncio
 import logging
 import re
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
@@ -50,6 +50,7 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
     USE_TOOL_LOOP,
     USE_VERIFIER,
 )
+from src.conversation import Turn, condense_query  # noqa: F401 - Turn re-exported for callers
 from src.instrumentation import ainvoke as instrumented_ainvoke
 from src.instrumentation import invoke as instrumented_invoke
 from src.instrumentation import span
@@ -564,6 +565,7 @@ def run_agent(
     query: str,
     use_planner: bool | None = None,
     use_verifier: bool | None = None,
+    history: Sequence[Turn] | None = None,
 ) -> str:
     """Run the agentic pipeline on a single query.
 
@@ -571,6 +573,11 @@ def run_agent(
         query:        Natural-language technical support question.
         use_planner:  See :func:`build_agent_graph`.
         use_verifier: See :func:`build_agent_graph`.
+        history:      Prior conversation turns. When given, the query is first
+                      rewritten to stand on its own (src/conversation.py) and
+                      everything downstream, cache included, sees that rewrite.
+                      Omit it for a one-shot question: no history means no extra
+                      call and the exact single-turn path section 7 measures.
 
     Returns:
         The final synthesised answer string with citations.
@@ -581,6 +588,9 @@ def run_agent(
     eval harness never reaches this path, so cache hits cannot affect measured
     numbers.
     """
+    if history:
+        query = condense_query(history, query)
+
     cache = get_semantic_cache()
     if cache is not None:
         hit = cache.lookup(query)
@@ -651,6 +661,10 @@ async def arun_agent(query: str) -> str:
     do nothing beyond what is reproduced here, so this is a faithful mirror of
     that path's behaviour, not a second implementation that can drift from it,
     as long as this configuration is what production actually runs.
+
+    Single-turn only. Multi-turn condensation lives on run_agent and
+    stream_agent; the async API endpoint is a stateless one-shot call and has
+    no conversation to condense.
     """
     if USE_PLANNER or USE_VERIFIER or USE_TOOL_LOOP or USE_ROUTER:
         raise UnsupportedAsyncConfig(
@@ -689,6 +703,10 @@ class StreamResult:
     final_state: dict[str, Any] | None = None
     ttft_seconds: float | None = None
     total_seconds: float | None = None
+    # Set to the rewritten question when history condensation changed it, so the
+    # Glass Box can show what was actually retrieved on. None on a one-shot
+    # question or when the rewrite came back identical.
+    condensed_query: str | None = None
 
 
 def _chunk_text(message: Any) -> str:
@@ -717,22 +735,35 @@ def stream_agent(
     result: StreamResult,
     use_planner: bool | None = None,
     use_verifier: bool | None = None,
+    history: Sequence[Turn] | None = None,
 ) -> Iterator[str]:
     """Run the agent and stream the synthesizer's answer token by token.
 
-    Yields answer text as it is generated. The upstream stages (planning,
-    retrieval, verification) run first and do not stream, since the synthesizer
-    output is the only text the user reads. We stream only the synthesizer node,
-    filtered by the node name in the message metadata, so enabling the planner
-    or verifier does not leak their internal LLM output into the answer.
+    Yields answer text as it is generated. The upstream stages (condensation,
+    planning, retrieval, verification) run first and do not stream, since the
+    synthesizer output is the only text the user reads. We stream only the
+    synthesizer node, filtered by the node name in the message metadata, so
+    enabling the planner or verifier does not leak their internal LLM output
+    into the answer.
 
     Grounding is not weakened by streaming: verification already happened
     upstream and gates whether we synthesize at all, so streaming the final
     answer only changes how it is delivered, not what it is based on.
 
+    When ``history`` is given the question is rewritten to stand on its own
+    before retrieval (src/conversation.py); the rewrite lands on
+    ``result.condensed_query`` if it changed anything. With no history this is
+    the exact single-turn path, no extra call.
+
     Once the generator is exhausted, `result` holds the full final state, the
     time to first token, and the total time.
     """
+    if history:
+        standalone = condense_query(history, query)
+        if standalone != query:
+            result.condensed_query = standalone
+            query = standalone
+
     graph = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
     init = initial_state(query, use_planner=use_planner)
 

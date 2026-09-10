@@ -44,6 +44,7 @@ for _quiet in ("src.ingest", "src.retriever", "chromadb", "httpx", "httpcore"):
     logging.getLogger(_quiet).setLevel(logging.WARNING)
 
 from src.agent import stream_agent, StreamResult
+from src.conversation import Turn
 from src.guardrails import screen_input
 from src.ingest import ingest_all
 from src.instrumentation import record_run
@@ -52,6 +53,29 @@ from src.llm_factory import _DEFAULT_MODELS
 from app.guard import allow_query, password_ok, required_password
 
 logger = logging.getLogger(__name__)
+
+# Shown in place of an answer when the agent raises. Kept as a constant so the
+# conversation-history builder can skip these turns instead of feeding a
+# non-answer back into the next question's condensation.
+ERROR_ANSWER = "Sorry, something went wrong while answering. Please try again."
+
+
+def conversation_history(messages: list[dict]) -> list[Turn]:
+    """Pair each answered question in the chat log into a Turn.
+
+    Only completed exchanges count: a user message immediately followed by a
+    real assistant answer. The current (unanswered) user message and any error
+    turn are left out.
+    """
+    turns: list[Turn] = []
+    for prev, curr in zip(messages, messages[1:]):
+        if (
+            prev["role"] == "user"
+            and curr["role"] == "assistant"
+            and curr["content"] != ERROR_ANSWER
+        ):
+            turns.append(Turn(question=prev["content"], answer=curr["content"]))
+    return turns
 
 
 # 1. PAGE CONFIGURATION
@@ -249,6 +273,16 @@ def render_glass_box(state: dict, latency: float) -> None:
                 f"{trace['llm_calls']} LLM calls  |  "
                 f"{trace['input_tokens']:,} in / {trace['output_tokens']:,} out tokens"
             )
+
+        # -- Follow-up rewrite: shown only when history changed the question --
+        condensed = state.get("condensed_query")
+        if condensed:
+            st.markdown("#### Follow-up rewritten for retrieval")
+            st.caption(
+                "This was a follow-up, so it was rewritten to stand on its own "
+                "before searching the docs:"
+            )
+            st.markdown(f"> {condensed}")
 
         st.divider()
 
@@ -454,6 +488,11 @@ if user_input := st.chat_input("Ask a Ricoh technical support question..."):
         st.warning(f"This question can't be processed: {verdict.reason}")
         st.stop()
 
+    # Conversation so far, built before the new question is appended so it is
+    # not in its own history. A follow-up like "how do I copy that?" is
+    # rewritten to stand on its own before retrieval (src/conversation.py).
+    history = conversation_history(st.session_state.messages)
+
     # Display user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
@@ -466,8 +505,11 @@ if user_input := st.chat_input("Ask a Ricoh technical support question..."):
         result = StreamResult()
         try:
             with record_run(query=user_input) as rec:
-                answer = st.write_stream(stream_agent(user_input, result))
+                answer = st.write_stream(
+                    stream_agent(user_input, result, history=history)
+                )
             state = dict(result.final_state or {})
+            state["condensed_query"] = result.condensed_query
             state["trace"] = {
                 "cost_usd": rec.total_cost_usd,
                 "llm_calls": rec.llm_calls,
@@ -477,7 +519,7 @@ if user_input := st.chat_input("Ask a Ricoh technical support question..."):
             }
         except Exception as e:
             logger.error("Agent error: %s", e)
-            answer = "Sorry, something went wrong while answering. Please try again."
+            answer = ERROR_ANSWER
             st.markdown(answer)
             state = {}
         latency = time.perf_counter() - t0
