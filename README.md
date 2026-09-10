@@ -624,6 +624,8 @@ The suite covers the logic most likely to break silently:
 
 [GitHub Actions](.github/workflows/ci.yml) runs `pytest` on every push/PR (Python 3.11). No secrets required. The tests mock the LLM.
 
+A second CI job is a **retrieval regression gate** (`python -m eval.ci_gate`): it runs real hybrid retrieval against the committed `demo_index/` on the seed questions and fails the build if recall@1/3/5 drops below `eval/ci_baseline.json`. The unit suite never touches a real index, so this is what would catch an RRF or fusion bug that still passes every mocked test. `demo_index` is a small curated slice, so this is a smoke gate, not a quality measurement; the full-corpus numbers come from the paid harness in [§7](#7-evaluation-and-metrics).
+
 ## 12. Optional: cross-encoder reranker
 
 A query-aware cross-encoder reranker (off by default to keep the base torch-free) can be enabled for higher precision@k:
@@ -720,6 +722,6 @@ Ordered by what most improves the system, not by what is easiest to demo.
 | 4 | Adaptive routing | **Done.** `src/router.py` escalates to the tool loop on a refusal (a pre-retrieval confidence signal was tried first and does not separate misses from hits). Judged on dev: escalates rarely, small gain over config A, within judge noise. Off by default (`USE_ROUTER`). |
 | 5 | Strip print-to-PDF boilerplate at ingest | 75% of chunks carry an identical header/breadcrumb (~4-6% of words). Low-risk cleanup. |
 | 6 | Claim->span attribution instead of filename matching | Current citation precision only catches fabricated filenames. |
-| 7 | Tracing, per-request cost/latency budgets, index built in CI | Production surface. |
+| 7 | Tracing, per-request cost/latency budgets, index built in CI | Tracing and per-request instrumentation done ([Observability](#observability)). A retrieval regression gate now runs in CI against `demo_index` ([§11](#11-testing-and-ci)); a full-corpus index built in CI still needs the source PDFs it does not have. |
 
 **Deliberately deferred:** multi-lingual answering is currently a liability rather than a feature. The refusal marker is English-only, so a translated-only refusal would be scored as an answer. The synthesizer now pins the English canonical sentence to keep the eval sound, but full language support needs a language-aware detector before it is worth advertising.
