@@ -469,7 +469,7 @@ A document that is mediocre in both retrievers **outranks one that is excellent 
 
 Two consequences:
 
-1. **The standard "retrieve top-50, rerank to 5" recipe would degrade this system** as currently built. Widening the pool is only safe *together with* a reranker that repairs the ordering. The two are a pair, not independent upgrades. That is now the argument for the reranker, and it is a measured one.
+1. **The standard "retrieve top-50, rerank to 5" recipe would degrade this system** as currently built. Widening the pool is only safe *together with* a reranker that repairs the ordering. The two are a pair, not independent upgrades. The sweep confirms this: with the reranker on, `top_k=10` and `top_k=20` give identical recall, so the reranker does repair the wider pool ([Embedding model sweep](#embedding-model-sweep)).
 2. **A diagnostic that does not mirror production is worse than no diagnostic.** It produced a confident, wrong conclusion about where the bottleneck was, and sent me at the wrong fix. The diagnostic now pins to `RETRIEVAL_TOP_K` and refuses to report depths beyond `RETRIEVAL_FINAL_K`.
 
 Retrieval is **bit-identical across repeated runs** (verified across fresh clients with the BM25 index re-unpickled), so all of the above carries zero run-to-run noise and all end-to-end variance comes from the LLM planner.
@@ -500,7 +500,21 @@ At `top_k=10`, over all 100 questions:
 
 The sweep also confirms the RRF non-monotonicity from the diagnostic below: widening the pool to `top_k=20` without a reranker moves MiniLM's recall@5 from 0.94 to 0.92 and its miss count from 6 to 8.
 
-bge-base and the `--rerank` rows are not run here: each needs a fresh torch pass over the whole corpus, which is slow without a GPU. The command:
+**The reranker (`--rerank`).** A `cross-encoder/ms-marco-MiniLM-L-6-v2` pass over the fused pool, all 100 questions:
+
+| model | rerank | recall@1 | recall@3 | recall@5 | missed |
+|---|---|---|---|---|---|
+| MiniLM | no | 0.78 | 0.89 | 0.94 | 6 |
+| MiniLM | yes | 0.77 | 0.95 | 0.97 | 3 |
+| bge-small | yes | 0.75 | 0.95 | 0.97 | 3 |
+
+The reranker recovers 3 of the 6 questions that retrieved nothing and takes recall@3 from 0.89 to 0.95. Three caveats keep it off by default:
+
+1. **The gain is dev-only.** On dev, reranked recall@5 is 0.99; on the held-out 30 it is 0.93, exactly the un-reranked number, and reranked recall@1 on holdout *drops* from 0.87 to 0.67. Same split-dependent pattern as every other retrieval change in this section.
+2. **It costs a transformer pass per query**, ~3 to 4s on CPU, which more than doubles the default path's latency.
+3. **It makes the embedding choice moot.** MiniLM and bge-small converge to identical reranked numbers, because the cross-encoder is doing the ranking, not the embedder. `top_k=10` and `top_k=20` also converge once it is on, since it repairs the wider pool.
+
+So the reranker is the clearest lever for the handful of hard questions if a latency budget allows, and it ships behind `RERANKER_ENABLED` with the evidence written down rather than turned on. bge-base was not built (a fresh torch pass over the corpus, slow without a GPU):
 
 ```bash
 pip install -r requirements-enhanced.txt
@@ -748,7 +762,7 @@ Ordered by what most improves the system, not by what is easiest to demo.
 |---|---|---|
 | 1 | Re-run the A/B/C ablation at n=100 | **Done.** The n=10 "planner is harmful" finding did not hold: the planner helps on dev, not on holdout, verifier still earns nothing. Config A stays default. [§7](#7-evaluation-and-metrics). Remaining: the judge on the holdout split. |
 | 2 | Judge calibration: hand-label 30, report Cohen's κ | Worksheet ready (`eval/human_labels.json`, passages included). The labelling pass is the last open item on the eval side. |
-| 3 | Better embedding model, wider pool, rerank | **Done for bge-small:** it does not beat MiniLM at n=100, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. bge-base and the `--rerank` rows still to run. [§7](#7-evaluation-and-metrics). |
+| 3 | Better embedding model, wider pool, rerank | **Done.** bge-small does not beat MiniLM at n=100, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. The reranker takes all-100 recall@5 from 0.94 to 0.97 and halves the miss count, but the gain is dev-only and it doubles latency, so it stays behind `RERANKER_ENABLED`. bge-base not built (no GPU). [§7](#7-evaluation-and-metrics). |
 | 4 | Adaptive routing | **Done.** `src/router.py` escalates to the tool loop on a refusal (a pre-retrieval confidence signal was tried first and does not separate misses from hits). Judged on dev: escalates rarely, small gain over config A, within judge noise. Off by default (`USE_ROUTER`). |
 | 5 | Strip print-to-PDF boilerplate at ingest | 75% of chunks carry an identical header/breadcrumb (~4-6% of words). Low-risk cleanup. |
 | 6 | Claim->span attribution instead of filename matching | Current citation precision only catches fabricated filenames. |
