@@ -1,0 +1,226 @@
+{
+  "_description": "Multi-hop questions: each needs facts from two RICOH ProcessDirector documents. Written by hand from the corpus. eval/verify_multihop.py measures that a single retrieval on the raw question misses at least one required document on 8 of the 20 (the others are compound questions about one named entity, where both documents share enough keywords to be retrieved together). This is the slice the ablation in README section 7 was missing: the 100-question set has no multi-hop questions, which is why the planner looked useless there. This set is where the planner's query decomposition has something to do. expected_sources are JOINTLY relevant (all needed), not alternatives, so provenance is 'curated'. All are answerable.",
+  "questions": [
+    {
+      "id": 1,
+      "question": "RICOH ProcessDirector's primary server and its application servers run on different operating systems. Which operating systems does each one support?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "the primary server runs on Linux: Red Hat, Rocky Linux, or SUSE Linux Enterprise Server (SLES)",
+        "application servers run on Windows: Windows 10 or 11 Pro, or Windows Server 2019, 2022, or 2025"
+      ],
+      "expected_sources": ["aiw00o15.pdf", "aiw0appservrq.pdf"]
+    },
+    {
+      "id": 2,
+      "question": "What does the FusionPro Connect feature let you do, and what must be installed on the FusionPro machine before you can configure the connection from RICOH ProcessDirector?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "FusionPro Connect lets you use FusionPro to compose documents based on predefined templates",
+        "you must install a RICOH ProcessDirector application server feature on the machine where FusionPro is installed",
+        "add the RunFusionPro step template to a workflow to send files to FusionPro Server"
+      ],
+      "expected_sources": ["aiwi0_integratefeat.pdf", "aiw_fusionpro_configconnection.pdf"]
+    },
+    {
+      "id": 3,
+      "question": "After a RICOH ProcessDirector shutdown and restart, all printers are disabled. Which command stops the base product immediately without waiting for steps to finish, and which system property re-enables the printers automatically after a restart?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "stopaiw stops the system immediately without waiting for steps to complete",
+        "set the Remember enabled status of printers system property to Yes"
+      ],
+      "expected_sources": ["aiw00a13.pdf", "aiw00p18.pdf"]
+    },
+    {
+      "id": 4,
+      "question": "What are the AFP-resource limitations of PCLOut printers, and which RICOH ProcessDirector job actions cannot be used with jobs that are sent to a PCLOut printer?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "PCLOut printers do not create or save AFP resources such as fonts, overlays, or page segments from one job to the next, and cannot reuse printer resources between jobs",
+        "you cannot use the Jump and Continue actions with jobs submitted to PCLOut printers"
+      ],
+      "expected_sources": ["aiw00c_PCLOutLimitations.pdf", "aiw00c_Define_PCLOut.pdf"]
+    },
+    {
+      "id": 5,
+      "question": "Which inserter manufacturers does the full Inserter feature support, and how do I create an inserter controller object when RICOH ProcessDirector does not already supply one for my controller?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "the Inserter feature supports inserters from Bowe, Gunther, Kern, Pitney Bowes, and Quadient",
+        "on the Administration tab, click Devices then Inserter Controllers, click Add, fill in the required properties, click OK, then select the controller and click Enable"
+      ],
+      "expected_sources": ["InserterOverview.pdf", "CreatingInserterControllers.pdf"]
+    },
+    {
+      "id": 6,
+      "question": "Which barcode types can I create in the AFP Enhancer mode of RICOH Visual Workbench, and in which representations can AFP Enhancer create an Intelligent Mail barcode?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "AFP Enhancer can create Code 39, Data Matrix, and Intelligent Mail barcodes (among others)",
+        "AFP Enhancer can create an Intelligent Mail barcode as BCOCA objects, Generic barcodes, Font barcodes, or DrawRule barcodes"
+      ],
+      "expected_sources": ["vwb_barcodes_overview.pdf", "vwb_barcodes_overview_imb_data.pdf"]
+    },
+    {
+      "id": 7,
+      "question": "To send job status information to Avanti Slingshot, what URL do I configure in RICOH ProcessDirector, and what must I set on the workflow steps for the timing data to be reported?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "specify the JMF HTTP URL http://yourserver:15080/aiwservices/v1/jmf for the RICOH ProcessDirector server",
+        "associate steps with a Slingshot cost center and make sure a job passes one step with a Slingshot milestone status of Complete for each cost center"
+      ],
+      "expected_sources": ["avanti_r_SendingInfoToAvanti.pdf", "avanti_c_ModifyWorkflow.pdf"]
+    },
+    {
+      "id": 8,
+      "question": "How do I create a custom document property in RICOH ProcessDirector, and what do I have to do with it before I can use it to sort or split AFP documents?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "on the Administration tab click Objects then Custom properties, click Add, choose Document Property, set the values, and activate it with the switch",
+        "use Document Property Designer to link the custom document property to its index tag (Tagged Logical Element)"
+      ],
+      "expected_sources": ["aiw_creating_customprop.pdf", "designingproperties.pdf"]
+    },
+    {
+      "id": 9,
+      "question": "When I pull documents out of a print job in RICOH ProcessDirector, how do I account for those pulled documents afterward, and what methods can I use to identify the documents to reconcile?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "reconcile the job manually, accounting for documents that processed successfully, were pulled from the job, or were damaged and need reprinting",
+        "identify documents by entering document property values, entering a range of Insert sequence values, or scanning a barcode with a hand-held scanner"
+      ],
+      "expected_sources": ["doc_o_scenarios_pull.pdf", "doc_c_SetUpManualReconciliation.pdf"]
+    },
+    {
+      "id": 10,
+      "question": "What does the Security feature let me control about passwords, and how do I install it?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "install the Security feature using Feature Manager; it does not need to be purchased and needs no license key",
+        "you can specify a minimum password length, a maximum age before expiration, and enforcement of password complexity rules"
+      ],
+      "expected_sources": ["aiw_sec_featov.pdf", "sec_c_advancedfunctions.pdf"]
+    },
+    {
+      "id": 11,
+      "question": "In RICOH Visual Workbench, what is the difference between editing the text value of an index tag itself and editing the text for an index tag that is linked to a property?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "editing the text of a trigger or index tag changes the index tag value itself and should be appropriate for all page groups",
+        "editing the text for an index tag linked to a property changes only the property value and does not change the index tag value"
+      ],
+      "expected_sources": ["editingtext.pdf", "editingdpdindex.pdf"]
+    },
+    {
+      "id": 12,
+      "question": "The PDF Document Support feature uses RICOH ProcessDirector Plug-in for Adobe Acrobat. What does it let you do with the individual documents in a PDF file, and where is the markup saved?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "you can rearrange the output order of documents, group them by envelope size requirements, and find a document by searching for a document property",
+        "markup is saved to one or more control files rather than in the PDF file itself, and only one control file can be loaded at a time"
+      ],
+      "expected_sources": ["pdfw_c_scen_concepts.pdf", "pdfw_c_plugin_controlfiles.pdf"]
+    },
+    {
+      "id": 13,
+      "question": "For the Deadline Tracker feature, what step template does it add, and how do I track two separate deadlines within one linear workflow?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "Deadline Tracker adds a step template and three system objects",
+        "place two SetDeadline steps in the workflow, each one making a different step the deadline step"
+      ],
+      "expected_sources": ["dt_o_featov.pdf", "dt_o_scen_deadlineworkflow.pdf"]
+    },
+    {
+      "id": 14,
+      "question": "Which printer types and output formats can RICOH ProcessDirector send jobs to, and which feature must be installed to send AFP jobs to IPDS printers?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "RICOH ProcessDirector can send jobs to Ricoh TotalFlow printers, Ricoh PDF printers, TASKalfa printers, Custom PDF printers, and any printer that receives jobs over LPD",
+        "the AFP Support feature is required to send AFP jobs to IPDS printers; its printer driver component converts the AFP data stream into IPDS"
+      ],
+      "expected_sources": ["aiw00o3.pdf", "aiw_o_afpsupport_featov.pdf"]
+    },
+    {
+      "id": 15,
+      "question": "Why do printed colors change when I switch paper stock, and what is the point of using color management?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "the paper has a significant impact on the colors you see, so printer manufacturers test and certify papers and create different ICC profiles for their printers based on paper characteristics",
+        "color management lets you control the color adjustments that are always needed because printers typically have smaller color gamuts than monitors and other devices"
+      ],
+      "expected_sources": ["cac_Paper.pdf", "cac_ColorMgmt.pdf"]
+    },
+    {
+      "id": 16,
+      "question": "To send RICOH ProcessDirector data to RICOH Predictive Insight, what has to be configured first, and where must that data be stored?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "you must configure the Reports feature first, including setting up data collectors and workflow steps to gather the data",
+        "the data sent to RICOH Predictive Insight must be stored in the Reports database by the RICOH ProcessDirector data collectors"
+      ],
+      "expected_sources": ["aiw_supervisor.pdf", "reportsPostgresql_Overview.pdf"]
+    },
+    {
+      "id": 17,
+      "question": "What is the AFP Support feature for, and what does the line-data-to-AFP transform use when it composes the data?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "AFP Support lets you control and track jobs and individual documents in AFP format, and its printer driver component converts the AFP data stream into IPDS for printers",
+        "the line-data-to-AFP transform uses a page definition when it composes the data, and page definitions specify characteristics such as the printable area and the maximum number of lines per page"
+      ],
+      "expected_sources": ["aiw_o_afpsupport_featov.pdf", "aiw00o18.pdf"]
+    },
+    {
+      "id": 18,
+      "question": "How do I add a step that runs an external program to a workflow, and how do I make a job that goes into an error state continue down a different path instead of stopping?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "on the Workflow tab, copy an existing workflow or add a new one, then add a step based on your external-program step template",
+        "define an error path by adding a branch out of a step so a job that enters the error state continues in another path in the workflow instead of staying in Error"
+      ],
+      "expected_sources": ["aiwcjtextstep.pdf", "aiw_c_seterrorpath.pdf"]
+    },
+    {
+      "id": 19,
+      "question": "In the RICOH ProcessDirector Plug-in for Adobe Acrobat, what does the Media and Finishing dialog let me do, and what does the Inserts Manager dialog control?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "the Media and Finishing dialog lets you edit and delete options, select new media and finishing options, and set the order in which they are applied to a PDF file",
+        "the Inserts Manager dialog lets you add, edit, and delete page inserts from other PDF files and set the order in which they are added when the BuildPDFFromDocuments step runs"
+      ],
+      "expected_sources": ["pdfw_c_plugin_managemediafinish.pdf", "pdfw_c_plugin_workwithinserts.pdf"]
+    },
+    {
+      "id": 20,
+      "question": "What does the Reports feature add to RICOH ProcessDirector, and which data collectors can I configure with it?",
+      "expected_behavior": "answer",
+      "provenance": "curated",
+      "key_facts": [
+        "the Reports feature adds the WritePropsToReportsDatabase step template and the Data collector and Data transmitter objects, and stores data in a PostgreSQL database",
+        "configurable data collectors include Job Step Duration and Job Step Progress"
+      ],
+      "expected_sources": ["reportsPostgresql_Overview.pdf", "reportsPostgresql_c_CaptureDataForPostgreSQL.pdf"]
+    }
+  ]
+}
