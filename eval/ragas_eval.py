@@ -219,9 +219,9 @@ def _write_md(r: dict) -> None:
         f"- Binary agreement at >= {r['threshold']}: {k['raw_agreement']:.0%} raw, "
         f"chance {k['chance_agreement']:.0%}, Cohen's kappa {k['cohens_kappa']}",
         "",
-        "With n=12 and both raters scoring almost everything above the threshold,",
-        "chance agreement is near the raw number, so the kappa carries little",
-        "information either way. Read the means and the disagreements, not the kappa.",
+        f"With n={r['n_scored']} and both raters scoring almost everything above the",
+        "threshold, chance agreement is near the raw number, so the kappa carries",
+        "little information either way. Read the means and the disagreements, not the kappa.",
         "",
     ]
     if r["disagreements"]:
