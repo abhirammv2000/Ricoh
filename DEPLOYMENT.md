@@ -1,14 +1,19 @@
 # Deployment Guide
 
 Citera ships four deployment paths. All of them need an `ANTHROPIC_API_KEY`.
-The first three also need the Ricoh PDFs in `data/` (the app ingests them and
-builds the ChromaDB + BM25 index on first boot). The Cloud Run path instead
-serves the small baked demo subset, so it needs no corpus upload at all.
+Two shapes:
 
-> **Why isn't the index in the image/repo?** The corpus is ~223 MB of
-> PDFs and the built index is large and machine-specific, so both are
-> git-ignored and excluded from the Docker build context. You supply the
-> PDFs at deploy time via a mounted volume / persistent disk.
+- **Full corpus** (Docker with a mounted `data/`): the app ingests the 733
+  Ricoh PDFs and builds the ChromaDB + BM25 index on first boot.
+- **Baked demo subset** (Render blueprint, Cloud Run): the image ships the
+  committed `demo_index/` (a small curated slice, see `src/build_demo_index.py`),
+  so there is no corpus upload, no persistent disk, and nothing fetched over
+  the network at boot. The UI discloses that it is a subset.
+
+> **Why isn't the full index in the repo?** The corpus is ~223 MB of PDFs and
+> the full index is large and machine-specific, so both are git-ignored. Only
+> the small `demo_index/` is committed, and CI checks it has not drifted from
+> the questions it is meant to answer (`python -m eval.ci_gate`).
 
 ---
 
@@ -38,10 +43,13 @@ A [`render.yaml`](render.yaml) blueprint is included.
 
 1. Push the repo to GitHub.
 2. Render -> **New -> Blueprint** -> select the repo.
-3. Add `ANTHROPIC_API_KEY` as a secret env var.
-4. Upload the PDFs to the mounted `/app/data` disk.
+3. Add `ANTHROPIC_API_KEY` as a secret env var. Optionally set `APP_PASSWORD`
+   to gate the demo.
 
-Render injects `$PORT`; the Dockerfile already binds to it.
+The blueprint bakes `demo_index/` into the image, so there is no disk to
+provision and no PDF upload. To widen what the demo can answer, rebuild the
+index locally (`python -m src.build_demo_index --extra N`) and push. Render
+injects `$PORT`; the Dockerfile already binds to it.
 
 ---
 
@@ -101,8 +109,13 @@ Live demo: https://citera-634289062173.us-central1.run.app
 The items below are deliberately **out of scope for this build**
 but are the next steps for a real deployment:
 
-- [ ] Authentication in front of the Streamlit app (it is currently open).
+- [ ] Real authentication in front of the Streamlit app (only a shared
+      `APP_PASSWORD` and a global rate limit today).
 - [ ] Secrets via a manager (Vault / AWS Secrets Manager), not `.env`.
 - [x] LLM-call caching (opt-in semantic cache) + Anthropic timeout/retry handling.
-- [x] Request tracing via LangSmith (wired, opt-in). Metrics export still open.
-- [ ] Pin a rebuilt index artifact in CI rather than ingesting on boot.
+- [x] Request tracing via LangSmith (wired, opt-in) plus local JSONL and a
+      per-request dashboard drill-down. Sampling live traffic into the eval set
+      is still open.
+- [x] A CI retrieval regression + drift gate against `demo_index`. A
+      CI-*built* full-corpus index still needs the source PDFs CI does not have.
+- [ ] Multi-replica: the semantic cache is per-process; move it to Redis.
