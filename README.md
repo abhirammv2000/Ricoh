@@ -2,6 +2,13 @@
 
 **Author:** Abhiram ([@ABHIRAM1234](https://github.com/ABHIRAM1234))
 
+Citera began as a group course project. Jayan Agarwal built the original
+ingestion, hybrid retrieval and first agent loop. Everything the project is
+about now is my work: the evaluation harness, the progressive-removal ablation,
+the router and tool-calling paths, the per-request instrumentation, the API and
+the deployment path, along with a substantial rewrite of the retrieval and agent
+code it grew from. `git log` has the per-commit split.
+
 ---
 
 ## TL;DR
