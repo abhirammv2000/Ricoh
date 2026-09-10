@@ -2,28 +2,28 @@
   "_description": "Multi-turn conversation chains for evaluating src/conversation.py. Each chain is a short support dialogue: turn 1 stands on its own, later turns are follow-ups with references ('it', 'that', 'those', 'what about') that only make sense given the history. 'standalone' is the question a correct condensation should produce, used both to score the rewrite and to tell the judge what turn is really asking. Answers are grounded in the RICOH ProcessDirector corpus. Run with eval/multiturn_eval.py.",
   "chains": [
     {
-      "id": "workflow",
+      "id": "error-path",
       "turns": [
         {
-          "question": "How do I create a workflow in RICOH ProcessDirector?",
-          "standalone": "How do I create a workflow in RICOH ProcessDirector?",
+          "question": "How do I make a job that goes into an error state continue down a different path in a RICOH ProcessDirector workflow instead of stopping?",
+          "standalone": "How do I make a job that goes into an error state continue down a different path in a RICOH ProcessDirector workflow instead of stopping?",
           "expected_behavior": "answer",
-          "key_facts": ["click the Workflow tab", "you can copy an existing workflow to use as a model"],
-          "expected_sources": ["aiw_c_createworkflow.pdf"]
+          "key_facts": ["add a branch in the workflow so a job that goes into error state continues in another path instead of staying in the Error state"],
+          "expected_sources": ["aiw_c_seterrorpath.pdf"]
         },
         {
-          "question": "Can I copy an existing one instead of building it from scratch?",
-          "standalone": "Can I copy an existing workflow in RICOH ProcessDirector instead of building one from scratch?",
+          "question": "Do I have to disable the workflow first to set that up?",
+          "standalone": "Do I have to disable a RICOH ProcessDirector workflow before adding an error path to it?",
           "expected_behavior": "answer",
-          "key_facts": ["copy an existing workflow and use it as a model", "right-click the workflow and select Copy"],
-          "expected_sources": ["aiw_c_createworkflow.pdf"]
+          "key_facts": ["disabling the workflow while you edit it is optional", "if you do not disable it, jobs that use the workflow keep moving through steps and could move into error"],
+          "expected_sources": ["aiw_c_seterrorpath.pdf"]
         },
         {
-          "question": "What steps does it usually start and end with?",
-          "standalone": "What steps does a RICOH ProcessDirector workflow usually start and end with?",
+          "question": "Can I branch out of any step, or only certain ones?",
+          "standalone": "Can I define an error-path branch out of any step in a RICOH ProcessDirector workflow?",
           "expected_behavior": "answer",
-          "key_facts": ["workflows begin with SetJobPropsFromTextFile", "workflows end with RemoveJobs"],
-          "expected_sources": ["aiw_c_createworkflow.pdf"]
+          "key_facts": ["you can define a branch out of any step in the workflow"],
+          "expected_sources": ["aiw_c_seterrorpath.pdf"]
         }
       ]
     },
@@ -190,15 +190,15 @@
           "question": "How do I create a custom document property in RICOH ProcessDirector?",
           "standalone": "How do I create a custom document property in RICOH ProcessDirector?",
           "expected_behavior": "answer",
-          "key_facts": ["on the Administration tab click Objects then Custom properties, click Add, and select Document Property"],
-          "expected_sources": ["aiw_creating_customprop.pdf"]
+          "key_facts": ["you define the custom document property in RICOH ProcessDirector, then map data in the documents to it", "the IdentifyDocuments or IdentifyPDFDocuments step extracts the data as the job runs"],
+          "expected_sources": ["doc_c_DefineCustomDocProps.pdf", "aiw_creating_customprop.pdf"]
         },
         {
           "question": "How do I turn it on once it's created?",
           "standalone": "How do I activate a custom document property in RICOH ProcessDirector once it is created?",
           "expected_behavior": "answer",
-          "key_facts": ["activate the custom property by clicking the switch at the top of the dialog"],
-          "expected_sources": ["aiw_creating_customprop.pdf"]
+          "key_facts": ["a custom property must be activated before it can be used, by clicking the switch at the top of the dialog"],
+          "expected_sources": ["aiw_creating_customprop.pdf", "doc_c_DefineCustomDocProps.pdf"]
         },
         {
           "question": "How do I then use it to sort AFP documents?",
