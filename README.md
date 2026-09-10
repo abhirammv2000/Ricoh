@@ -35,6 +35,8 @@ A three-config progressive-removal ablation compares the full Planner -> Retriev
 
 The verifier (C) adds no evidence recall over B and is slightly worse on the judged metrics, so it stays off. The planner (B) takes evidence recall from 0.94 to 1.00 on dev, but on the held-out 30 questions A and B score an identical 0.93, so the benefit does not replicate. Config A is the default: the planner's edge is real on one split, gone on the other, and not worth 1.7x the cost per query on every question. It stays behind `USE_PLANNER` for corpora where retrieval is weaker. Full per-split numbers and the earlier n=10 run in [§7](#7-evaluation-and-metrics).
 
+Later work held up under harder tests: a judged ablation on a hand-built **multi-hop** set (the case the 100-question set was missing) still puts the planner's gain inside the judge noise floor; the **holdout** ablation, once judged, confirmed the dev-only pattern; a **cross-provider bakeoff** found `gemini-3.6-flash` holds answer quality at 1/50th the cost per query while `gpt-4o-mini` drops correctness 0.21; and **multi-turn** follow-up handling (history-aware query rewriting) answers follow-ups about as well as cold questions. All in [§7](#7-evaluation-and-metrics).
+
 Brackets are 95% percentile-bootstrap confidence intervals.
 
 **Stack:** Python · LangGraph · Claude · ChromaDB (dense) + BM25 + Reciprocal Rank Fusion · Streamlit · pytest + GitHub Actions CI · Docker.
@@ -76,8 +78,13 @@ applicable here: every static prompt prefix in this system (the synthesizer
 instructions, the judge rubric, the tool-loop system prompt) is a few hundred
 tokens, well under the 1024-token minimum a cache breakpoint needs, and
 everything above that minimum, the retrieved evidence, is different on every
-request. The pricing table still models `cache_read` and `cache_write` so the
-door is open if a future prompt grows a large reusable prefix.
+request. Manufacturing a cacheable prefix would mean prepending ~800 tokens of
+few-shot examples to the synthesizer, which is a prompt change that would
+invalidate every headline number in section 7 and require re-running the
+benchmark, for a saving of a few hundred cached input tokens per call. Not
+worth it. The pricing table still models `cache_read` and `cache_write` so the
+door is open if a future prompt grows a large reusable prefix for another
+reason.
 
 The dashboard also drills into one past request: pick a trace and see its
 per-stage cost and, for the retrieval span, exactly which chunks fed the answer
@@ -773,9 +780,9 @@ docker run -p 8501:8501 -e ANTHROPIC_API_KEY=sk-ant-... -v "$PWD/data:/app/data"
 
 Being straight about what this is:
 
-**Built and working:** hybrid retrieval + RRF, agentic verify-retry loop, grounded/cited generation with refusal, multi-lingual answers, Glass Box UI, a quality eval harness, a unit-test suite + CI with a retrieval regression gate, per-request tracing (local JSONL plus opt-in LangSmith), an optional semantic answer cache, SDK-level retry/timeout handling, a rate limit and optional password on the public demo, multi-turn follow-up handling ([§7](#7-evaluation-and-metrics)), and a containerised deploy path.
+**Built and working:** hybrid retrieval + RRF, agentic verify-retry loop, grounded/cited generation with refusal, multi-lingual answers, Glass Box UI with a per-request cost/attribution drill-down, a quality eval harness, a judged multi-turn eval and a judged multi-hop ablation, a cross-provider (Anthropic / OpenAI / Gemini) abstraction with a bakeoff, a unit-test suite + CI with a retrieval regression gate, per-request tracing (local JSONL plus opt-in LangSmith), an optional semantic answer cache, SDK-level retry/timeout handling, a rate limit and optional password on the public demo, and a containerised deploy path.
 
-**Deliberately out of scope (next steps for true production):** real auth (not just a shared demo password), a secrets manager, sampling production traffic back into the eval set, a judged multi-turn benchmark, and a CI-built full-corpus index instead of the baked demo subset. These are tracked in [DEPLOYMENT.md](DEPLOYMENT.md).
+**Deliberately out of scope (next steps for true production):** real auth (not just a shared demo password), a secrets manager, sampling production traffic back into the eval set, human-labelled judge calibration (worksheet prepared), and a CI-built full-corpus index instead of the baked demo subset. These are tracked in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 15. Repository structure
 
