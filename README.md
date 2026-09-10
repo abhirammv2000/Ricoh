@@ -71,6 +71,14 @@ synthesizer for a repeat or near-duplicate question. A hit is recorded as a
 zero-cost span, so the cost dashboard shows the saving rather than hiding it, and
 the threshold is set from measured cosine similarity rather than guessed.
 
+Anthropic *prompt* caching is a different lever and was assessed as not
+applicable here: every static prompt prefix in this system (the synthesizer
+instructions, the judge rubric, the tool-loop system prompt) is a few hundred
+tokens, well under the 1024-token minimum a cache breakpoint needs, and
+everything above that minimum, the retrieved evidence, is different on every
+request. The pricing table still models `cache_read` and `cache_write` so the
+door is open if a future prompt grows a large reusable prefix.
+
 **Honest gaps:** the app ships an aggregate cost and latency dashboard
 (`src/perf.py`), but per-request drill-down, the chunk attribution behind one
 past trace, is CLI-only. Production traffic is not sampled back into the eval
@@ -779,8 +787,8 @@ Ordered by what most improves the system, not by what is easiest to demo.
 | 2 | Judge calibration: hand-label 30, report Cohen's κ | Worksheet ready (`eval/human_labels.json`, passages included); a RAGAS faithfulness cross-check is done and consistent with the judge ([§7](#7-evaluation-and-metrics)). The human labelling pass is the last open item on the eval side. |
 | 3 | Better embedding model, wider pool, rerank | **Done.** bge-small does not beat MiniLM at n=100, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. The reranker takes all-100 recall@5 from 0.94 to 0.97 and halves the miss count, but the gain is dev-only and it doubles latency, so it stays behind `RERANKER_ENABLED`. bge-base not built (no GPU). [§7](#7-evaluation-and-metrics). |
 | 4 | Adaptive routing | **Done.** `src/router.py` escalates to the tool loop on a refusal (a pre-retrieval confidence signal was tried first and does not separate misses from hits). Judged on dev: escalates rarely, small gain over config A, within judge noise. Off by default (`USE_ROUTER`). |
-| 5 | Strip print-to-PDF boilerplate at ingest | 75% of chunks carry an identical header/breadcrumb (~4-6% of words). Low-risk cleanup. |
-| 6 | Claim->span attribution instead of filename matching | Current citation precision only catches fabricated filenames. |
+| 5 | Strip print-to-PDF boilerplate at ingest | **Measured, not worth it.** Every page carries a PDF-export timestamp and an "N of M" line, but that is **1.5% of corpus words**, not the 4-6% first estimated, and both strings appear on 100% of pages so they carry zero BM25 IDF and shift every embedding identically: no measurable retrieval effect. Doing it would still force a budgeted re-eval to keep the headline numbers honest, for a sub-2% token saving. Left alone. |
+| 6 | Claim->span attribution instead of filename matching | **Attempted, needs a judge.** A free MiniLM-cosine proxy (claim sentence vs cited passage) was built and run over the 100 answers; claim extraction from markdown answers is too fragile and MiniLM's compressed cosine range makes the supported/not call unreliable, so it was reverted rather than shipped as a misleading metric. Real claim-to-span checking needs an NLI model or an LLM judge and stays open. |
 | 7 | Tracing, per-request cost/latency budgets, index built in CI | Tracing and per-request instrumentation done ([Observability](#observability)). A retrieval regression gate now runs in CI against `demo_index` ([§11](#11-testing-and-ci)); a full-corpus index built in CI still needs the source PDFs it does not have. |
 
 **Deliberately deferred:** multi-lingual answering is currently a liability rather than a feature. The refusal marker is English-only, so a translated-only refusal would be scored as an answer. The synthesizer now pins the English canonical sentence to keep the eval sound, but full language support needs a language-aware detector before it is worth advertising.
