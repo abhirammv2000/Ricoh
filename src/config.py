@@ -45,13 +45,19 @@ logging.basicConfig(
 for _noisy in (
     "chromadb",
     "chromadb.telemetry",
-    "chromadb.telemetry.product.posthog",
     "httpx",
     "httpcore",
     "openai",
     "anthropic",
 ):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
+
+# chromadb 0.6.3 ships a posthog client whose capture() signature no longer
+# matches what the telemetry layer calls, so every ChromaDB operation logs
+# "capture() takes 1 positional argument but 3 were given" at ERROR even with
+# ANONYMIZED_TELEMETRY=False. It is harmless and not ours to fix, so silence it
+# outright rather than let it bury real errors in every eval and CI log.
+logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
 
 
 # Optional LangSmith tracing, opt-in and off by default.
