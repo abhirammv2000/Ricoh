@@ -122,6 +122,9 @@ The shape of the pipeline came out of the ablation rather than being assumed up 
 User Question
     |
     v
+CONDENSE (only on a follow-up: rewrite it to stand on its own; §7)
+    |
+    v
 LangGraph state machine
 
   default (what the ablation settled on):
@@ -426,6 +429,31 @@ a cheap safety net for the occasional wrong refusal, not a quality lever; the
 planner (config B above) is the lever, and it still beats the router on evidence
 recall (1.000 vs 0.957). Off by default (`USE_ROUTER`).
 
+### Multi-turn follow-ups
+
+Every question above is asked cold. Real support conversations are not: "how do
+I create a workflow?" is followed by "can I copy an existing one?", and the
+second question retrieves nothing useful because "one" has no referent on its
+own.
+
+`src/conversation.py` handles this the standard way. Before retrieval, a follow-up
+is rewritten into a standalone question using the last few turns as context, so
+"can I copy an existing one?" becomes "can I copy an existing workflow?" and then
+goes through the exact same pipeline as any other question. Measured on three
+follow-ups against one real prior turn, the rewrites resolved "one" and "it"
+correctly and left an already-standalone question untouched, for $0.0008 per
+rewrite (one Sonnet call).
+
+Two things keep this from undermining the rest of this section. The synthesizer
+still answers only from retrieved evidence, so a bad rewrite degrades to a
+retrieval miss and usually a refusal, not a hallucination. And the single-turn
+path is byte-for-byte unchanged: with no history there is no rewrite call, so
+the numbers above still describe what a one-shot question does.
+
+**Not yet judged.** There is no multi-turn question set and no judged run, so
+this ships as a mechanism with unit tests, not a measured result. A judged
+multi-turn benchmark is the open item.
+
 ### A diagnostic I got wrong
 
 An earlier version of this section claimed `recall@5 = 0.81` and "worst rank 8", concluding that `final_k=5` was truncating good results. **That was wrong, and the cause was my own diagnostic.** It measured retrieval with `top_k=50`, a candidate pool the agent never uses, on the assumption that a wider pool could only reveal more.
@@ -650,9 +678,9 @@ docker run -p 8501:8501 -e ANTHROPIC_API_KEY=sk-ant-... -v "$PWD/data:/app/data"
 
 Being straight about what this is:
 
-**Built and working:** hybrid retrieval + RRF, agentic verify-retry loop, grounded/cited generation with refusal, multi-lingual answers, Glass Box UI, a quality eval harness, a unit-test suite + CI, and a containerised deploy path.
+**Built and working:** hybrid retrieval + RRF, agentic verify-retry loop, grounded/cited generation with refusal, multi-lingual answers, Glass Box UI, a quality eval harness, a unit-test suite + CI with a retrieval regression gate, per-request tracing (local JSONL plus opt-in LangSmith), an optional semantic answer cache, SDK-level retry/timeout handling, a rate limit and optional password on the public demo, multi-turn follow-up handling ([§7](#7-evaluation-and-metrics)), and a containerised deploy path.
 
-**Deliberately out of scope (next steps for true production):** auth in front of the app, secrets management, LLM-call caching + rate-limit/retry handling, request tracing (LangSmith), multi-turn conversation memory, and a CI-built index artifact instead of ingest-on-boot. These are tracked in [DEPLOYMENT.md](DEPLOYMENT.md).
+**Deliberately out of scope (next steps for true production):** real auth (not just a shared demo password), a secrets manager, sampling production traffic back into the eval set, a judged multi-turn benchmark, and a CI-built full-corpus index instead of the baked demo subset. These are tracked in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 15. Repository structure
 
@@ -669,6 +697,7 @@ Ricoh/
 │   ├── retriever.py             # Hybrid retrieval (ChromaDB + BM25 + RRF + optional reranker)
 │   ├── llm_factory.py           # LLM provider abstraction
 │   ├── agent.py                 # LangGraph agentic state machine
+│   ├── conversation.py          # History-aware follow-up rewriting for multi-turn
 │   ├── router.py                # Cheap path, escalate to the tool loop on a refusal
 │   ├── evaluate.py              # Latency/citation smoke test
 │   └── eval_harness.py          # Quality eval harness (evidence recall, retriever recall@N, groundedness)
@@ -678,6 +707,7 @@ Ricoh/
 │   ├── metrics.json             # Harness output, default config (generated)
 │   ├── eval_report_n100.md      # Harness output, 100 questions (generated)
 │   ├── ablation.py              # Progressive-removal pipeline ablation
+│   ├── ci_gate.py               # Retrieval regression gate (runs in CI vs demo_index)
 │   ├── sweep_embeddings.py      # Retrieval-only embedding-model comparison
 │   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
 │   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring
