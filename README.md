@@ -186,7 +186,7 @@ Cited answer plus the Glass Box view
 ### LLM: Claude Sonnet (Anthropic)
 - **Why:** Strong instruction-following, reliable JSON output for the planner, low hallucination rate, and cheap enough to run 4-5 calls per question.
 - **On temperature:** set to 0.0 to *reduce* output variance. It does **not** make generation deterministic. Temperature 0 has never guaranteed identical outputs. Measured run-to-run variation in the planner's sub-queries is the main source of end-to-end variance in this system; retrieval itself is bit-identical across runs.
-- **Alternative considered:** GPT-4o (OpenAI) - switched to Claude due to API availability constraints.
+- **Other providers:** `src/llm_factory.py` wires OpenAI and Gemini (the latter via its OpenAI-compatible endpoint) behind the same interface, and `eval/provider_bakeoff.py` runs the synthesizer on each against a shared retrieval and one fixed judge. An unjudged run has gpt-4o-mini and gemini-3.6-flash at roughly 30x lower cost per query than Sonnet; whether they hold answer quality is the judged run staged in `eval/run_paid_batch.sh` ([§16](#16-roadmap)).
 
 ### Prompt Engineering (4 specialised prompts)
 1. **Planner prompt:** Decomposes queries into sub-queries + extracts entities. Outputs structured JSON. Includes retry-aware context injection.
@@ -375,6 +375,8 @@ So config A stays the default. The honest change is to the reasoning: the planne
 
 Raw per-config dumps are in `eval/ablation/generated_questions_dev/` (`--n100`) and `_holdout/` (`--split holdout --configs A B --no-judge`).
 
+**The fair test of the planner is still owed.** Every question in that set is single-hop: `eval/verify_multihop.py` shows one retrieval already reaches every required document on 92 of the 100. The planner decomposes a question into sub-queries, so it can only help where one query is not enough. `eval/multihop_questions.json` is a hand-written 20-question set of two-document questions (8 of which a single retrieval demonstrably misses); the A/B/C ablation on that slice is staged in `eval/run_paid_batch.sh`. That run, not this one, is what should decide whether `USE_PLANNER` has a real use.
+
 ### Tool calling
 
 The ablation above switched the planner and verifier off. It also predicted the
@@ -460,10 +462,7 @@ own.
 `src/conversation.py` handles this the standard way. Before retrieval, a follow-up
 is rewritten into a standalone question using the last few turns as context, so
 "can I copy an existing one?" becomes "can I copy an existing workflow?" and then
-goes through the exact same pipeline as any other question. Measured on three
-follow-ups against one real prior turn, the rewrites resolved "one" and "it"
-correctly and left an already-standalone question untouched, for $0.0008 per
-rewrite (one Sonnet call).
+goes through the exact same pipeline as any other question.
 
 Two things keep this from undermining the rest of this section. The synthesizer
 still answers only from retrieved evidence, so a bad rewrite degrades to a
@@ -471,9 +470,20 @@ retrieval miss and usually a refusal, not a hallucination. And the single-turn
 path is byte-for-byte unchanged: with no history there is no rewrite call, so
 the numbers above still describe what a one-shot question does.
 
-**Not yet judged.** There is no multi-turn question set and no judged run, so
-this ships as a mechanism with unit tests, not a measured result. A judged
-multi-turn benchmark is the open item.
+**How well it works.** `eval/multiturn_questions.json` is 12 conversation chains
+(36 turns); `eval/multiturn_eval.py` walks each chain carrying the real prior
+answers as history. A quick check over the 24 follow-up turns (prior turns as
+context) resolved the reference every time, at a mean cosine of 0.91 to the
+hand-written standalone target: "what about those?" became "in which
+representations can AFP Enhancer create an Intelligent Mail barcode?", "what
+about the application servers?" became "what operating system do the application
+servers run on?". Each rewrite is one Sonnet call, about $0.001.
+
+**Judged run staged.** Whether the condensed follow-ups then get *answered* as
+well as cold questions needs the LLM judge on every turn; that run is in
+`eval/run_paid_batch.sh` and is blocked on Anthropic credits. Until it lands,
+this is a mechanism with a measured retrieval result, not a measured
+answer-quality result.
 
 ### A diagnostic I got wrong
 
@@ -745,6 +755,12 @@ Ricoh/
 │   ├── ci_gate.py               # Retrieval regression gate (runs in CI vs demo_index)
 │   ├── ragas_export.py          # Export a harness slice for the RAGAS cross-check
 │   ├── ragas_eval.py            # RAGAS faithfulness vs our judge (separate venv)
+│   ├── multihop_questions.json  # 20 hand-written two-document questions
+│   ├── verify_multihop.py       # Confirms the multi-hop set stresses retrieval
+│   ├── multiturn_questions.json # 12 conversation chains for the follow-up eval
+│   ├── multiturn_eval.py        # Judged multi-turn evaluation
+│   ├── provider_bakeoff.py      # Cross-provider synthesizer comparison
+│   ├── run_paid_batch.sh        # The judged runs that need Anthropic credits
 │   ├── sweep_embeddings.py      # Retrieval-only embedding-model comparison
 │   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
 │   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring
@@ -783,12 +799,15 @@ Ordered by what most improves the system, not by what is easiest to demo.
 
 | Priority | Work | Status |
 |---|---|---|
-| 1 | Re-run the A/B/C ablation at n=100 | **Done.** The n=10 "planner is harmful" finding did not hold: the planner helps on dev, not on holdout, verifier still earns nothing. Config A stays default. [§7](#7-evaluation-and-metrics). Remaining: the judge on the holdout split. |
+| 1 | Re-run the A/B/C ablation at n=100 | **Done.** The n=10 "planner is harmful" finding did not hold: the planner helps on dev, not on holdout, verifier still earns nothing. Config A stays default. [§7](#7-evaluation-and-metrics). The judge on the holdout split is staged in `eval/run_paid_batch.sh`. |
 | 2 | Judge calibration: hand-label 30, report Cohen's κ | Worksheet ready (`eval/human_labels.json`, passages included); a RAGAS faithfulness cross-check is done and consistent with the judge ([§7](#7-evaluation-and-metrics)). The human labelling pass is the last open item on the eval side. |
 | 3 | Better embedding model, wider pool, rerank | **Done.** bge-small does not beat MiniLM at n=100, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. The reranker takes all-100 recall@5 from 0.94 to 0.97 and halves the miss count, but the gain is dev-only and it doubles latency, so it stays behind `RERANKER_ENABLED`. bge-base not built (no GPU). [§7](#7-evaluation-and-metrics). |
 | 4 | Adaptive routing | **Done.** `src/router.py` escalates to the tool loop on a refusal (a pre-retrieval confidence signal was tried first and does not separate misses from hits). Judged on dev: escalates rarely, small gain over config A, within judge noise. Off by default (`USE_ROUTER`). |
 | 5 | Strip print-to-PDF boilerplate at ingest | **Measured, not worth it.** Every page carries a PDF-export timestamp and an "N of M" line, but that is **1.5% of corpus words**, not the 4-6% first estimated, and both strings appear on 100% of pages so they carry zero BM25 IDF and shift every embedding identically: no measurable retrieval effect. Doing it would still force a budgeted re-eval to keep the headline numbers honest, for a sub-2% token saving. Left alone. |
 | 6 | Claim->span attribution instead of filename matching | **Two free proxies tried, both reverted; RAGAS faithfulness is the working answer.** A MiniLM-cosine proxy and then a local NLI model (`nli-deberta-v3-base`) were each built and run over the 100 answers. Both produced numbers that contradict the judge's 0.96 groundedness (the NLI run flagged 8% of citations as "contradicted"). The cause is the synthesizer's answer style: it restructures sources into tables, worked examples and numbered steps, and answers non-English questions in the user's language, so sentence-level entailment against the raw chunk is not a fair test. Claim decomposition by an LLM handles that, which is what the RAGAS faithfulness cross-check does ([§7](#7-evaluation-and-metrics)). A deeper per-claim attribution metric still needs a dedicated judged pass. |
 | 7 | Tracing, per-request cost/latency budgets, index built in CI | Tracing and per-request instrumentation done ([Observability](#observability)). A retrieval regression gate now runs in CI against `demo_index` ([§11](#11-testing-and-ci)); a full-corpus index built in CI still needs the source PDFs it does not have. |
+| 8 | A genuinely multi-hop question set + ablation on it | **Staged.** The 100-question set has no multi-hop questions, which is why the planner looked useless in the n=100 ablation. `eval/multihop_questions.json` is 20 hand-written two-document questions; `eval/verify_multihop.py` confirms a single retrieval misses a required document on 8 of them. The judged A/B/C ablation on this slice is in `eval/run_paid_batch.sh`, blocked on Anthropic credits. This is the fair test of whether the planner's query decomposition earns its cost. |
+| 9 | Judged multi-turn conversation eval | **Staged.** `eval/multiturn_questions.json` is 12 conversation chains (36 turns); `eval/multiturn_eval.py` walks each chain carrying real prior answers as history and judges every turn, splitting first turns from follow-ups. A free check on the 24 follow-ups showed condensation resolves the reference every time (mean cosine 0.91 to the hand-written target). The judged run is in `eval/run_paid_batch.sh`. |
+| 10 | Cross-provider bakeoff | **Staged.** `src/llm_factory.py` now wires OpenAI and Gemini (the latter through its OpenAI-compatible endpoint); `eval/provider_bakeoff.py` runs config A on each provider against a shared retrieval and the same opus judge. An unjudged run put gpt-4o-mini at $0.0005/query and gemini-3.6-flash at $0.0003/query, both roughly 30x cheaper than Sonnet's $0.014, with evidence recall held at 1.00. The judged comparison (does the cheaper model hold groundedness and correctness?) is in `eval/run_paid_batch.sh`. |
 
 **Deliberately deferred:** multi-lingual answering is currently a liability rather than a feature. The refusal marker is English-only, so a translated-only refusal would be scored as an answer. The synthesizer now pins the English canonical sentence to keep the eval sound, but full language support needs a language-aware detector before it is worth advertising.
