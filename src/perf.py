@@ -98,6 +98,59 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def format_trace(record: dict[str, Any]) -> dict[str, Any]:
+    """Shape one stored trace for a per-request drill-down.
+
+    trace_view.py prints this on the CLI; the Streamlit dashboard renders the
+    same structure, so the two views stay in agreement. The chunk attribution,
+    which chunk fed the answer at what rank and RRF score, lives in the
+    retrieval span's attributes and is the reason this view exists.
+    """
+    spans: list[dict[str, Any]] = []
+    for s in record.get("spans", []):
+        attrs = s.get("attributes") or {}
+        row: dict[str, Any] = {
+            "stage": s.get("stage", ""),
+            "kind": s.get("span_type", "llm"),
+            "latency_seconds": round(float(s.get("latency_seconds", 0.0)), 3),
+            "cost_usd": round(float(s.get("cost_usd", 0.0)), 6),
+            "model": s.get("model", ""),
+            "input_tokens": int(s.get("input_tokens", 0)),
+            "output_tokens": int(s.get("output_tokens", 0)),
+            "error": s.get("error"),
+        }
+        chunks = attrs.get("chunks")
+        if chunks:
+            row["retrieval"] = {
+                "vector_hits": attrs.get("vector_hits"),
+                "bm25_hits": attrs.get("bm25_hits"),
+                "reranked": bool(attrs.get("reranked")),
+                "chunks": [
+                    {"doc": c.get("doc"), "page": c.get("page"), "rrf": c.get("rrf")}
+                    for c in chunks
+                ],
+            }
+        if s.get("stage") == "citation_guardrail":
+            row["citation_guardrail"] = {
+                "valid": attrs.get("valid", True),
+                "cited": attrs.get("cited", []),
+                "fabricated": attrs.get("fabricated", []),
+            }
+        spans.append(row)
+
+    return {
+        "trace_id": record.get("trace_id", ""),
+        "started_at": record.get("started_at", ""),
+        "query": record.get("query", ""),
+        "llm_calls": int(record.get("llm_calls", 0)),
+        "total_cost_usd": round(float(record.get("total_cost_usd", 0.0)), 6),
+        "total_traced_seconds": round(float(record.get("total_traced_seconds", 0.0)), 2),
+        "total_input_tokens": int(record.get("total_input_tokens", 0)),
+        "total_output_tokens": int(record.get("total_output_tokens", 0)),
+        "spans": spans,
+    }
+
+
 def _print_report(s: dict[str, Any]) -> None:
     if s["queries"] == 0:
         print("No traces yet. Run a query through the app, the API, or the load test.")
