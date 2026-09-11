@@ -597,7 +597,17 @@ The sweep also confirms the RRF non-monotonicity from the diagnostic below: wide
 
 So the reranker is the clearest lever for the handful of hard questions if a latency budget allows, and it ships behind `RERANKER_ENABLED` with the evidence written down rather than turned on.
 
-**Which reranker, though?** `eval/reranker_sweep.py` varies the reranker model itself (not just on/off) against the MiniLM index: the current `ms-marco-MiniLM-L-6-v2` (2020, 6 layers) against `ms-marco-MiniLM-L-12-v2` (same family, 12 layers), `bge-reranker-base`, and `bge-reranker-v2-m3` (2024, ~568M params). Result in the row below.
+**Which reranker, though?** `eval/reranker_sweep.py` varies the reranker model itself (not just on/off) against the MiniLM index, `top_k=20`, all 100 questions:
+
+| reranker | recall@1 | recall@3 | recall@5 | MRR | seconds/query |
+|---|---|---|---|---|---|
+| none (fused pool) | 0.78 | 0.90 | 0.92 | 0.84 | - |
+| `ms-marco-MiniLM-L-6-v2` (current, 2020) | 0.77 | 0.95 | 0.97 | 0.86 | 5.3s |
+| `ms-marco-MiniLM-L-12-v2` | 0.78 | 0.96 | 0.97 | 0.87 | 9.4s |
+| `bge-reranker-base` (2024) | 0.81 | 0.96 | 0.97 | 0.88 | 26.9s |
+| `bge-reranker-v2-m3` (2024, ~568M) | **0.86** | **0.97** | 0.97 | **0.91** | **120.5s** |
+
+**recall@5 is a hard ceiling at 0.97 for every reranker**, current or state-of-the-art: once a cross-encoder pass runs at all, which model it is stops mattering for what reaches the synthesizer. recall@1 and MRR do improve monotonically with reranker size and recency, up to +0.09 recall@1 for `bge-reranker-v2-m3`, but that gain is concentrated on dev (0.90) and mostly gone on holdout (0.77, same as the smaller models), the same split-dependence as everywhere else in this section, and it costs **23x the latency of the current reranker** (120s vs 5.3s per query, on CPU). Because the synthesizer reads the top **5** chunks, not the top 1, recall@5 is the metric that actually reaches the answer, and it is identical across every reranker tested. So `ms-marco-MiniLM-L-6-v2` stays: a bigger, newer reranker buys precision this pipeline cannot use, at a latency cost it cannot afford.
 
 Contextual Retrieval and semantic chunking were deliberately **not** implemented: both target long multi-page documents and would cost real ingest-time API calls for little gain on a single-page corpus.
 
@@ -825,6 +835,7 @@ Ricoh/
 │   ├── provider_bakeoff.py      # Cross-provider synthesizer comparison
 │   ├── run_paid_batch.sh        # The judged runs that need Anthropic credits
 │   ├── sweep_embeddings.py      # Retrieval-only embedding-model comparison
+│   ├── reranker_sweep.py        # Retrieval-only reranker-model comparison
 │   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
 │   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring
 │   └── verify_unanswerable.py   # Audits the "refuse" labels against the full corpus
@@ -862,7 +873,7 @@ Ordered by what most improves the system, not by what is easiest to demo.
 |---|---|---|
 | 1 | Re-run the A/B/C ablation at n=100 | **Done, including the judge on holdout.** The n=10 "planner is harmful" finding did not hold: the planner helps evidence recall on dev, not on holdout; the judged holdout run confirms groundedness and correctness move inside the noise floor. Verifier earns nothing on any split. Config A stays default. [§7](#7-evaluation-and-metrics). |
 | 2 | Judge calibration: hand-label 30, report Cohen's κ | Worksheet ready (`eval/human_labels.json`, passages included); a RAGAS faithfulness cross-check on 50 answers is consistent with the judge (0.937 vs 0.971, [§7](#7-evaluation-and-metrics)). The human labelling pass is the last open item on the eval side. |
-| 3 | Better embedding model, wider pool, rerank | **Done.** bge-small does not beat MiniLM at n=100, so the withdrawn 0.78 -> 0.89 A/B does not reproduce and MiniLM stays. The reranker takes all-100 recall@5 from 0.94 to 0.97 and halves the miss count, but the gain is dev-only and it doubles latency, so it stays behind `RERANKER_ENABLED`. bge-base not built (no GPU). [§7](#7-evaluation-and-metrics). |
+| 3 | Better embedding model, wider pool, rerank | **Done, four embedding models and four rerankers.** bge-small, bge-base and e5-base-v2 all fail to beat 2021-era MiniLM; bge-base (768-dim, newer) is outright worse. The reranker takes recall@5 0.94 -> 0.97 for every embedder alike (it is the reranker doing the ranking, not the embedder), but the gain is dev-only and costs latency, so it stays behind `RERANKER_ENABLED`. Swapping the reranker model itself (up to `bge-reranker-v2-m3`) buys recall@1 but not recall@5, at up to 23x the latency, so the cheap 2020 reranker stays. [§7](#7-evaluation-and-metrics). |
 | 4 | Adaptive routing | **Done.** `src/router.py` escalates to the tool loop on a refusal (a pre-retrieval confidence signal was tried first and does not separate misses from hits). Judged on dev: escalates rarely, small gain over config A, within judge noise. Off by default (`USE_ROUTER`). |
 | 5 | Strip print-to-PDF boilerplate at ingest | **Measured, not worth it.** Every page carries a PDF-export timestamp and an "N of M" line, but that is **1.5% of corpus words**, not the 4-6% first estimated, and both strings appear on 100% of pages so they carry zero BM25 IDF and shift every embedding identically: no measurable retrieval effect. Doing it would still force a budgeted re-eval to keep the headline numbers honest, for a sub-2% token saving. Left alone. |
 | 6 | Claim->span attribution instead of filename matching | **Two free proxies tried, both reverted; RAGAS faithfulness is the working answer.** A MiniLM-cosine proxy and then a local NLI model (`nli-deberta-v3-base`) were each built and run over the 100 answers. Both produced numbers that contradict the judge's 0.96 groundedness (the NLI run flagged 8% of citations as "contradicted"). The cause is the synthesizer's answer style: it restructures sources into tables, worked examples and numbered steps, and answers non-English questions in the user's language, so sentence-level entailment against the raw chunk is not a fair test. Claim decomposition by an LLM handles that, which is what the RAGAS faithfulness cross-check does ([§7](#7-evaluation-and-metrics)). A deeper per-claim attribution metric still needs a dedicated judged pass. |
