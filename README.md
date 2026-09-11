@@ -565,38 +565,39 @@ The retriever runs on `all-MiniLM-L6-v2`, ChromaDB's built-in default and a 2021
 
 `eval/sweep_embeddings.py` replaces it with a retrieval-only sweep over the 100-question set: recall@1/3/5, MRR and nDCG@5 per (embedding model, candidate pool), on dev / holdout / all. No LLM, so it is exact and free. Each model gets its own index under `eval/indexes/`; the cross-encoder reranker is behind `--rerank` because its per-candidate transformer pass dominates the run.
 
-At `top_k=10`, over all 100 questions:
+At `top_k=10`, over all 100 questions, four models including two 768-dimension ones:
 
-| model | recall@1 | recall@3 | recall@5 | MRR | missed |
-|---|---|---|---|---|---|
-| all-MiniLM-L6-v2 (current) | 0.78 | 0.89 | 0.94 | 0.85 | 6 |
-| bge-small-en-v1.5 | 0.79 | 0.91 | 0.93 | 0.85 | 7 |
+| model | dim | recall@1 | recall@3 | recall@5 | MRR | missed |
+|---|---|---|---|---|---|---|
+| all-MiniLM-L6-v2 (current) | 384 | 0.78 | 0.89 | **0.94** | 0.85 | **6** |
+| bge-small-en-v1.5 | 384 | 0.79 | 0.91 | 0.93 | 0.85 | 7 |
+| e5-base-v2 | 768 | 0.76 | 0.91 | 0.93 | 0.83 | 7 |
+| bge-base-en-v1.5 | 768 | 0.76 | 0.88 | 0.92 | 0.83 | 8 |
 
-**The withdrawn gain does not reproduce at n=100.** bge-small is a wash: recall@3 is up 0.02, recall@5 is down 0.01, MRR is identical, and it misses one more question than MiniLM. It does not even fail on the same questions, it fixes one (Q83) and breaks two others (Q46, Q92). On the dev split bge-small's recall@1 looks better (0.80 vs 0.74); on holdout it looks worse (0.77 vs 0.87). A model whose ranking flips between splits is not a real improvement. The 2021 embedding model is not what is costing retrieval quality on this single-page corpus, so MiniLM stays.
+**Bigger did not help; the 2021 model is still the best of the four.** bge-base is a *newer and 2x larger* model and scores *worse* than MiniLM on recall@5 and misses more questions. bge-small and e5-base-v2 are both washes, within a point of MiniLM in either direction. This also means the withdrawn n=10 claim (a 0.78 -> 0.89 gain from bge-small) does not reproduce at n=100: bge-small fixes one question (Q83) and breaks two others (Q46, Q92), and its dev-split recall@1 (0.80) reverses on holdout (0.77 vs MiniLM's 0.74/0.87). A model whose ranking flips between splits, or gets worse as it gets bigger, is not a real improvement. The bottleneck on this single-page corpus is not the embedding model.
 
-The sweep also confirms the RRF non-monotonicity from the diagnostic below: widening the pool to `top_k=20` without a reranker moves MiniLM's recall@5 from 0.94 to 0.92 and its miss count from 6 to 8.
+The sweep also confirms the RRF non-monotonicity from the diagnostic below: widening the pool to `top_k=20` without a reranker moves MiniLM's recall@5 from 0.94 to 0.92 and its miss count from 6 to 8; the same pattern holds for all four embedders.
 
-**The reranker (`--rerank`).** A `cross-encoder/ms-marco-MiniLM-L-6-v2` pass over the fused pool, all 100 questions:
+**The reranker (`--rerank`).** `cross-encoder/ms-marco-MiniLM-L-6-v2` over the fused pool, all four embedders, all 100 questions:
 
 | model | rerank | recall@1 | recall@3 | recall@5 | missed |
 |---|---|---|---|---|---|
 | MiniLM | no | 0.78 | 0.89 | 0.94 | 6 |
-| MiniLM | yes | 0.77 | 0.95 | 0.97 | 3 |
+| bge-base | no | 0.76 | 0.88 | 0.92 | 8 |
+| MiniLM | yes | 0.77 | 0.95 | **0.97** | **3** |
 | bge-small | yes | 0.75 | 0.95 | 0.97 | 3 |
+| e5-base-v2 | yes | 0.76 | 0.94 | 0.97 | 3 |
+| bge-base | yes | 0.75 | 0.95 | 0.97 | 3 |
 
-The reranker recovers 3 of the 6 questions that retrieved nothing and takes recall@3 from 0.89 to 0.95. Three caveats keep it off by default:
+**All four embedders converge to identical numbers once the reranker is on** (recall@5 0.97, 3 missed, every time). That is the cleanest evidence in this section that the cross-encoder, not the embedding model, is doing the ranking work. The reranker recovers 3 of the 6 questions that retrieved nothing and takes recall@3 from 0.89 to 0.95. Three caveats keep it off by default:
 
 1. **The gain is dev-only.** On dev, reranked recall@5 is 0.99; on the held-out 30 it is 0.93, exactly the un-reranked number, and reranked recall@1 on holdout *drops* from 0.87 to 0.67. Same split-dependent pattern as every other retrieval change in this section.
 2. **It costs a transformer pass per query**, ~3 to 4s on CPU, which more than doubles the default path's latency.
-3. **It makes the embedding choice moot.** MiniLM and bge-small converge to identical reranked numbers, because the cross-encoder is doing the ranking, not the embedder. `top_k=10` and `top_k=20` also converge once it is on, since it repairs the wider pool.
+3. **It makes the embedding choice moot**, per the table above.
 
-So the reranker is the clearest lever for the handful of hard questions if a latency budget allows, and it ships behind `RERANKER_ENABLED` with the evidence written down rather than turned on. bge-base was not built (a fresh torch pass over the corpus, slow without a GPU):
+So the reranker is the clearest lever for the handful of hard questions if a latency budget allows, and it ships behind `RERANKER_ENABLED` with the evidence written down rather than turned on.
 
-```bash
-pip install -r requirements-enhanced.txt
-python -m eval.sweep_embeddings --build bge-base
-python -m eval.sweep_embeddings --measure --rerank
-```
+**Which reranker, though?** `eval/reranker_sweep.py` varies the reranker model itself (not just on/off) against the MiniLM index: the current `ms-marco-MiniLM-L-6-v2` (2020, 6 layers) against `ms-marco-MiniLM-L-12-v2` (same family, 12 layers), `bge-reranker-base`, and `bge-reranker-v2-m3` (2024, ~568M params). Result in the row below.
 
 Contextual Retrieval and semantic chunking were deliberately **not** implemented: both target long multi-page documents and would cost real ingest-time API calls for little gain on a single-page corpus.
 
