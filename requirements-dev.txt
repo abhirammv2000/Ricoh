@@ -1,5 +1,7 @@
 # Development / CI dependencies.
-# Installs the full runtime stack plus test tooling.
+# Installs the full runtime stack plus test tooling. Providers are pulled in
+# too since test_llm_factory.py builds an OpenAI/Gemini client offline.
 -r requirements.txt
+-r requirements-providers.txt
 
 pytest==8.3.4
