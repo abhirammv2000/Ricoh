@@ -1,0 +1,15 @@
+# Training dependencies. Install on the GPU VM (see infra/create_vm.sh /
+# infra/setup_vm.sh), not locally: unsloth needs a CUDA GPU to be useful at
+# all, and its 4-bit loading path will not run on CPU.
+#
+# No version pins here on purpose. unsloth's own installer picks packages
+# matched to whatever torch/CUDA build is already on the machine, and this
+# project's GCP Deep Learning VM image ships a specific, evolving PyTorch/CUDA
+# combination pre-installed; pinning ages badly against that. See
+# infra/setup_vm.sh for exactly what was actually run and why.
+unsloth
+trl
+datasets
+
+# Serving (eval/serving-side, a separate venv, see serve/serve_vllm.sh):
+#   pip install vllm
