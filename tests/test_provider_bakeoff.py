@@ -9,8 +9,8 @@ from __future__ import annotations
 from eval.provider_bakeoff import PROVIDER_MODELS, _aggregate, _distinct_docs, _mean
 
 
-def test_provider_models_cover_the_three_providers():
-    assert set(PROVIDER_MODELS) == {"anthropic", "openai", "google"}
+def test_provider_models_cover_all_four_providers():
+    assert set(PROVIDER_MODELS) == {"anthropic", "openai", "google", "self_hosted"}
     assert PROVIDER_MODELS["anthropic"] == "claude-sonnet-4-6"
 
 

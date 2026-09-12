@@ -1,0 +1,15 @@
+{
+  "runs": [
+    {
+      "seed": 20260911,
+      "requested": 350,
+      "skip": 29,
+      "generated_this_run": 319,
+      "total_on_disk": 348,
+      "rejected": 2,
+      "failed": 0,
+      "cost_usd": 6.473166,
+      "note": "Appended to train_examples.jsonl; see that file's line count for the running total."
+    }
+  ]
+}

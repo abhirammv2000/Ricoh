@@ -10,9 +10,14 @@ Only the synthesizer model varies. Retrieval is identical and deterministic
 a difference is the model, not the harness.
 
 Providers and default models (override with --models):
-    anthropic  claude-sonnet-4-6   (the current production model, the baseline)
-    openai     gpt-4o-mini
-    google     gemini-3.6-flash    (via its OpenAI-compatible endpoint)
+    anthropic    claude-sonnet-4-6   (the current production model, the baseline)
+    openai       gpt-4o-mini
+    google       gemini-3.6-flash    (via its OpenAI-compatible endpoint)
+    self_hosted  citera-finetuned    (QLoRA-distilled Llama 3.1 8B, own vLLM
+                                      server, see citera-finetune/. Cost shows
+                                      as $0/query: real cost is GPU-hours, not
+                                      per-token, so it is not comparable to the
+                                      other rows' cost column as-is.)
 
     pip install -r requirements-providers.txt
     # set OPENAI_API_KEY and GEMINI_API_KEY in .env
@@ -44,6 +49,7 @@ PROVIDER_MODELS = {
     "anthropic": _DEFAULT_MODELS["anthropic"],
     "openai": _DEFAULT_MODELS["openai"],
     "google": _DEFAULT_MODELS["google"],
+    "self_hosted": _DEFAULT_MODELS["self_hosted"],
 }
 
 
@@ -185,7 +191,7 @@ def _write_md(report: dict[str, Any]) -> None:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Cross-provider synthesizer bakeoff")
     ap.add_argument("--providers", nargs="+", default=["anthropic", "openai", "google"],
-                    choices=["anthropic", "openai", "google"])
+                    choices=["anthropic", "openai", "google", "self_hosted"])
     ap.add_argument("--models", nargs="*", default=[],
                     help="provider=model overrides, e.g. openai=gpt-4o")
     ap.add_argument("--n", type=int, default=20)

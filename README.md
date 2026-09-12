@@ -35,7 +35,7 @@ A three-config progressive-removal ablation compares the full Planner -> Retriev
 
 The verifier (C) adds no evidence recall over B and is slightly worse on the judged metrics, so it stays off. The planner (B) takes evidence recall from 0.94 to 1.00 on dev, but on the held-out 30 questions A and B score an identical 0.93, so the benefit does not replicate. Config A is the default: the planner's edge is real on one split, gone on the other, and not worth 1.7x the cost per query on every question. It stays behind `USE_PLANNER` for corpora where retrieval is weaker. Full per-split numbers and the earlier n=10 run in [§7](#7-evaluation-and-metrics).
 
-Later work held up under harder tests: a judged ablation on a hand-built **multi-hop** set (the case the 100-question set was missing) still puts the planner's gain inside the judge noise floor; the **holdout** ablation, once judged, confirmed the dev-only pattern; a **cross-provider bakeoff** found `gemini-3.6-flash` holds answer quality at 1/50th the cost per query while `gpt-4o-mini` drops correctness 0.21; and **multi-turn** follow-up handling (history-aware query rewriting) answers follow-ups about as well as cold questions. All in [§7](#7-evaluation-and-metrics).
+Later work held up under harder tests: a judged ablation on a hand-built **multi-hop** set (the case the 100-question set was missing) still puts the planner's gain inside the judge noise floor; the **holdout** ablation, once judged, confirmed the dev-only pattern; a **cross-provider bakeoff** found `gemini-3.6-flash` holds answer quality at 1/50th the cost per query while `gpt-4o-mini` drops correctness 0.21; **multi-turn** follow-up handling (history-aware query rewriting) answers follow-ups about as well as cold questions; and a **QLoRA fine-tune** of Llama 3.1 8B, self-hosted on one GPU, distilled the synthesizer's skill closely enough to land correctness inside Sonnet's noise floor, though groundedness stays a real gap ([`finetune/`](finetune/)). All in [§7](#7-evaluation-and-metrics).
 
 Brackets are 95% percentile-bootstrap confidence intervals.
 
@@ -623,6 +623,18 @@ The system runs on `claude-sonnet-4-6`. `src/llm_factory.py` also wires OpenAI a
 
 **Gemini Flash is a real cost lever; GPT-4o-mini is not.** Gemini holds groundedness (actually higher) and lands correctness 0.953 vs 0.993, a 0.04 gap inside the judge's ~0.10 noise floor, at **1/50th the cost per query** and roughly 2x faster. GPT-4o-mini drops correctness by 0.21, well outside noise, and refuses two questions it should have answered. So "swap to a cheap model" is not one decision, it depends which cheap model: on this task Gemini Flash would be a defensible production choice, `gpt-4o-mini` would be a downgrade. The Anthropic judge is held constant precisely so this comparison is not itself provider-biased.
 
+### A fine-tuned, self-hosted fourth option
+
+[`finetune/`](finetune/) distills the synthesizer's specific skill, grounded and cited when evidence supports it, an honest refusal when it doesn't, into a QLoRA fine-tune of Llama 3.1 8B, self-hosted on a single GCP L4 behind vLLM, and added to the same bakeoff as a fourth `self_hosted` provider:
+
+| model | cost/query | latency | out tokens | groundedness | correctness | behaviour |
+|---|---|---|---|---|---|---|
+| citera-finetuned (self-hosted) | $0.0000* | 25.2s | 405 | 0.906 | 0.941 | 1.00 |
+
+\* Self-hosted serving is billed as GPU-hours on a metered instance, not per-token, so $0 is not a claim of being free, it's a different cost model that this column can't represent. See [`finetune/README.md`](finetune/README.md) for the actual cost (~$12) and how the training data was built with zero overlap with this benchmark, by document, not just by question.
+
+Correctness (0.941) lands inside Sonnet's noise floor and clearly ahead of `gpt-4o-mini` (0.779). Groundedness (0.906) is a real gap behind all three commercial models, and latency is 3-10x worse, unbatched single-GPU inference against provider-scale serving. Not a win against any of the three, but a small open-weight model trained on 348 examples closes most of the distance to Sonnet on correctness, which is the more interesting result than the model beating anything outright.
+
 ### A correction on Q2 and Q3
 
 Questions 2 (RAM for document-level processing) and 3 (DB2 log disk space) return refusals, and both refusals are correct. But an earlier version of this README justified that conclusion with a claim that was false, and the correction is more instructive than the original claim:
@@ -839,6 +851,12 @@ Ricoh/
 │   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
 │   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring
 │   └── verify_unanswerable.py   # Audits the "refuse" labels against the full corpus
+├── finetune/                     # QLoRA distillation of the synthesizer, self-hosted, see finetune/README.md
+│   ├── data/                     # Leakage-safe training set + the docs it's drawn from
+│   ├── scripts/generate_training_data.py
+│   ├── train/                    # finetune_qlora.py, merge_adapter.py (run on a GPU VM)
+│   ├── serve/serve_vllm.sh
+│   └── infra/                    # GCP VM setup
 ├── tests/                       # ~25 pytest modules, offline, LLM mocked
 │   ├── test_ingest.py test_retriever.py test_agent.py test_router.py
 │   ├── test_conversation.py test_tools.py test_guardrails.py
@@ -881,5 +899,6 @@ Ordered by what most improves the system, not by what is easiest to demo.
 | 8 | A genuinely multi-hop question set + ablation on it | **Done.** `eval/multihop_questions.json` is 20 hand-written two-document questions (8 of which one retrieval misses a required doc). Judged A/B/C: the planner takes evidence recall 0.78 -> 0.82, recovering a document on 2 of the 20, but grounded and correct stay inside the judge noise floor, and the verifier still earns nothing. The real bottleneck turned out to be synthesis (config A correctness 0.909, down from ~0.97 on single-hop), which no config addresses. Config A stays default. [§7](#7-evaluation-and-metrics). |
 | 9 | Judged multi-turn conversation eval | **Done.** 12 chains, 36 turns, every turn judged. Condensation lifts follow-up retriever recall 0.63 -> 0.88 and the rewrites hit 0.92 cosine to the hand-written target. Follow-ups are answered as well as cold questions: groundedness 0.959 vs 0.983, correctness 0.929 vs 0.944, behaviour 1.00 on both, all inside noise. Also surfaced that condensation can over-specify and hurt retrieval on a couple of turns. [§7](#7-evaluation-and-metrics). |
 | 10 | Cross-provider bakeoff | **Done.** `src/llm_factory.py` wires OpenAI and Gemini; `eval/provider_bakeoff.py` runs config A on each against a shared retrieval and one fixed opus judge. `gemini-3.6-flash` holds correctness (0.953 vs Sonnet 0.993, inside noise) at 1/50th the cost; `gpt-4o-mini` drops correctness 0.21 and refuses two questions it should answer. The cheap-model choice is model-specific, not just price. [§7](#7-evaluation-and-metrics). |
+| 11 | Fine-tune and self-host the synthesizer | **Done.** [`finetune/`](finetune/) distills the synthesizer into a QLoRA fine-tune of Llama 3.1 8B, trained on 348 leakage-safe examples and self-hosted behind vLLM on a single GCP L4, added to the bakeoff as a fourth provider. Correctness (0.941) lands inside Sonnet's noise floor; groundedness (0.906) is a real, smaller gap, and it's 3-10x slower, unbatched single-GPU inference against provider-scale serving. Cost is not directly comparable (GPU-hours vs per-token). [§7](#7-evaluation-and-metrics). |
 
 **Deliberately deferred:** multi-lingual answering is currently a liability rather than a feature. The refusal marker is English-only, so a translated-only refusal would be scored as an answer. The synthesizer now pins the English canonical sentence to keep the eval sound, but full language support needs a language-aware detector before it is worth advertising.
