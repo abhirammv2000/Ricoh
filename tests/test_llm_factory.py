@@ -80,3 +80,16 @@ def test_google_provider_without_a_key_raises(monkeypatch):
 def test_unknown_provider_still_raises():
     with pytest.raises(ValueError, match="Unknown LLM provider"):
         get_llm(provider="fictional")
+
+
+def test_self_hosted_provider_uses_its_base_url(monkeypatch):
+    monkeypatch.setenv("SELF_HOSTED_LLM_BASE_URL", "http://localhost:8000/v1")
+    llm = get_llm(provider="self_hosted")
+    assert llm.model_name == "citera-finetuned"
+    assert llm.openai_api_base == "http://localhost:8000/v1"
+
+
+def test_self_hosted_provider_without_a_base_url_raises(monkeypatch):
+    monkeypatch.delenv("SELF_HOSTED_LLM_BASE_URL", raising=False)
+    with pytest.raises(EnvironmentError, match="SELF_HOSTED_LLM_BASE_URL"):
+        get_llm(provider="self_hosted")

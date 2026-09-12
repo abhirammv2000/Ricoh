@@ -11,10 +11,14 @@ Providers:
                 GEMINI_API_KEY (or GOOGLE_API_KEY). Uses the openai client
                 rather than langchain-google-genai, whose google-ai
                 dependency drags in protobuf 6 and breaks streamlit.
+    self_hosted A vLLM server (own OpenAI-compatible endpoint), for the
+                citera-finetune QLoRA distillation model. Needs
+                SELF_HOSTED_LLM_BASE_URL; vLLM does not check the API key so
+                any placeholder value works.
 
-Anthropic is the production provider. openai and google exist for the
-cross-provider bakeoff (eval/provider_bakeoff.py) and are not on the default
-path.
+Anthropic is the production provider. openai, google, and self_hosted exist
+for the cross-provider bakeoff (eval/provider_bakeoff.py) and are not on the
+default path.
 """
 
 from __future__ import annotations
@@ -64,6 +68,7 @@ _DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-sonnet-4-6",
     "openai": "gpt-4o-mini",
     "google": "gemini-3.6-flash",
+    "self_hosted": "citera-finetuned",
 }
 
 # Gemini speaks an OpenAI-compatible dialect at this endpoint, so one client
@@ -127,8 +132,8 @@ def get_llm(
     """Return a LangChain chat model.
 
     Args:
-        provider:    "anthropic", "openai", or "google". Defaults to
-                     DEFAULT_LLM_PROVIDER.
+        provider:    "anthropic", "openai", "google", or "self_hosted".
+                     Defaults to DEFAULT_LLM_PROVIDER.
         model:       Model id override. Uses the provider default when None.
         temperature: Sampling temperature, sent only on models that still
                      accept it (see _NO_SAMPLING_PARAMS). Low temperature
@@ -166,18 +171,28 @@ def get_llm(
 
         return ChatAnthropic(model=model, **kwargs)
 
-    elif provider in ("openai", "google"):
+    elif provider in ("openai", "google", "self_hosted"):
         from langchain_openai import ChatOpenAI  # imported lazily
 
         if provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
             base_url = None
             key_name = "OPENAI_API_KEY"
-        else:
+            required = api_key
+        elif provider == "google":
             api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
             base_url = _GEMINI_OPENAI_BASE_URL
             key_name = "GEMINI_API_KEY"
-        if not api_key:
+            required = api_key
+        else:
+            # vLLM's OpenAI-compatible server does not check the key at all,
+            # so any non-empty placeholder satisfies ChatOpenAI's requirement
+            # for one; the base URL is the thing that actually has to be set.
+            api_key = "not-needed"
+            base_url = os.getenv("SELF_HOSTED_LLM_BASE_URL")
+            key_name = "SELF_HOSTED_LLM_BASE_URL"
+            required = base_url
+        if not required:
             raise EnvironmentError(f"{key_name} not found. Add it to your .env file.")
 
         kwargs.setdefault("max_tokens", max_tokens)
@@ -189,5 +204,5 @@ def get_llm(
     else:
         raise ValueError(
             f"Unknown LLM provider '{provider}'. "
-            "Supported: 'anthropic', 'openai', 'google'."
+            "Supported: 'anthropic', 'openai', 'google', 'self_hosted'."
         )

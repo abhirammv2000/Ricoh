@@ -1,0 +1,12 @@
+# The trained LoRA adapter (~337MB) exceeds GitHub's 100MB file limit and is
+# fully reproducible from data/train_examples.jsonl + train/finetune_qlora.py
+# (~$5, ~65 minutes on a single L4), so it is not committed. Same reasoning
+# for the merged 16-bit model, which is larger still and trivially
+# regenerated from the adapter via train/merge_adapter.py.
+adapter/
+merged_model/
+checkpoints/
+
+__pycache__/
+*.pyc
+.env
