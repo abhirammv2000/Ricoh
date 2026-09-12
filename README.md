@@ -635,6 +635,19 @@ The system runs on `claude-sonnet-4-6`. `src/llm_factory.py` also wires OpenAI a
 
 Correctness (0.941) lands inside Sonnet's noise floor and clearly ahead of `gpt-4o-mini` (0.779). Groundedness (0.906) is a real gap behind all three commercial models, and latency is 3-10x worse, unbatched single-GPU inference against provider-scale serving. Not a win against any of the three, but a small open-weight model trained on 348 examples closes most of the distance to Sonnet on correctness, which is the more interesting result than the model beating anything outright.
 
+### Measuring the guardrail instead of trusting it
+
+`src/guardrails.py` is an explicitly cheap, narrow regex screen at the API edge; the module's own docstring says the real defense is architectural (the synthesizer only answers from retrieved evidence). Until now that claim had 4 unit tests confirming the regex matches the patterns it was written for, and no measurement of how it holds up against anything else. `eval/redteam_guardrail.py` runs 40 adversarial prompts (`eval/redteam_prompts.json`) across four categories:
+
+| category | blocked | n | block rate |
+|---|---|---|---|
+| covered (matches the existing patterns) | 10 | 10 | 1.00 |
+| obfuscated (leetspeak, spacing, rephrasing) | 1 | 10 | 0.10 |
+| novel (techniques the regex was never written for) | 0 | 12 | 0.00 |
+| benign (real support questions, false-positive check) | 0 | 8 | 0.00 |
+
+The regex does exactly what it was written to do (10/10) and almost nothing beyond that (1/10 obfuscated, 0/12 novel), which is the honest cost of "cheap and narrow." The number that actually matters is the last row: **0/8 false positives**, confirming the design goal that a guardrail firing on normal questions is worse than no guardrail at all. Whether the architectural defense actually holds on the 21 prompts the regex missed needs a judged run against the real pipeline (`eval/redteam_guardrail.py --full-pipeline`), not yet done.
+
 ### A correction on Q2 and Q3
 
 Questions 2 (RAM for document-level processing) and 3 (DB2 log disk space) return refusals, and both refusals are correct. But an earlier version of this README justified that conclusion with a claim that was false, and the correction is more instructive than the original claim:
@@ -850,6 +863,8 @@ Ricoh/
 │   ├── reranker_sweep.py        # Retrieval-only reranker-model comparison
 │   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
 │   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring
+│   ├── redteam_guardrail.py     # Measures the prompt-injection screen, not just unit-tests it
+│   ├── redteam_prompts.json     # 40 adversarial + benign prompts, 4 categories
 │   └── verify_unanswerable.py   # Audits the "refuse" labels against the full corpus
 ├── finetune/                     # QLoRA distillation of the synthesizer, self-hosted, see finetune/README.md
 │   ├── data/                     # Leakage-safe training set + the docs it's drawn from
@@ -900,5 +915,6 @@ Ordered by what most improves the system, not by what is easiest to demo.
 | 9 | Judged multi-turn conversation eval | **Done.** 12 chains, 36 turns, every turn judged. Condensation lifts follow-up retriever recall 0.63 -> 0.88 and the rewrites hit 0.92 cosine to the hand-written target. Follow-ups are answered as well as cold questions: groundedness 0.959 vs 0.983, correctness 0.929 vs 0.944, behaviour 1.00 on both, all inside noise. Also surfaced that condensation can over-specify and hurt retrieval on a couple of turns. [§7](#7-evaluation-and-metrics). |
 | 10 | Cross-provider bakeoff | **Done.** `src/llm_factory.py` wires OpenAI and Gemini; `eval/provider_bakeoff.py` runs config A on each against a shared retrieval and one fixed opus judge. `gemini-3.6-flash` holds correctness (0.953 vs Sonnet 0.993, inside noise) at 1/50th the cost; `gpt-4o-mini` drops correctness 0.21 and refuses two questions it should answer. The cheap-model choice is model-specific, not just price. [§7](#7-evaluation-and-metrics). |
 | 11 | Fine-tune and self-host the synthesizer | **Done.** [`finetune/`](finetune/) distills the synthesizer into a QLoRA fine-tune of Llama 3.1 8B, trained on 348 leakage-safe examples and self-hosted behind vLLM on a single GCP L4, added to the bakeoff as a fourth provider. Correctness (0.941) lands inside Sonnet's noise floor; groundedness (0.906) is a real, smaller gap, and it's 3-10x slower, unbatched single-GPU inference against provider-scale serving. Cost is not directly comparable (GPU-hours vs per-token). [§7](#7-evaluation-and-metrics). |
+| 12 | Measure the prompt-injection guardrail, don't just unit-test it | **Done, regex layer only.** `eval/redteam_guardrail.py` runs 40 adversarial prompts across 4 categories: 10/10 blocked for phrasing the regex was written for, 1/10 for obfuscated variants, 0/12 for novel techniques, and critically 0/8 false positives on real support questions. Whether the architectural defense (grounding) holds on what the regex misses needs the `--full-pipeline` judged run, not yet done. [§7](#7-evaluation-and-metrics). |
 
 **Deliberately deferred:** multi-lingual answering is currently a liability rather than a feature. The refusal marker is English-only, so a translated-only refusal would be scored as an answer. The synthesizer now pins the English canonical sentence to keep the eval sound, but full language support needs a language-aware detector before it is worth advertising.
