@@ -1,0 +1,744 @@
+{
+  "generated": "2026-09-15 17:03:09",
+  "judge_enabled": true,
+  "judge_model": "claude-opus-5",
+  "agent_model": "claude-sonnet-4-6",
+  "retrieval_final_k": 5,
+  "retrieval_top_k": 10,
+  "config": {
+    "use_planner": false,
+    "use_verifier": false
+  },
+  "summary": {
+    "questions": 10,
+    "behavior_match_rate": 1.0,
+    "evidence_recall": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 8
+    },
+    "retriever_only_recall": {
+      "recall@1": 0.438,
+      "recall@3": 0.938,
+      "recall@5": 1.0
+    },
+    "citation_precision": {
+      "mean": 1.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "scored_n": 8
+    },
+    "mean_latency_seconds": 13.06,
+    "max_latency_seconds": 20.74,
+    "cost": {
+      "pricing_snapshot": "2026-08-01",
+      "mean_cost_per_query_usd": 0.015619,
+      "max_cost_per_query_usd": 0.023058,
+      "total_agent_cost_usd": 0.156186,
+      "eval_judge_cost_usd": 0.263605,
+      "mean_llm_calls_per_query": 1.0,
+      "mean_input_tokens": 2850,
+      "mean_output_tokens": 471,
+      "by_stage": {
+        "retrieval": {
+          "calls": 10,
+          "seconds": 4.79,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 3.8,
+          "pct_of_cost": 0.0
+        },
+        "synthesizer": {
+          "calls": 10,
+          "seconds": 122.91,
+          "cost_usd": 0.156186,
+          "pct_of_llm_seconds": 96.3,
+          "pct_of_cost": 100.0
+        },
+        "citation_guardrail": {
+          "calls": 8,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "pct_of_llm_seconds": 0.0,
+          "pct_of_cost": 0.0
+        }
+      }
+    },
+    "groundedness": {
+      "mean": 0.992,
+      "ci95": [
+        0.98,
+        1.0
+      ],
+      "scored_n": 10
+    },
+    "correctness": {
+      "mean": 0.98,
+      "ci95": [
+        0.94,
+        1.0
+      ],
+      "scored_n": 10
+    },
+    "worst_case": {
+      "evidence_recall": {
+        "id": 1,
+        "question": "What property do I set if I want the printers to enable after a restart?",
+        "evidence_recall": 1.0
+      },
+      "groundedness": {
+        "id": 6,
+        "question": "How do I create a workflow?",
+        "groundedness": 0.95
+      },
+      "correctness": {
+        "id": 9,
+        "question": "How do I use locations?",
+        "correctness": 0.8
+      }
+    }
+  },
+  "per_question": [
+    {
+      "id": 1,
+      "question": "What property do I set if I want the printers to enable after a restart?",
+      "expected_behavior": "answer",
+      "system_refused": false,
+      "behavior_match": true,
+      "latency_seconds": 13.86,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "aiw00a12.pdf",
+        "aiw00a15.pdf",
+        "aiw00p18.pdf",
+        "aiw_passthroughptr_bannerpgs.pdf",
+        "cptoutputpdf_c_WFforPDFwithMedia.pdf"
+      ],
+      "expected_sources": [
+        "aiw00p18.pdf",
+        "aiw00a12.pdf"
+      ],
+      "sub_queries": [
+        "What property do I set if I want the printers to enable after a restart?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": 1.0,
+      "retriever_recall": {
+        "recall@1": 0.5,
+        "recall@3": 1.0,
+        "recall@5": 1.0
+      },
+      "citation_precision": 1.0,
+      "needs_verification": false,
+      "answer": "## Enabling Printers After Restart\n\nTo have printers automatically re-enable after a system restart, you need to set the following property:\n\n**Property:** `Remember enabled status of printers`\n**Value:** `Yes`\n\n### Where to set it:\n\nYou can change this property on the **System page** of the **Administration tab**. [aiw00p18.pdf, Page 1]\n\n---\n\n### How it works:\n\n- After a system shutdown and restart, **all printers are disabled by default**. [aiw00p18.pdf, Page 1]\n- By setting the **\"Remember enabled status of printers\"** system property to **Yes**, any printers that were enabled **before** the shutdown will be automatically re-enabled after the system restarts. [aiw00a12.pdf, Page 1]",
+      "cost_usd": 0.010371,
+      "llm_calls": 1,
+      "llm_seconds": 9.27,
+      "input_tokens": 2512,
+      "output_tokens": 189,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 1.734,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 9.27,
+          "cost_usd": 0.010371,
+          "input_tokens": 2512,
+          "output_tokens": 189
+        },
+        "citation_guardrail": {
+          "calls": 1,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "groundedness": 1.0,
+      "correctness": 1.0,
+      "judge_rationale": "The answer correctly identifies the 'Remember enabled status of printers' property set to Yes, with location and behavior fully supported by evidence [1] and [2].",
+      "judge_cost_usd": 0.02116
+    },
+    {
+      "id": 2,
+      "question": "How much RAM does the primary server need if I will be doing document-level processing?",
+      "expected_behavior": "refuse",
+      "system_refused": true,
+      "behavior_match": true,
+      "latency_seconds": 7.86,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "aiw00a13.pdf",
+        "aiw00o15.pdf",
+        "aiw0osysobj.pdf",
+        "aiwtunesteptemplate.pdf",
+        "rep_t_TuningForSearchAndStorage.pdf"
+      ],
+      "expected_sources": [],
+      "sub_queries": [
+        "How much RAM does the primary server need if I will be doing document-level processing?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": null,
+      "retriever_recall": {},
+      "citation_precision": null,
+      "needs_verification": false,
+      "answer": "Information unavailable in provided documents.\n\nThe evidence provided does not contain any specifications regarding RAM requirements for the primary server, whether for document-level processing or any other type of processing. The documents cover topics such as primary server functionality, step template tuning, system objects, stopping servers, and archive performance tuning — but none include hardware memory (RAM) requirements.\n\nFor accurate RAM specifications, I would recommend consulting the official RICOH ProcessDirector installation planning or system requirements documentation.",
+      "cost_usd": 0.011091,
+      "llm_calls": 1,
+      "llm_seconds": 7.49,
+      "input_tokens": 3187,
+      "output_tokens": 102,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 0.362,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 7.49,
+          "cost_usd": 0.011091,
+          "input_tokens": 3187,
+          "output_tokens": 102
+        }
+      },
+      "groundedness": 1.0,
+      "correctness": 1.0,
+      "judge_rationale": "The answer correctly refuses since no RAM requirements appear in the evidence, and its description of the retrieved documents is accurate.",
+      "judge_cost_usd": 0.025365
+    },
+    {
+      "id": 3,
+      "question": "How much hard drive space should I allocate for DB2 logs?",
+      "expected_behavior": "refuse",
+      "system_refused": true,
+      "behavior_match": true,
+      "latency_seconds": 5.64,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "aiw00p7.pdf",
+        "aiwi_whatsnew.pdf",
+        "cac_GrayscaleConcepts.pdf",
+        "pdfw_c_userprefs.pdf",
+        "rep_c_PlanForRetention.pdf"
+      ],
+      "expected_sources": [],
+      "sub_queries": [
+        "How much hard drive space should I allocate for DB2 logs?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": null,
+      "retriever_recall": {},
+      "citation_precision": null,
+      "needs_verification": false,
+      "answer": "Information unavailable in provided documents.\n\nThe provided evidence does not contain any specific guidance or recommendations regarding how much hard drive space should be allocated for DB2 logs. The documents cover topics such as job retention planning, log file management in RICOH ProcessDirector, grayscale printing concepts, object log viewing, and database migration options — but none include DB2 log space allocation specifications.\n\nFor this information, I would recommend consulting:\n- IBM's official DB2 documentation\n- Your Ricoh system administrator or a certified DB2 DBA\n- Ricoh's official installation/planning guides specific to your RICOH ProcessDirector version and DB2 configuration",
+      "cost_usd": 0.010461,
+      "llm_calls": 1,
+      "llm_seconds": 5.265,
+      "input_tokens": 2762,
+      "output_tokens": 145,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 0.369,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 5.265,
+          "cost_usd": 0.010461,
+          "input_tokens": 2762,
+          "output_tokens": 145
+        }
+      },
+      "groundedness": 1.0,
+      "correctness": 1.0,
+      "judge_rationale": "The answer correctly refuses, accurately characterizes the retrieved documents, and adds no unsupported claims.",
+      "judge_cost_usd": 0.022225
+    },
+    {
+      "id": 4,
+      "question": "Does RPD work with FusionPro?",
+      "expected_behavior": "answer",
+      "system_refused": false,
+      "behavior_match": true,
+      "latency_seconds": 14.08,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "aiw_fusionpro_configconnection.pdf",
+        "aiw_fusionpro_configsteptemplate.pdf",
+        "fusionpro_o_runsamplewf.pdf",
+        "gmc_c_configforGMC.pdf",
+        "sla_settingupexpwork.pdf"
+      ],
+      "expected_sources": [
+        "aiw_fusionpro_configconnection.pdf"
+      ],
+      "sub_queries": [
+        "Does RPD work with FusionPro?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": 1.0,
+      "retriever_recall": {
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0
+      },
+      "citation_precision": 1.0,
+      "needs_verification": false,
+      "answer": "# RPD and FusionPro Integration\n\n**Yes, RICOH ProcessDirector (RPD) works with FusionPro.** The two systems integrate through a dedicated feature called **FusionPro Connect**.\n\n---\n\n## How the Integration Works\n\nRPD connects to **FusionPro Server**, which is the composition engine that creates print files based on input data files. [aiw_fusionpro_configconnection.pdf, Page 1]\n\nJobs are sent to FusionPro Server by adding the **RunFusionPro step template** to a workflow. [aiw_fusionpro_configconnection.pdf, Page 1]\n\n---\n\n## Key Setup Requirements\n\nBefore configuring the connection, the following prerequisites must be met:\n\n1. A **RICOH ProcessDirector application server feature** must be installed on the machine where FusionPro is installed. [aiw_fusionpro_configconnection.pdf, Page 1]\n2. The application server must be **set to run as a service** on that machine. [aiw_fusionpro_configconnection.pdf, Page 1]\n3. The FusionPro service must run **under the same user** as the RICOH ProcessDirector application server. [aiw_fusionpro_configconnection.pdf, Page 1]\n\n---\n\n## Configuration Steps\n\n1. Log in to RICOH ProcessDirector.\n2. Click the **Administration** tab.\n3. In the left pane, click **Settings ⇒ FusionPro Connect**.\n4. Under **FusionPro system**, select the application server where FusionPro is installed.\n5. Click **Get templates** to retrieve all templates available on FusionPro Server. [aiw_fusionpro_configconnection.pdf, Page 1]\n\n---\n\n## Sample Workflow Available\n\nA **FusionPro sample workflow** is also provided to help you understand how the feature works, including a hot folder input device (`FusionProFolder`) and a sample workflow (`FusionProSample`) with the `RunFusionPro` step. [fusionpro_o_runsamplewf.pdf, Page 1]",
+      "cost_usd": 0.015708,
+      "llm_calls": 1,
+      "llm_seconds": 13.753,
+      "input_tokens": 2646,
+      "output_tokens": 518,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 0.321,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 13.753,
+          "cost_usd": 0.015708,
+          "input_tokens": 2646,
+          "output_tokens": 518
+        },
+        "citation_guardrail": {
+          "calls": 1,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "groundedness": 1.0,
+      "correctness": 1.0,
+      "judge_rationale": "All claims trace directly to the FusionPro evidence documents, and the answer affirms compatibility while naming FusionPro Connect and the RunFusionPro step template.",
+      "judge_cost_usd": 0.024055
+    },
+    {
+      "id": 5,
+      "question": "What operating system does RPD run on?",
+      "expected_behavior": "answer",
+      "system_refused": false,
+      "behavior_match": true,
+      "latency_seconds": 14.15,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "aiw00o15.pdf",
+        "aiw0appservrq.pdf",
+        "aiw0osysobj.pdf",
+        "aiwi_whatsnew.pdf",
+        "aiwtunesteptemplate.pdf"
+      ],
+      "expected_sources": [
+        "aiw00o15.pdf",
+        "aiw0appservrq.pdf"
+      ],
+      "sub_queries": [
+        "What operating system does RPD run on?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": 1.0,
+      "retriever_recall": {
+        "recall@1": 0.5,
+        "recall@3": 1.0,
+        "recall@5": 1.0
+      },
+      "citation_precision": 1.0,
+      "needs_verification": false,
+      "answer": "## Operating System Requirements for RICOH ProcessDirector (RPD)\n\nRICOH ProcessDirector runs on different operating systems depending on the server role:\n\n---\n\n### 🖥️ Primary Server (Linux-based)\n\nThe primary server must be installed on an **x86 server** running one of the following operating systems [aiw00o15.pdf, Page 1]:\n\n- Red Hat 8.1 through latest 8.X\n- Rocky Linux 8.4 through latest 8.X\n- Rocky Linux 9.0 through latest 9.X\n- SUSE Linux Enterprise Server (SLES) 12.0 with Service Pack 4 or above for x86_64\n- SUSE Linux Enterprise Server (SLES) 15.0 with Service Pack 1 or above for x86_64\n\n> **Note:** The DB2 database cannot be installed on Rocky Linux; only PostgreSQL is supported on that platform. [aiw00o15.pdf, Page 1]\n\n---\n\n### 🪟 Application Server (Windows-based)\n\nApplication servers run on **Windows** and can be installed on the following operating systems [aiw0appservrq.pdf, Page 1]:\n\n- Windows 10 Pro or Enterprise 64-bit\n- Windows 11 Pro\n- Windows Server 2019 64-bit\n- Windows Server 2022 64-bit\n- Windows Server 2025 64-bit\n\n---\n\n### 📌 Additional Notes\n\n- In version 3.12, **RICOH ProcessDirector for AIX has been discontinued**. Customers on AIX can migrate to version 3.12 on Linux or Windows using the Migration Assistant. [aiwi_whatsnew.pdf, Page 4]\n- Using the **latest service pack** is recommended for SLES installations. [aiw00o15.pdf, Page 1]",
+      "cost_usd": 0.014646,
+      "llm_calls": 1,
+      "llm_seconds": 13.812,
+      "input_tokens": 2697,
+      "output_tokens": 437,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 0.329,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 13.812,
+          "cost_usd": 0.014646,
+          "input_tokens": 2697,
+          "output_tokens": 437
+        },
+        "citation_guardrail": {
+          "calls": 1,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "groundedness": 1.0,
+      "correctness": 1.0,
+      "judge_rationale": "All claims trace directly to the retrieved evidence, and both key facts (Linux primary server, Windows application servers) are conveyed accurately with specific versions.",
+      "judge_cost_usd": 0.02488
+    },
+    {
+      "id": 6,
+      "question": "How do I create a workflow?",
+      "expected_behavior": "answer",
+      "system_refused": false,
+      "behavior_match": true,
+      "latency_seconds": 20.74,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "aiw00c34.pdf",
+        "aiw_c_createworkflow.pdf",
+        "aiw_c_xml_PrepToReceive.pdf",
+        "cpt_c_WorkflowsForAdvTransforms.pdf",
+        "cptoutputpdf_c_WFforPDFwithMedia.pdf"
+      ],
+      "expected_sources": [
+        "aiw_c_createworkflow.pdf"
+      ],
+      "sub_queries": [
+        "How do I create a workflow?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": 1.0,
+      "retriever_recall": {
+        "recall@1": 0.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0
+      },
+      "citation_precision": 1.0,
+      "needs_verification": false,
+      "answer": "# Creating a Workflow in RICOH ProcessDirector\n\n## Overview\n\nA workflow defines a set of steps that a job follows through the system. When you define a workflow, you specify what phases and, within those phases, what steps the job passes through during processing. [aiw00c34.pdf, Page 1]\n\nRICOH ProcessDirector provides several sample workflows. To create a workflow, you can:\n- **Modify** one of the existing sample workflows, or\n- **Copy** an existing workflow and edit it, or\n- **Create a new workflow** that has only two steps: `SetJobPropsFromTextFile` and `RemoveJobs`, with a connector between them. [aiw_c_createworkflow.pdf, Page 1]\n\n---\n\n## Before You Begin\n\nWe recommend that you **plan your workflow** before creating it:\n- Outline the processing steps that your jobs will pass through.\n- Make sure that the step templates required to create those steps exist.\n- If any required step templates do not exist, **create them before creating the workflow**. [aiw_c_createworkflow.pdf, Page 1]\n\n---\n\n## Step-by-Step Instructions\n\n1. **Click the Workflow tab.** [aiw_c_createworkflow.pdf, Page 1]\n\n2. **In the left pane, click Workflows.** [aiw_c_createworkflow.pdf, Page 1]\n\n3. **Right-click a workflow** that you want to use as a model and select **Copy**. [aiw_c_createworkflow.pdf, Page 1]\n\n4. **Name the copy** of the workflow, fill in or edit other values that you need, and click **Continue**. You will see the workflow's steps in the workflow editor. [aiw_c_createworkflow.pdf, Page 1]\n\n5. **Review the steps** in each phase of the workflow. The default processing phases in the base product are:\n   - Receive\n   - Prepare\n   - Print\n   - Complete\n   *(Some features add other phases such as Assemble or Insert.)* [aiw_c_createworkflow.pdf, Page 1]\n\n6. **Delete any steps** that you do not need. Select the step and press the **Delete** key, or right-click the step and select **Delete**. [aiw_c_createworkflow.pdf, Page 1]\n\n7. **Add each new step or step chain:**\n   - To add a **step**, click the side panel in the top right corner of the workflow editor and go to **Steps**.\n   - To add a **step chain**, go to **Step Chains**. [aiw_c_createworkflow.pdf, Page 1]\n\n8. **Save and enable the workflow** by changing the Save & Enable/Disable switch to the **On** position. [cpt_c_WorkflowsForAdvTransforms.pdf, Page 1]\n\n---\n\n## Important Notes\n\n> ⚠️ **Best Practice:** It is strongly recommended that **all workflows begin with a `SetJobPropsFromTextFile` step** and **end with a `RemoveJobs` step**. [aiw_c_createworkflow.pdf, Page 1]\n\n> ⚠️ **Step Chains:** Step chains must have **one entry point** (a single step at the beginning) but can have **multiple endpoints**. When placed in a workflow, step chains are treated like steps. [aiw_c_createworkflow.pdf, Page 1]\n\n---\n\n## Additional Workflow Capabilities\n\nYou can further enhance your workflow by:\n- **Adding conditional processing** using rules for connectors between steps. [aiw00c34.pdf, Page 1]\n- **Renaming steps** within a workflow as needed. [aiw00c34.pdf, Page 1]\n- **Creating step chains** for sets of connected steps used across multiple workflows. [aiw00c34.pdf, Page 1]\n- **Adding annotations** to write comments or reminders directly in the workflow. [aiw00c34.pdf, Page 1]",
+      "cost_usd": 0.023058,
+      "llm_calls": 1,
+      "llm_seconds": 20.389,
+      "input_tokens": 2971,
+      "output_tokens": 943,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 0.347,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 20.389,
+          "cost_usd": 0.023058,
+          "input_tokens": 2971,
+          "output_tokens": 943
+        },
+        "citation_guardrail": {
+          "calls": 1,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "groundedness": 0.95,
+      "correctness": 1.0,
+      "judge_rationale": "All claims trace to the retrieved evidence (the save/enable step is borrowed from a transform-specific topic but is corroborated elsewhere), and the answer conveys all expected key facts with correct step-by-step procedure.",
+      "judge_cost_usd": 0.03349
+    },
+    {
+      "id": 7,
+      "question": "What programs does RPD integrate with?",
+      "expected_behavior": "answer",
+      "system_refused": false,
+      "behavior_match": true,
+      "latency_seconds": 16.22,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "aiw00c8.pdf",
+        "aiw00c82.pdf",
+        "aiw_c_over_docprocfeat.pdf",
+        "aiwi0_integratefeat.pdf",
+        "pdfw_c_plugin_ui.pdf"
+      ],
+      "expected_sources": [
+        "aiwi0_integratefeat.pdf"
+      ],
+      "sub_queries": [
+        "What programs does RPD integrate with?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": 1.0,
+      "retriever_recall": {
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0
+      },
+      "citation_precision": 1.0,
+      "needs_verification": false,
+      "answer": "## Programs That RPD (RICOH ProcessDirector) Integrates With\n\nBased on the provided documentation, RICOH ProcessDirector integrates with the following programs and products through its **Integration Features**:\n\n1. **Avanti Slingshot** – RPD can exchange information with the Avanti Slingshot Management Information System (MIS) software, including sending PDF print jobs with JDF job tickets and order information. [aiwi0_integratefeat.pdf, Page 1]\n\n2. **Kodak Digimaster** – Via the *Cut Sheet support for Kodak* feature, RPD provides support for the Kodak Digimaster printer. [aiwi0_integratefeat.pdf, Page 1]\n\n3. **Xerox Printers** – Via the *Cut Sheet support for Xerox* feature, RPD provides support for specific models of Xerox printers. [aiwi0_integratefeat.pdf, Page 1]\n\n4. **FusionPro (FusionPro Server)** – The *FusionPro Connect* feature allows RPD to use FusionPro to compose documents based on predefined templates. [aiwi0_integratefeat.pdf, Page 1]\n\n5. **MarcomCentral** – The *MarcomCentral Connect* feature integrates online-storefront and web-to-print functions into production workflows via a SOAP web service. [aiwi0_integratefeat.pdf, Page 1]\n\n6. **Enfocus PitStop Server** (version 10 or higher) – The *PitStop Connect* feature integrates preflight operations for PDF print jobs. [aiwi0_integratefeat.pdf, Page 1]\n\n7. **Quadient Inspire Designer** (v8 and higher) – The *Quadient Inspire Connect* feature allows RPD to interact with files created by Quadient Inspire Designer. [aiwi0_integratefeat.pdf, Page 1]\n\n8. **RICOH Predictive Insight** – The *RICOH Predictive Insight Connect* feature sends data from RPD's Reports feature (PostgreSQL database) to the RICOH Predictive Insight cloud application. [aiwi0_integratefeat.pdf, Page 1]\n\n9. **Ultimate Impostrip®** – The *Ultimate Impostrip® Connect* feature integrates impositioning functions into RPD workflows. [aiwi0_integratefeat.pdf, Page 1]\n\n10. **Adobe Acrobat Pro** – RPD provides a plug-in (*RICOH ProcessDirector Plug-in for Adobe Acrobat*) that adds a Ricoh menu directly into Adobe Acrobat Pro. [pdfw_c_plugin_ui.pdf, Page 1]\n\n---\n\n> **Note:** All third-party applications listed above must be purchased separately from RICOH ProcessDirector. [aiwi0_integratefeat.pdf, Page 1]",
+      "cost_usd": 0.020637,
+      "llm_calls": 1,
+      "llm_seconds": 15.876,
+      "input_tokens": 3344,
+      "output_tokens": 707,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 0.318,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 15.876,
+          "cost_usd": 0.020637,
+          "input_tokens": 3344,
+          "output_tokens": 707
+        },
+        "citation_guardrail": {
+          "calls": 1,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "groundedness": 1.0,
+      "correctness": 1.0,
+      "judge_rationale": "All listed integrations, including Adobe Acrobat via the plug-in, are directly supported by the retrieved evidence and cover every expected key fact.",
+      "judge_cost_usd": 0.031305
+    },
+    {
+      "id": 8,
+      "question": "What is the command to shut down RPD?",
+      "expected_behavior": "answer",
+      "system_refused": false,
+      "behavior_match": true,
+      "latency_seconds": 12.76,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "aiw00a13.pdf",
+        "aiw00a43.pdf",
+        "aiw00p19.pdf",
+        "aiw00pshutdown.pdf",
+        "aiw_stopdelete_orders.pdf"
+      ],
+      "expected_sources": [
+        "aiw00a13.pdf"
+      ],
+      "sub_queries": [
+        "What is the command to shut down RPD?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": 1.0,
+      "retriever_recall": {
+        "recall@1": 0.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0
+      },
+      "citation_precision": 1.0,
+      "needs_verification": false,
+      "answer": "## Command to Shut Down RPD (RICOH ProcessDirector)\n\nTo shut down RICOH ProcessDirector, you use the **`stopaiw`** command. There are several options available depending on your needs:\n\n---\n\n### Steps to Stop the Base Product or a Remote Secondary Server:\n\n1. **Log in** to the system as the RICOH ProcessDirector system user (`aiw1` is the default). [aiw00a13.pdf, Page 1]\n2. **Access the command line.** [aiw00a13.pdf, Page 1]\n3. *(Optional)* To minimize impact on currently running processes, **disable the input devices** associated with the server. [aiw00a13.pdf, Page 1]\n4. **Enter one of the following commands:** [aiw00a13.pdf, Page 1]\n\n| Command | Description |\n|---|---|\n| `stopaiw` | Stops the system **immediately** without waiting for steps to complete. Any steps in a processing state will move to an error state on restart. |\n| `stopaiw -q` | Stops the system **after currently processing steps are complete**. |\n| `stopaiw -t` | Stops the system **and all processes** started by the printer driver component, Download for z/OS, or AFP Download Plus. *(Only available on a primary computer with AFP Support installed.)* |\n\n---\n\n### Additional Steps (if required):\n\nIf you need to stop **all other processing** related to RICOH ProcessDirector (e.g., for OS updates, file system rework, or full backups): [aiw00a13.pdf, Page 1]\n\n1. If running a **PostgreSQL configuration**, run:\n   ```\n   systemctl stop postgresql\n   ```\n2. Switch to root authority:\n   ```\n   su - root\n   ```\n\n---\n\n> **Note:** After a system shutdown and restart, all printers are disabled. If you want printers that were enabled before the shutdown to be re-enabled after restart, change the **\"Remember enabled status of printers\"** system property to **Yes**. [aiw00a13.pdf, Page 1]",
+      "cost_usd": 0.015453,
+      "llm_calls": 1,
+      "llm_seconds": 12.42,
+      "input_tokens": 2666,
+      "output_tokens": 497,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 0.325,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 12.42,
+          "cost_usd": 0.015453,
+          "input_tokens": 2666,
+          "output_tokens": 497
+        },
+        "citation_guardrail": {
+          "calls": 1,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "groundedness": 1.0,
+      "correctness": 1.0,
+      "judge_rationale": "The answer correctly identifies the stopaiw command with its options, all claims traceable to evidence [2].",
+      "judge_cost_usd": 0.0241
+    },
+    {
+      "id": 9,
+      "question": "How do I use locations?",
+      "expected_behavior": "answer",
+      "system_refused": false,
+      "behavior_match": true,
+      "latency_seconds": 15.01,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "CreatingResultsRules.pdf",
+        "aiw00cclocs.pdf",
+        "aiw00ccrlocs.pdf",
+        "aiw00olocation.pdf",
+        "cptoutputpdf_c_WFforPDFwithMedia.pdf"
+      ],
+      "expected_sources": [
+        "aiw00olocation.pdf",
+        "aiw00ccrlocs.pdf"
+      ],
+      "sub_queries": [
+        "How do I use locations?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": 1.0,
+      "retriever_recall": {
+        "recall@1": 0.5,
+        "recall@3": 0.5,
+        "recall@5": 1.0
+      },
+      "citation_precision": 1.0,
+      "needs_verification": false,
+      "answer": "# How to Use Locations in RICOH ProcessDirector\n\n## What Are Locations?\n\nA **location** is an object you create to represent a geographical or physical location, such as a city name or a room number in a building. You can also create locations to reflect limited-access spaces, such as a secure print area where sensitive jobs are produced. [aiw00olocation.pdf, Page 1]\n\n---\n\n## Key Features of Locations\n\n- Many objects have a **Location property**, including printers and jobs. [aiw00olocation.pdf, Page 1]\n- Location settings apply to both the **Main page** and the **Administration page**. [aiw00olocation.pdf, Page 1]\n- **Administrators** determine what locations each user or group members are allowed to see. [aiw00olocation.pdf, Page 1]\n- **Users** can select which locations to show using the **Preferences dialog**. [aiw00olocation.pdf, Page 1]\n- If locations are set for groups, each user who belongs to a group **inherits** the group locations. [aiw00olocation.pdf, Page 1]\n- Administrators can **prohibit users** from changing the locations they choose to show. [aiw00olocation.pdf, Page 1]\n\n---\n\n## How to Create a Location\n\n1. Click the **Administration** tab. [aiw00ccrlocs.pdf, Page 1]\n2. In the left pane, click **Objects ⇒ Locations**. [aiw00ccrlocs.pdf, Page 1]\n3. Click **Add**. [aiw00ccrlocs.pdf, Page 1]\n4. Fill in the properties. [aiw00ccrlocs.pdf, Page 1]\n5. Click **OK**. [aiw00ccrlocs.pdf, Page 1]\n\nAfter defining your locations, set the **Location property** for the objects you want to manage using locations. [aiw00ccrlocs.pdf, Page 1]\n\n---\n\n## How to Copy an Existing Location (as a Template)\n\nIf you need to create several locations with similar properties, you can copy an existing one to save time:\n\n1. Click the **Administration** tab. [aiw00cclocs.pdf, Page 1]\n2. In the left pane, click **Objects ⇒ Locations**. [aiw00cclocs.pdf, Page 1]\n3. **Right-click** the location you want to copy and select **Copy**. [aiw00cclocs.pdf, Page 1]\n4. Fill in the properties. [aiw00cclocs.pdf, Page 1]\n5. Click **OK**. [aiw00cclocs.pdf, Page 1]\n\n---\n\n## Exporting Locations\n\nYou can export entries in the Locations table to a **CSV file**:\n- Click the button in the **top right corner** of the page and select **Export table to CSV**.\n- The exported list only contains entries matching any active filters. For example, filtering by \"New York\" will export only locations with \"New York\" in the name or description, sorted by location name. [aiw00ccrlocs.pdf, Page 1]",
+      "cost_usd": 0.018618,
+      "llm_calls": 1,
+      "llm_seconds": 14.714,
+      "input_tokens": 2486,
+      "output_tokens": 744,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 0.29,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 14.714,
+          "cost_usd": 0.018618,
+          "input_tokens": 2486,
+          "output_tokens": 744
+        },
+        "citation_guardrail": {
+          "calls": 1,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "groundedness": 0.97,
+      "correctness": 0.8,
+      "judge_rationale": "All claims trace to the evidence and creation steps are accurate, but the answer never explicitly states that locations are used to restrict access to objects.",
+      "judge_cost_usd": 0.02852
+    },
+    {
+      "id": 10,
+      "question": "What inserters does RPD support?",
+      "expected_behavior": "answer",
+      "system_refused": false,
+      "behavior_match": true,
+      "latency_seconds": 10.32,
+      "iterations": 1,
+      "evidence_chunks": 5,
+      "evidence_docs": [
+        "CreatingInserterControllers.pdf",
+        "DefiningInserterControllers.pdf",
+        "EnhancingAFPFilesForInsertion.pdf",
+        "InserterOverview.pdf",
+        "SettingUpInserters.pdf"
+      ],
+      "expected_sources": [
+        "InserterOverview.pdf"
+      ],
+      "sub_queries": [
+        "What inserters does RPD support?"
+      ],
+      "entities": [],
+      "router_decision": null,
+      "evidence_recall": 1.0,
+      "retriever_recall": {
+        "recall@1": 0.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0
+      },
+      "citation_precision": 1.0,
+      "needs_verification": false,
+      "answer": "## Inserters Supported by RICOH ProcessDirector (RPD)\n\nRICOH ProcessDirector supports two inserter features: the **full Inserter feature** and the **Quadient Inserter Express feature** [InserterOverview.pdf, Page 1].\n\n### Supported Inserter Manufacturers\n\nRPD provides sample system objects and sample configuration files for inserters from the following manufacturers:\n\n1. **Bowe** [InserterOverview.pdf, Page 1]\n2. **Bowe with JetVision camera systems** [InserterOverview.pdf, Page 1]\n3. **Bowe Bell & Howell** [InserterOverview.pdf, Page 1]\n4. **Gunther** (Inserters with Ironsides camera systems) [InserterOverview.pdf, Page 1]\n5. **Kern** [InserterOverview.pdf, Page 1]\n6. **Pitney Bowes** [InserterOverview.pdf, Page 1]\n7. **Quadient** (with the Automated Insertion Management System (AIMS) software) [InserterOverview.pdf, Page 1]\n\n### Important Notes\n\n- The **full Inserter feature** works with inserters from a **wide range of manufacturers**, not just those listed above [InserterOverview.pdf, Page 1].\n- The **Quadient Inserter Express feature** works **only with Quadient inserters** and only provides sample system objects and configuration files for Quadient inserters [InserterOverview.pdf, Page 1].\n- If your inserter manufacturer is **not listed**, you can still create a custom inserter controller object manually [DefiningInserterControllers.pdf, Page 1] [CreatingInserterControllers.pdf, Page 1].",
+      "cost_usd": 0.016143,
+      "llm_calls": 1,
+      "llm_seconds": 9.921,
+      "input_tokens": 3231,
+      "output_tokens": 430,
+      "by_stage": {
+        "retrieval": {
+          "calls": 1,
+          "seconds": 0.39,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "synthesizer": {
+          "calls": 1,
+          "seconds": 9.921,
+          "cost_usd": 0.016143,
+          "input_tokens": 3231,
+          "output_tokens": 430
+        },
+        "citation_guardrail": {
+          "calls": 1,
+          "seconds": 0.0,
+          "cost_usd": 0.0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "groundedness": 1.0,
+      "correctness": 1.0,
+      "judge_rationale": "All listed manufacturers and feature distinctions match evidence [3], and the custom controller note is supported by [1] and [5]; all key facts are conveyed.",
+      "judge_cost_usd": 0.028505
+    }
+  ]
+}

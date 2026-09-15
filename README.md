@@ -183,10 +183,11 @@ Cited answer plus the Glass Box view
 
 - Dataset: official Ricoh ProcessDirector (RPD) documentation, 733 PDFs (~223 MB), stored in `data/` (gitignored due to size). Honest note: these are **individual help-topic articles**, most of which are a *single page* each, rather than a handful of 100+ page manuals. This is why nearly every citation reads "Page 1", and it means the real retrieval challenge here is **picking the right document out of 733**, not pinpointing a page within a long manual. The page-level citation machinery still works (and would matter for true multi-page manuals), but we call out the corpus shape rather than overstate it.
 - **Extraction:** PyMuPDF extracts raw text page-by-page, preserving `source_document` and `page_number` metadata throughout.
+- **Vision-augmented extraction ([`src/vision_ingest.py`](src/vision_ingest.py)):** plain text extraction is blind to whatever a screenshot, diagram, or table on a page actually shows. A scan of the corpus flagged 116 pages with an embedded image, but 77% of those (146/190 images) turned out to be decorative icons under 50px, tiny bullet/toggle/note glyphs a small pilot confirmed produce useless descriptions ("a green toggle switch icon"). Filtering to images with a long edge >= 150px narrows this to the real candidate set: 31 pages across 28 documents, all screenshots, workflow diagrams, or embedded code samples. Each gets rendered and described by `claude-sonnet-5` (dialog titles, field/button labels, table values, diagram nodes and branch logic, in the order a technician reading the page would encounter them), and the description is appended to that page's text as its own labeled section before chunking, so a citation to "page N" never implies the diagram content came from the text layer. Cost: ~$1 total for all 31 pages, one-time (cached by document+page in `data/vision_cache.json`, never re-paid on a re-ingest). Verified, not assumed: a query for a value that exists only in an embedded XML sample screenshot (`aiw_OrderPropMap.pdf`) returned "information unavailable" before this change and the exact correct value, cited, after it; the curated 10-question benchmark was re-run afterward and showed no regression (`eval/metrics_postvision.json`).
 - **Chunking strategy:** Sliding window of ~500 words with 50-word overlap. Word-based (not character-based) to keep semantic coherence. Overlap ensures no answer is lost at chunk boundaries.
 - **Tokenisation (BM25):** Simple lowercase whitespace split - intentionally basic because error codes like `SC542` don't benefit from stemming.
 - **Storage:** ChromaDB (vector index) + pickled BM25 (keyword index), both persisted to `chroma_db/` for fast restarts.
-- **Limitations:** Table-heavy PDF pages may lose structure during text extraction. Future work could add table parsing.
+- **Limitations:** Most pages with a diagram also describe the same workflow in prose nearby, so the vision pass is a real but narrow win, not a broad retrieval lift; the corpus has no true tables (only two-column property-reference lists, which extract fine as text), so table parsing specifically was never the actual gap it looked like from the outside.
 
 ---
 
@@ -682,8 +683,11 @@ The script exits non-zero if any candidate quantity appears, so it can gate CI. 
 
 ### Limitations
 - Requires pre-ingested PDF manuals; no real-time document updates.
-- Table-heavy content may have reduced retrieval accuracy due to PDF text extraction limitations.
 - LLM API latency (~10-15s) may be too slow for live phone support - could be improved with smaller/local models.
+
+Fixed, not just documented:
+
+- ~~Table-heavy content may have reduced retrieval accuracy due to PDF text extraction limitations.~~ There turned out to be no real tables in this corpus, only two-column property-reference lists, which text extraction already handles fine. The actual gap was screenshots and workflow diagrams: 31 pages across 28 documents now get a vision-model description appended to their extracted text ([§5](#5-data-handling-and-preprocessing)).
 
 ---
 

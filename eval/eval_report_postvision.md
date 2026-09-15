@@ -1,0 +1,72 @@
+# Citera: Quality Evaluation Report
+
+**Generated:** 2026-09-15 17:03:09  
+**Agent model:** `claude-sonnet-4-6`  
+**Judge model:** `claude-opus-5`  
+**Questions:** 10  
+
+> Every mean carries a 95% percentile-bootstrap confidence interval.
+> At this sample size the intervals are wide by construction, they
+> are reported so the numbers are not read as more precise than the
+> eval set can support.
+
+## Aggregate metrics
+
+| Metric | Mean | 95% CI | What it means |
+|---|---|---|---|
+| Behaviour-match rate | 1.00 | n/a | Answered vs. refused as expected |
+| Evidence recall | 1.00 | [1.00, 1.00] | Expected doc reached the synthesizer, across ALL passes/retries (n=8) |
+| Citation precision | 1.00 | [1.00, 1.00] | Cited docs exist in the evidence (catches fabricated filenames only) (n=8) |
+| Groundedness | 0.99 | [0.98, 1.00] | Claims supported by evidence (n=10) |
+| Correctness | 0.98 | [0.94, 1.00] | Conveys expected facts / refuses correctly (n=10) |
+| Mean latency | 13.06s | n/a | Per-question wall-clock (max 20.74s) |
+
+### Retriever in isolation
+
+Single retrieval on the raw question, no planner, no sub-queries,
+no entity boost, no retry. Ranks counted over distinct documents.
+Comparing this against *Evidence recall* separates a retrieval
+failure from a planning failure.
+
+| Depth | Recall |
+|---|---|
+| recall@1 | 0.44 |
+| recall@3 | 0.94 |
+| recall@5 | 1.00 |
+
+### Cost and where the time goes
+
+Prices are a dated snapshot (2026-08-01); token counts are
+the ground truth and cost is derived from them. Agent cost is what serving
+a query costs; judge cost is eval overhead and is never folded into it.
+
+- **Mean cost per query: $0.01562** (max $0.02306)
+- Mean 1.0 LLM calls, 2,850 in / 471 out tokens
+- Whole-benchmark agent cost $0.1562; judge overhead $0.2636
+
+| Stage | Calls | LLM seconds | % of time | Cost | % of cost |
+|---|---|---|---|---|---|
+| synthesizer | 10 | 122.91s | 96.3% | $0.15619 | 100.0% |
+| retrieval | 10 | 4.79s | 3.8% | $0.00000 | 0.0% |
+| citation_guardrail | 8 | 0.0s | 0.0% | $0.00000 | 0.0% |
+
+### Worst case (what the means hide)
+
+- **evidence_recall** = 1.00, Q1: What property do I set if I want the printers to enable after a restart?
+- **groundedness** = 0.95, Q6: How do I create a workflow?
+- **correctness** = 0.80, Q9: How do I use locations?
+
+## Per-question results
+
+| # | Behaviour | Evid. recall | Retr.@5 | Cite prec. | Grounded | Correct | Latency | Flags |
+|---|---|---|---|---|---|---|---|---|
+| 1 |  | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 13.86s | - |
+| 2 |  | n/a | n/a | n/a | 1.00 | 1.00 | 7.86s | - |
+| 3 |  | n/a | n/a | n/a | 1.00 | 1.00 | 5.64s | - |
+| 4 |  | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 14.08s | - |
+| 5 |  | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 14.15s | - |
+| 6 |  | 1.00 | 1.00 | 1.00 | 0.95 | 1.00 | 20.74s | - |
+| 7 |  | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 16.22s | - |
+| 8 |  | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 12.76s | - |
+| 9 |  | 1.00 | 1.00 | 1.00 | 0.97 | 0.80 | 15.01s | - |
+| 10 |  | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 10.32s | - |
