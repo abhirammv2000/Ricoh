@@ -1,7 +1,7 @@
 {
-  "_description": "Documents baked into the deployed demo image. The published metrics in README/ROADMAP were measured on the FULL 733-document corpus, not this subset \u2014 the demo shows the system working, it does not reproduce the benchmark.",
+  "_description": "Documents baked into the deployed demo image. The published metrics in README/ROADMAP were measured on the FULL 733-document corpus, not this subset, the demo shows the system working, it does not reproduce the benchmark.",
   "document_count": 46,
-  "chunk_count": 87,
+  "chunk_count": 88,
   "benchmark_referenced": [
     "InserterOverview.pdf",
     "aiw00a12.pdf",

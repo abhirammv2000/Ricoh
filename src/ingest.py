@@ -35,6 +35,7 @@ from src.config import (
     DATA_DIR,
     SUPPORTED_EXTENSIONS,
 )
+from src.vision_ingest import get_cached_description
 
 # Logging (configured centrally in config.py)
 logger = logging.getLogger(__name__)
@@ -70,19 +71,33 @@ def extract_pages(pdf_path: str | Path) -> list[dict[str, Any]]:
 
     for page_idx in range(len(doc)):
         page = doc[page_idx]
+        page_number = page_idx + 1
         text = page.get_text("text")  # plain-text extraction
+        text = text.strip() if text else ""
 
-        # Skip empty / image-only pages that yield no useful text
-        if not text or not text.strip():
+        # Screenshots, diagrams, and tables embedded in a page are invisible
+        # to plain-text extraction (see src/vision_ingest.py). When a vision
+        # description was pre-generated for this page, append it as its own
+        # labeled section so retrieval can match on it too - never silently
+        # merged into the prose, so a citation can still point at "page N"
+        # without implying the diagram content came from the text layer.
+        vision_description = get_cached_description(source_name, page_number)
+        if vision_description:
+            visual_section = f"\n\n[Embedded image/diagram content on this page]\n{vision_description}"
+            text = (text + visual_section).strip() if text else visual_section.strip()
+
+        # Skip pages with no text AND no vision description - still nothing
+        # useful to index.
+        if not text:
             logger.debug(
-                "Skipping empty page %d in %s", page_idx + 1, source_name
+                "Skipping empty page %d in %s", page_number, source_name
             )
             continue
 
         pages.append(
             {
-                "text": text.strip(),
-                "page_number": page_idx + 1,       # 1-indexed for humans
+                "text": text,
+                "page_number": page_number,        # 1-indexed for humans
                 "source_document": source_name,
             }
         )
