@@ -386,7 +386,7 @@ def _render_trace(t: dict) -> None:
     st.caption(f"`{t['trace_id']}`  ·  {t['query']}")
 
     for i, s in enumerate(t["spans"], 1):
-        head = f"{i}. **{s['stage']}** ({s['kind']}) — {s['latency_seconds']:.2f}s"
+        head = f"{i}. **{s['stage']}** ({s['kind']}) · {s['latency_seconds']:.2f}s"
         if s["kind"] == "llm":
             head += f", ${s['cost_usd']:.5f}, {s['input_tokens']:,}in/{s['output_tokens']:,}out"
         st.markdown(head)

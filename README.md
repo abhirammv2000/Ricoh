@@ -352,7 +352,7 @@ The verifier is cheap in *time* (one-word output) and expensive in *money* (it r
 
 **The system spent most on questions it could not answer.** Q2 and Q3, the two correct refusals, cost $0.146 and $0.122 against a $0.026 median, because the retry loop fires precisely when evidence looks insufficient. **52% of the benchmark's total cost went to 2 of 10 questions, both unanswerable.** Retrying cannot help when the corpus lacks the answer.
 
-**Limits of this conclusion, stated plainly.** It holds for *this* corpus (733 mostly single-page articles where one retrieval already achieves recall@5 = 1.00 on these 10 questions, 0.94 across all 100) and *this* 10-question set, which contains no genuinely multi-hop questions. On a corpus with weak retrieval, the planner's ability to re-query is exactly the mechanism that would pay for itself, the literature's case for agentic RAG is that it repairs weak retrieval, and there is nothing here to repair. That is why the stages are disabled by configuration (`USE_PLANNER`, `USE_VERIFIER`) rather than deleted.
+**Limits of this conclusion.** It holds for *this* corpus (733 mostly single-page articles where one retrieval already achieves recall@5 = 1.00 on these 10 questions, 0.94 across all 100) and *this* 10-question set, which contains no genuinely multi-hop questions. On a corpus with weak retrieval, the planner's ability to re-query is exactly the mechanism that would pay for itself, the literature's case for agentic RAG is that it repairs weak retrieval, and there is nothing here to repair. That is why the stages are disabled by configuration (`USE_PLANNER`, `USE_VERIFIER`) rather than deleted.
 
 ### The ablation, re-run at n=100
 
