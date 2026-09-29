@@ -37,9 +37,11 @@ The verifier (C) adds no evidence recall over B and is slightly worse on the jud
 
 Later work held up under harder tests: a judged ablation on a hand-built **multi-hop** set (the case the 100-question set was missing) still puts the planner's gain inside the judge noise floor; the **holdout** ablation, once judged, confirmed the dev-only pattern; a **cross-provider bakeoff** found `gemini-3.6-flash` holds answer quality at 1/50th the cost per query while `gpt-4o-mini` drops correctness 0.21; **multi-turn** follow-up handling (history-aware query rewriting) answers follow-ups about as well as cold questions; and a **QLoRA fine-tune** of Llama 3.1 8B, self-hosted on one GPU, distilled the synthesizer's skill closely enough to land correctness inside Sonnet's noise floor, though groundedness stays a real gap ([`finetune/`](finetune/)). All in [§7](#7-evaluation-and-metrics).
 
+I also added an optional Azure AI Search backend for the same chunks. Its semantic ranker matches the local cross-encoder on R@5 and does better on R@1, and it is much faster. See [the Azure section](#azure-ai-search-as-a-second-backend).
+
 Brackets are 95% percentile-bootstrap confidence intervals.
 
-**Stack:** Python · LangGraph · Claude · ChromaDB (dense) + BM25 + Reciprocal Rank Fusion · Streamlit · pytest + GitHub Actions CI · Docker.
+**Stack:** Python · LangGraph · Claude · ChromaDB (dense) + BM25 + Reciprocal Rank Fusion · optional Azure AI Search · Streamlit · pytest + GitHub Actions CI · Docker.
 
 ```bash
 pip install -r requirements.txt
@@ -614,7 +616,7 @@ Contextual Retrieval and semantic chunking were deliberately **not** implemented
 
 ### Azure AI Search as a second backend
 
-`src/azure_retriever.py` indexes the same 1,322 chunks in Azure AI Search and queries them four ways: BM25 keyword, HNSW vector, hybrid (Azure fuses the two with RRF), and hybrid plus Azure's semantic ranker. The vectors are the same MiniLM embeddings ChromaDB stores (checked: max difference 1.5e-8 across a sample), and the chunk text matches for all 1,322 chunks, so only the search engine changes. It runs on the Free tier, which costs nothing. The semantic ranker is metered, so `eval/azure_search_eval.py` only sends those requests with `--semantic` and prints the count first. On the free plan, going past the monthly allowance returns an error instead of a charge.
+I added an optional Azure AI Search backend (`src/azure_retriever.py`) that indexes the same 1,322 chunks, so the two retrievers can be compared on the same input. It supports keyword (BM25), vector, hybrid, and hybrid plus Azure's semantic ranker. The embeddings are the same MiniLM vectors ChromaDB stores, so only the search engine changes. It runs on the Free tier, which costs nothing. The semantic ranker is metered, so the eval only uses it when you pass `--semantic`, and on the free plan going over the monthly allowance gives an error instead of a charge.
 
 ```bash
 pip install -r requirements-azure.txt
@@ -622,7 +624,7 @@ python -m src.azure_retriever --build
 python -m eval.azure_search_eval --semantic --chroma-rerank
 ```
 
-Same 100 questions and scoring code as the embedding sweep, all 100 shown (full dev/holdout split in [eval/azure_search_eval.md](eval/azure_search_eval.md)). The local rows reproduce the numbers above exactly.
+Same 100 questions and scoring as the embedding sweep. Per-split numbers are in [eval/azure_search_eval.md](eval/azure_search_eval.md). The local rows match the numbers above.
 
 | retriever | R@1 | R@3 | R@5 | MRR | missed | ms/query |
 |---|---|---|---|---|---|---|
@@ -633,17 +635,15 @@ Same 100 questions and scoring code as the embedding sweep, all 100 shown (full 
 | Azure hybrid, top_k=20 | 0.76 | 0.90 | 0.91 | 0.83 | 9 | 529 |
 | Azure hybrid + semantic ranker | 0.85 | 0.97 | 0.97 | 0.91 | 3 | 803 |
 
-What this shows:
+The semantic ranker did best. R@5 is 0.97, same as the local cross-encoder, but R@1 is 0.85 against 0.77, and it takes about 0.8s a query instead of 6.2s. The cross-encoder ran on my laptop CPU and Azure ran over the network, so the speed comparison is rough.
 
-- **The semantic ranker is the strongest option here.** Same R@5 as the local cross-encoder (0.97), but R@1 is 0.85 against 0.77 and MRR is 0.91 against 0.86, at about 0.8s a query instead of 6.2s. The two rerankers miss the same three questions (9, 28 and 44), so those look like a limit of the candidate pool or the labels, not of either ranker.
-- **It also held up better on the held-out 30.** R@1 is 0.80 against 0.67 for the cross-encoder. That is 30 questions, so a few answers either way move it, but it is the same split where the cross-encoder's R@1 dropped before.
-- **Hybrid fusion does not beat plain keyword on Azure.** Azure keyword alone (R@5 0.94) beats Azure hybrid (0.91). On this corpus, single-page help topics with exact product terms, BM25 is hard to improve on without a reranker. I did not run BM25 alone on the local retriever, so I can't say whether the same holds there.
-- **Azure vector search alone is the weakest** (R@5 0.88). Since the embeddings are the same MiniLM vectors ChromaDB uses, the embedding model is the likely limit, but I only measured the Azure side.
-- **Read the latency column with care.** The cross-encoder ran on this laptop's CPU and Azure ran over the network from the same machine, so it is a practical comparison, not a like-for-like hardware one.
+Both rerankers miss the same three questions (9, 28 and 44), so that is probably the candidate pool or the labels, not the ranker. On the held-out 30, R@1 is 0.80 for the semantic ranker and 0.67 for the cross-encoder, but that is only 30 questions.
 
-Noise floor: two separate HNSW builds of the same chunks (the production `chroma_db` and the sweep's `minilm` index) differ by about one question at top_k=20 (R@5 0.91 against 0.92). Differences of one or two questions between engines, like the 0.94 against 0.91 above, are inside that.
+Azure keyword alone (R@5 0.94) beat Azure hybrid (0.91). I did not run BM25 alone on the local retriever, so I can't say if that holds there too. Azure vector alone was the weakest (R@5 0.88).
 
-Not measured: whether the retrieval gain carries through to judged answer quality (that needs the paid harness), and other analyzers or a tuned Azure index. Everything above is default settings.
+Two separate HNSW builds of the same chunks differ by about one question at top_k=20 (R@5 0.91 against 0.92), so gaps of one or two questions between engines don't mean much.
+
+Not measured: whether the better retrieval improves judged answer quality, which needs the paid judge run. All Azure settings are defaults.
 
 ### Cross-provider bakeoff
 
@@ -732,6 +732,7 @@ Fixed, not just documented:
 | PDF Parsing | PyMuPDF 1.25.3 |
 | Vector Database | ChromaDB 0.6.3 (local, all-MiniLM-L6-v2) |
 | Keyword Search | rank_bm25 0.2.2 |
+| Optional search backend | Azure AI Search (`requirements-azure.txt`) |
 | Agentic Framework | LangGraph 0.2.74 |
 | LLM | Claude Sonnet via langchain-anthropic 0.3.12 |
 | UI | Streamlit 1.42.0 |
