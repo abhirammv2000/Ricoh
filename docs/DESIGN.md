@@ -44,7 +44,9 @@ per-stage cost and, for the retrieval span, exactly which chunks fed the answer
 at what rank and RRF score. That view was CLI-only (`src/trace_view.py`); it and
 the dashboard now share `perf.format_trace` so they cannot disagree.
 
-**Honest gap:** production traffic is not sampled back into the eval set.
+**Answer feedback.** Each answer has a thumbs up or down, with an optional "what went wrong" note after a thumbs down. A vote is stored by trace id in `traces/feedback.jsonl` (`src/feedback.py`), so it links back to the exact chunks behind the answer. The dashboard shows the up-rate with a 95% range. `python -m eval.feedback_candidates` turns thumbs-down questions (and, if you ask, a seeded sample of thumbs-up ones) into candidate eval cases, skipping anything already in the benchmark.
+
+That closes the first half of the loop and no more. Every candidate comes out with `needs_label: true` and empty `expected_sources`, because the label has to come from reading the source documents, not from the system's own answer. Adding a labelled candidate to the benchmark is still a manual step, on purpose. Two other limits: no real feedback has been collected yet, so there are no results to report, and on the public Cloud Run demo the file lives on the container's disk and is lost when the instance restarts. The feedback file holds users' questions and answers, so it is gitignored like the traces.
 
 ---
 

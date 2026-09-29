@@ -90,6 +90,10 @@ eval/provider_bakeoff.json
 # labels it is worth keeping: `git add -f eval/human_labels.json`.
 eval/human_labels.json
 
+# Eval candidates built from user feedback: they hold users' questions and
+# answers. Regenerate with `python -m eval.feedback_candidates`.
+eval/feedback_candidates.json
+
 # Internal notes and generated eval artifacts, not for the public repo
 DEMO_WALKTHROUGH.md
 IMPLEMENTATION_WALKTHROUGH.md

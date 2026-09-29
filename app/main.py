@@ -44,6 +44,7 @@ for _quiet in ("src.ingest", "src.retriever", "chromadb", "httpx", "httpcore"):
     logging.getLogger(_quiet).setLevel(logging.WARNING)
 
 from src.agent import stream_agent, StreamResult
+from src import feedback
 from src.conversation import Turn
 from src.guardrails import screen_input
 from src.ingest import ingest_all
@@ -327,6 +328,35 @@ def render_glass_box(state: dict, latency: float) -> None:
             st.caption("No evidence retrieved.")
 
 
+def _on_feedback(trace_id: str) -> None:
+    """Save the vote and any comment for one answer. Runs from a widget callback."""
+    vote = feedback.vote_from_widget(st.session_state.get(f"fb_{trace_id}"))
+    if vote is None:
+        return
+    feedback.record_for_trace(
+        st.session_state.messages,
+        trace_id,
+        vote,
+        comment=st.session_state.get(f"fbc_{trace_id}", ""),
+    )
+
+
+def render_feedback(state: dict) -> None:
+    """Thumbs under an answer, plus a short comment box after a thumbs down."""
+    trace_id = (state.get("trace") or {}).get("trace_id")
+    if not trace_id:
+        return
+    st.caption("Did this answer your question?")
+    st.feedback("thumbs", key=f"fb_{trace_id}", on_change=_on_feedback, args=(trace_id,))
+    if st.session_state.get(f"fb_{trace_id}") == 0:
+        st.text_input(
+            "What went wrong? (optional)",
+            key=f"fbc_{trace_id}",
+            on_change=_on_feedback,
+            args=(trace_id,),
+        )
+
+
 def render_perf_dashboard() -> None:
     """Aggregate cost and latency across every recorded request."""
     from src import perf
@@ -342,6 +372,13 @@ def render_perf_dashboard() -> None:
     col2.metric("Mean cost", f"${summary['cost_usd']['mean']:.4f}")
     col3.metric("p95 latency", f"{summary['latency_seconds']['p95']:.1f}s")
     col4.metric("Total spend", f"${summary['cost_usd']['total']:.2f}")
+
+    fb = feedback.summarize(feedback.load_feedback())
+    if fb["total"]:
+        st.caption(
+            f"Answer feedback: {fb['up']} up, {fb['down']} down ({fb['up_rate']:.0%}, "
+            f"95% range {fb['ci_low']:.0%} to {fb['ci_high']:.0%}). Small samples give wide ranges."
+        )
 
     st.caption("Latency per request in seconds, most recent last")
     st.bar_chart([r.get("total_traced_seconds", 0.0) for r in records])
@@ -517,6 +554,7 @@ for msg in st.session_state.messages:
         # If this was an assistant message with agent state, show Glass Box
         if msg["role"] == "assistant" and "agent_state" in msg:
             render_glass_box(msg["agent_state"], msg.get("latency", 0))
+            render_feedback(msg["agent_state"])
 
 # -- Chat input --
 if user_input := st.chat_input("Ask a Ricoh technical support question..."):
@@ -562,6 +600,7 @@ if user_input := st.chat_input("Ask a Ricoh technical support question..."):
             state = dict(result.final_state or {})
             state["condensed_query"] = result.condensed_query
             state["trace"] = {
+                "trace_id": rec.trace_id,
                 "cost_usd": rec.total_cost_usd,
                 "llm_calls": rec.llm_calls,
                 "input_tokens": rec.total_input_tokens,
@@ -577,6 +616,7 @@ if user_input := st.chat_input("Ask a Ricoh technical support question..."):
 
         if state:
             render_glass_box(state, latency)
+            render_feedback(state)
 
     # Save to history
     st.session_state.messages.append(
