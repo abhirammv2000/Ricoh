@@ -612,6 +612,39 @@ So the reranker is the clearest lever for the handful of hard questions if a lat
 
 Contextual Retrieval and semantic chunking were deliberately **not** implemented: both target long multi-page documents and would cost real ingest-time API calls for little gain on a single-page corpus.
 
+### Azure AI Search as a second backend
+
+`src/azure_retriever.py` indexes the same 1,322 chunks in Azure AI Search and queries them four ways: BM25 keyword, HNSW vector, hybrid (Azure fuses the two with RRF), and hybrid plus Azure's semantic ranker. The vectors are the same MiniLM embeddings ChromaDB stores (checked: max difference 1.5e-8 across a sample), and the chunk text matches for all 1,322 chunks, so only the search engine changes. It runs on the Free tier, which costs nothing. The semantic ranker is metered, so `eval/azure_search_eval.py` only sends those requests with `--semantic` and prints the count first. On the free plan, going past the monthly allowance returns an error instead of a charge.
+
+```bash
+pip install -r requirements-azure.txt
+python -m src.azure_retriever --build
+python -m eval.azure_search_eval --semantic --chroma-rerank
+```
+
+Same 100 questions and scoring code as the embedding sweep, all 100 shown (full dev/holdout split in [eval/azure_search_eval.md](eval/azure_search_eval.md)). The local rows reproduce the numbers above exactly.
+
+| retriever | R@1 | R@3 | R@5 | MRR | missed | ms/query |
+|---|---|---|---|---|---|---|
+| local hybrid (RRF), top_k=10 | 0.78 | 0.89 | 0.94 | 0.85 | 6 | 283 |
+| local hybrid + cross-encoder, top_k=20 | 0.77 | 0.95 | 0.97 | 0.86 | 3 | 6,243 |
+| Azure keyword (BM25) | 0.73 | 0.91 | 0.94 | 0.82 | 6 | 87 |
+| Azure vector | 0.62 | 0.82 | 0.88 | 0.72 | 12 | 460 |
+| Azure hybrid, top_k=20 | 0.76 | 0.90 | 0.91 | 0.83 | 9 | 529 |
+| Azure hybrid + semantic ranker | 0.85 | 0.97 | 0.97 | 0.91 | 3 | 803 |
+
+What this shows:
+
+- **The semantic ranker is the strongest option here.** Same R@5 as the local cross-encoder (0.97), but R@1 is 0.85 against 0.77 and MRR is 0.91 against 0.86, at about 0.8s a query instead of 6.2s. The two rerankers miss the same three questions (9, 28 and 44), so those look like a limit of the candidate pool or the labels, not of either ranker.
+- **It also held up better on the held-out 30.** R@1 is 0.80 against 0.67 for the cross-encoder. That is 30 questions, so a few answers either way move it, but it is the same split where the cross-encoder's R@1 dropped before.
+- **Hybrid fusion does not beat plain keyword on Azure.** Azure keyword alone (R@5 0.94) beats Azure hybrid (0.91). On this corpus, single-page help topics with exact product terms, BM25 is hard to improve on without a reranker. I did not run BM25 alone on the local retriever, so I can't say whether the same holds there.
+- **Azure vector search alone is the weakest** (R@5 0.88). Since the embeddings are the same MiniLM vectors ChromaDB uses, the embedding model is the likely limit, but I only measured the Azure side.
+- **Read the latency column with care.** The cross-encoder ran on this laptop's CPU and Azure ran over the network from the same machine, so it is a practical comparison, not a like-for-like hardware one.
+
+Noise floor: two separate HNSW builds of the same chunks (the production `chroma_db` and the sweep's `minilm` index) differ by about one question at top_k=20 (R@5 0.91 against 0.92). Differences of one or two questions between engines, like the 0.94 against 0.91 above, are inside that.
+
+Not measured: whether the retrieval gain carries through to judged answer quality (that needs the paid harness), and other analyzers or a tuned Azure index. Everything above is default settings.
+
 ### Cross-provider bakeoff
 
 The system runs on `claude-sonnet-4-6`. `src/llm_factory.py` also wires OpenAI and Gemini (the latter through its OpenAI-compatible endpoint), and `eval/provider_bakeoff.py` runs config A on each against a *shared, identical* retrieval and the same `claude-opus-5` judge, so any difference is the synthesizer model. On 20 questions from the dev split:
@@ -839,6 +872,7 @@ Ricoh/
 │   ├── config.py                # Centralised configuration
 │   ├── ingest.py                # PDF parsing + chunking pipeline
 │   ├── retriever.py             # Hybrid retrieval (ChromaDB + BM25 + RRF + optional reranker)
+│   ├── azure_retriever.py       # Optional Azure AI Search backend (keyword, vector, hybrid, semantic)
 │   ├── llm_factory.py           # LLM provider abstraction
 │   ├── agent.py                 # LangGraph agentic state machine
 │   ├── conversation.py          # History-aware follow-up rewriting for multi-turn
@@ -867,6 +901,7 @@ Ricoh/
 │   ├── run_paid_batch.sh        # The judged runs that need Anthropic credits
 │   ├── sweep_embeddings.py      # Retrieval-only embedding-model comparison
 │   ├── reranker_sweep.py        # Retrieval-only reranker-model comparison
+│   ├── azure_search_eval.py     # Azure AI Search vs the local retriever, retrieval only
 │   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
 │   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring
 │   ├── redteam_guardrail.py     # Measures the prompt-injection screen, not just unit-tests it
@@ -895,6 +930,7 @@ Ricoh/
 ├── requirements.txt             # Runtime deps
 ├── requirements-dev.txt         # + pytest (CI)
 ├── requirements-reranker.txt    # Optional cross-encoder extra
+├── requirements-azure.txt       # Optional Azure AI Search extra
 ├── requirements-enhanced.txt    # Optional stronger embeddings + reranker
 ├── LICENSE                      # MIT
 ├── evaluation_results.csv       # Smoke-test output

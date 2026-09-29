@@ -180,6 +180,13 @@ RERANKER_MODEL: str = os.getenv(
 # RETRIEVAL_FINAL_K.  More candidates -> better reranker headroom.
 RERANK_CANDIDATE_POOL: int = 20
 
+# Optional Azure AI Search backend (src/azure_retriever.py). Nothing here is
+# read unless that module is used, so the base install stays free of the Azure
+# SDK. Install with:  pip install -r requirements-azure.txt
+AZURE_SEARCH_ENDPOINT: str = os.getenv("AZURE_SEARCH_ENDPOINT", "")
+AZURE_SEARCH_API_KEY: str = os.getenv("AZURE_SEARCH_API_KEY", "")
+AZURE_SEARCH_INDEX: str = os.getenv("AZURE_SEARCH_INDEX", "citera-chunks")
+
 # LLM provider (overridden at runtime / via .env)
 # Accepted values: "anthropic" | "google"
 DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")

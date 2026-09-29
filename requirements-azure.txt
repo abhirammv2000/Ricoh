@@ -1,0 +1,4 @@
+# Optional Azure AI Search backend (src/azure_retriever.py).
+#   pip install -r requirements-azure.txt
+# Needs AZURE_SEARCH_ENDPOINT and AZURE_SEARCH_API_KEY in .env, see .env.example.
+azure-search-documents>=12.0.0
