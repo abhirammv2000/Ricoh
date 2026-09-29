@@ -22,6 +22,7 @@ Ricoh/
 │   ├── guardrails.py            # Prompt-injection screen at the API edge
 │   ├── instrumentation.py       # Per-stage cost / token / latency spans
 │   ├── perf.py / trace_view.py  # Dashboard rollups and per-request drill-down
+│   ├── feedback.py              # Thumbs up/down on answers, keyed by trace id
 │   ├── semantic_cache.py        # Optional answer cache (off by default)
 │   ├── evaluate.py              # Latency/citation smoke test
 │   └── eval_harness.py          # Quality eval harness (evidence recall, retriever recall@N, groundedness)
@@ -45,6 +46,7 @@ Ricoh/
 │   ├── azure_search_eval.py     # Azure AI Search vs the local retriever, retrieval only
 │   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
 │   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring
+│   ├── feedback_candidates.py   # Turns thumbs-down feedback into eval candidates to label
 │   ├── redteam_guardrail.py     # Measures the prompt-injection screen, not just unit-tests it
 │   ├── redteam_prompts.json     # 40 adversarial + benign prompts, 4 categories
 │   └── verify_unanswerable.py   # Audits the "refuse" labels against the full corpus

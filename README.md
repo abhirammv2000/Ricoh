@@ -53,7 +53,7 @@ streamlit run app/main.py
 
 ## Observability
 
-Every request is traced with per-stage spans, token counts, cost, and which chunks produced the answer. Traces are plain JSONL files in `traces/`, and LangSmith is an optional extra. Look at them with `python -m src.trace_view`. More in [docs/DESIGN.md](docs/DESIGN.md#observability).
+Every request is traced with per-stage spans, token counts, cost, and which chunks produced the answer. Traces are plain JSONL files in `traces/`, and LangSmith is an optional extra. Look at them with `python -m src.trace_view`. Each answer also has a thumbs up or down, stored by trace id, and thumbs-down questions can be exported as eval candidates to label. More in [docs/DESIGN.md](docs/DESIGN.md#observability).
 
 ---
 
