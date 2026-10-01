@@ -65,7 +65,6 @@ def conversation_history(messages: list[dict]) -> list[Turn]:
 
 st.set_page_config(
     page_title="Citera",
-    page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded",
 )
