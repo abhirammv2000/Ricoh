@@ -1,32 +1,12 @@
-"""src/build_demo_index.py - Bake a small, shippable index for the live demo.
+"""Build a small index to ship with the live demo.
 
-Why a subset rather than the full corpus
-The deployed container has no ``data/`` directory: the 733 source PDFs are
-~223 MB and are RICOH's documentation, not ours to republish wholesale. But
-an app that ships with no index is worse than useless, it looks healthy and
-refuses every question, because the synthesizer correctly declines to answer
-with no evidence.
+The container has no data/ folder (the 733 PDFs are about 223 MB and Ricoh's, so they aren't ours to
+republish), and an app with no index looks healthy but refuses everything. So the demo ships a small
+index. It holds every document the curated benchmark uses (so the README's questions work, including
+the two that should be refused) plus a fixed sample from the generated benchmark. The demo answers
+from far fewer documents than the published metrics, so DEMO_MODE=true makes the UI say so, and a
+manifest records what was included.
 
-So the demo ships a small curated index: large enough that the system
-demonstrably works end to end, small enough to bake into the image and to
-limit how much third-party documentation is republished.
-
-How the subset is chosen
-Not at random. It includes:
-
-1. Every document referenced by the curated benchmark
-   (``eval/ground_truth.json``), so the demo can answer the questions the
-   README talks about, including the two it should *refuse*.
-2. A deterministic sample of documents from the generated benchmark, so the
-   demo is not tuned to only the questions on show.
-
-Honesty constraint
-The live demo answers from ~N documents while the published metrics were
-measured on all 733. Those are different systems, and conflating them would
-overstate the demo. ``DEMO_MODE=true`` makes the UI say so, and this script
-writes a manifest recording exactly what was included.
-
-Usage:
     python -m src.build_demo_index                 # default subset
     python -m src.build_demo_index --extra 40      # widen the sample
 """
@@ -49,7 +29,7 @@ GENERATED: Path = PROJECT_ROOT / "eval" / "generated_questions.json"
 
 
 def _referenced_docs() -> set[str]:
-    """Documents the curated benchmark depends on."""
+    """The documents the curated benchmark uses."""
     docs: set[str] = set()
     if GROUND_TRUTH.exists():
         for q in json.loads(io.open(GROUND_TRUTH, encoding="utf-8").read())["questions"]:
@@ -58,7 +38,7 @@ def _referenced_docs() -> set[str]:
 
 
 def _sampled_docs(exclude: set[str], n: int, seed: int) -> set[str]:
-    """A deterministic spread of other documents from the generated set."""
+    """A fixed-seed sample of other documents from the generated set."""
     pool: list[str] = []
     if GENERATED.exists():
         for q in json.loads(io.open(GENERATED, encoding="utf-8").read())["questions"]:
@@ -92,21 +72,18 @@ def build(extra: int, seed: int) -> int:
           f"({len(required & present)} benchmark-referenced, "
           f"{len(extras & present)} sampled)")
 
-    # Rebuild from scratch so a shrunk subset never leaves stale documents
-    # behind from a previous, larger run.
+    # start from scratch so a smaller subset doesn't keep documents from an earlier run
     if DEMO_DIR.exists():
         shutil.rmtree(DEMO_DIR)
     DEMO_DIR.mkdir(parents=True, exist_ok=True)
 
     chunks = []
     for name in sorted(wanted):
-        # extract_pages sets source_document/page_number, which chunk_pages
-        # then carries onto every chunk, the provenance citations rely on.
+        # extract_pages sets source_document and page_number, and chunk_pages passes them on
         chunks.extend(chunk_pages(extract_pages(DATA_DIR / name)))
     print(f"  {len(chunks)} chunks")
 
-    # Import after DEMO_DIR exists; retriever derives its BM25 paths from the
-    # persist dir it is given, so the two halves stay consistent.
+    # imported after DEMO_DIR exists, the retriever puts its BM25 files next to the chroma store
     from src.retriever import HybridRetriever
 
     retriever = HybridRetriever(persist_dir=DEMO_DIR, collection_name=CHROMA_COLLECTION_NAME)

@@ -1,36 +1,13 @@
-"""eval/sweep_rrf_k.py - Justify RRF_K for THIS corpus, not by citation.
+"""Check RRF_K on this corpus. 60 is the constant from the original RRF paper, which says where it
+came from but not whether it's right here.
 
-`RRF_K = 60` is the constant from Cormack et al. (2009).  Citing the paper
-explains where the number came from; it does not explain why it is right
-here, and the two are not the same thing.
+A chunk's score is the sum of 1 / (k + rank) over the lists it is in. With k=60 and a pool of 10,
+rank 1 gets 1/61 and rank 10 gets 1/70, only 15% apart, but a chunk in both lists scores about twice
+one in a single list. So it behaves more like "did both retrievers pick it" than "how high did they
+rank it". A high k favors agreement and a low k favors rank, which helps when one retriever is clearly
+right and the other has no opinion. This measures which wins here. With only 8 scorable questions,
+prefer a k on a plateau over one that wins by a single question.
 
-The number matters more than it looks
-RRF scores a document as  Σ 1 / (k + rank_i)  over the lists it appears in.
-
-With k = 60 and a candidate pool of 10:
-
-    rank 1  ->  1/61 = 0.01639
-    rank 10 ->  1/70 = 0.01429      ... only 15% apart
-
-but a document appearing in *both* lists gets roughly twice the score of
-one appearing in a single list, whatever its rank.  So at this pool size the
-formula is closer to "did both retrievers vote for it" than to "how highly
-did they rank it", k = 60 flattens rank almost entirely.
-
-That is a real design choice, and it cuts both ways:
-
-  * Agreement-dominant (high k) is robust when either retriever is noisy.
-  * Rank-dominant (low k) is better when one retriever is decisively right
-    and the other has no opinion, which is common on this corpus, where the
-    answer document is often a strong *semantic* match with no distinctive
-    keyword overlap.
-
-This script measures which regime actually wins here instead of assuming.
-
-Reminder on sample size: 8 scorable questions. Prefer a k that sits on a
-plateau over one that wins by a single question.
-
-Usage:
     python -m eval.sweep_rrf_k
 """
 
@@ -59,8 +36,7 @@ def sweep() -> int:
     print(f"Questions: {len(questions)}   top_k={RETRIEVAL_TOP_K}  "
           f"final_k={RETRIEVAL_FINAL_K}  (current RRF_K={RRF_K})\n")
 
-    # Retrieve the per-method ranked lists ONCE; only fusion varies with k,
-    # so re-querying per k would be wasted work and identical input.
+    # get the ranked lists once, only the fusion changes with k
     cached: list[tuple[list, list, list[str]]] = []
     for q in questions:
         vec = retriever._vector_search(q["question"], top_k=RETRIEVAL_TOP_K)

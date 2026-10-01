@@ -1,17 +1,15 @@
-"""Judged evaluation of multi-turn follow-up handling (src/conversation.py).
+"""Judged evaluation of follow-up questions (src/conversation.py).
 
-The unit tests prove condensation runs; this measures whether it works. For
-every chain in eval/multiturn_questions.json it walks the turns in order,
-carrying the real prior answers as history, and for each turn records:
+The unit tests show condensation runs, this measures whether it works. For each chain in
+multiturn_questions.json it goes through the turns in order, using the real earlier answers as history,
+and records for every turn:
 
-  * what condensation rewrote the follow-up into, and how close that is to the
-    hand-written 'standalone' target (offline MiniLM cosine)
-  * retriever recall on the RAW follow-up vs the rewritten question, so the
-    retrieval lift from condensation is visible and is free to compute
-  * groundedness, correctness, evidence recall and behaviour match, judged with
-    the same LLM judge as the main harness, scored against the standalone intent
+  * what the follow-up was rewritten into, and how close that is to the hand-written standalone version
+    (MiniLM cosine)
+  * retriever recall on the raw follow-up against the rewrite, which is free to compute
+  * groundedness, correctness, evidence recall and behaviour match from the same judge as the main harness
 
-Aggregates split turn 1 (already standalone, a control) from the follow-ups.
+Turn 1 (already standalone) is reported separately as a control.
 
     python -m eval.multiturn_eval              # full judged run (needs API key)
     python -m eval.multiturn_eval --no-judge   # rewrite + retrieval metrics only
@@ -36,16 +34,16 @@ QUESTIONS = PROJECT_ROOT / "eval" / "multiturn_questions.json"
 RESULT_JSON = PROJECT_ROOT / "eval" / "multiturn_metrics.json"
 RESULT_MD = PROJECT_ROOT / "eval" / "multiturn_report.md"
 
-_EMBED = None
+_embed_fn = None
 
 
 def _embed(texts: list[str]) -> np.ndarray:
-    global _EMBED
-    if _EMBED is None:
+    global _embed_fn
+    if _embed_fn is None:
         from chromadb.utils import embedding_functions
 
-        _EMBED = embedding_functions.ONNXMiniLM_L6_V2()
-    v = np.asarray(_EMBED(texts), dtype=np.float64)
+        _embed_fn = embedding_functions.ONNXMiniLM_L6_V2()
+    v = np.asarray(_embed_fn(texts), dtype=np.float64)
     return v / np.clip(np.linalg.norm(v, axis=1, keepdims=True), 1e-9, None)
 
 
@@ -64,13 +62,8 @@ def _distinct_docs(evidence: list[dict[str, Any]]) -> list[str]:
 
 
 def _recall(expected: list[str], docs: list[str]) -> float:
-    """1.0 if any expected document reached the top final_k, else 0.0.
-
-    Any-hit, not fraction: for a support follow-up the question is "did the
-    answer have a document that can answer it", and several turns list more
-    than one document that independently would (e.g. the generic
-    custom-properties article and the document-specific one).
-    """
+    """1.0 if any expected document is in the top final_k, else 0.0. Any hit counts, since several turns list more
+    than one document that would answer it on its own."""
     if not expected:
         return 0.0
     return 1.0 if set(expected) & set(docs[:RETRIEVAL_FINAL_K]) else 0.0
@@ -98,7 +91,7 @@ def evaluate(use_judge: bool = True) -> dict[str, Any]:
             evidence = state.get("retrieved_evidence", [])
             answer_docs = _distinct_docs(evidence)
 
-            # Free retrieval control: raw follow-up vs the rewrite.
+            # free check: the raw follow-up against the rewrite
             raw_docs = _distinct_docs(
                 retriever.retrieve(raw, top_k=RETRIEVAL_TOP_K, final_k=RETRIEVAL_FINAL_K)
             )

@@ -1,26 +1,10 @@
-"""eval/judge_variance.py - Measure the LLM judge's own noise floor.
+"""Measure how noisy the LLM judge is.
 
-An LLM judge is a measuring instrument, and an instrument whose precision you
-have not measured cannot support fine-grained claims.  Before saying "metric X
-improved from 0.97 to 0.98", you have to know whether this judge can even
-resolve a difference of 0.01.  (It cannot.)
-
-This script scores the *same* answer against the *same* evidence N times and
-reports the spread.  Anything smaller than that spread is noise, not signal.
-
-Two properties worth knowing about the result:
-
-* Unambiguous answers score with zero variance, the judge is not
-  randomly jittering everything.
-* Variance concentrates on borderline answers, which are exactly the ones
-  that move an aggregate mean.  So the noise floor that matters is the
-  borderline one, not the average one.
-
-A caveat this script cannot remove: groundedness is only meaningful relative
-to the evidence block the generator actually saw.  Reconstructing evidence
-from a fresh retrieval (as here) yields different absolute scores than the
-harness, which passes the agent's full accumulated evidence.  Compare the
-*spread* across repeats, never these absolute values against harness output.
+Before saying a metric went from 0.97 to 0.98 you need to know whether the judge can resolve 0.01 (it
+can't). This scores the same answer against the same evidence N times and reports the spread. Clear
+answers score the same every time, and the variance sits on borderline answers, which are the ones that
+move a mean. The evidence here is retrieved fresh, so the absolute scores differ from the harness's.
+Compare the spread, not the values.
 
 Usage:
     python -m eval.judge_variance            # default: 5 repeats
@@ -61,8 +45,7 @@ def measure(ids: list[int], repeats: int) -> int:
             print(f"Q{qid}: not present in metrics.json - skipped")
             continue
 
-        # Retrieval is deterministic, so the evidence block is identical
-        # across repeats and the only varying element is the judge itself.
+        # retrieval is deterministic, so only the judge varies between repeats
         evidence = retriever.retrieve(
             query=row["question"], top_k=RETRIEVAL_TOP_K, final_k=RETRIEVAL_FINAL_K
         )

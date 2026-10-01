@@ -1,24 +1,13 @@
-"""LLM initialisation.
+"""get_llm() returns a LangChain chat model for a provider.
 
-get_llm() returns a LangChain chat model for the configured provider. The
-provider comes from the `provider` argument, or from DEFAULT_LLM_PROVIDER in
-config.py when that argument is left out.
-
-Providers:
     anthropic   ChatAnthropic, needs ANTHROPIC_API_KEY
     openai      ChatOpenAI, needs OPENAI_API_KEY
-    google      Gemini through its OpenAI-compatible endpoint, needs
-                GEMINI_API_KEY (or GOOGLE_API_KEY). Uses the openai client
-                rather than langchain-google-genai, whose google-ai
-                dependency drags in protobuf 6 and breaks streamlit.
-    self_hosted A vLLM server (own OpenAI-compatible endpoint), for the
-                citera-finetune QLoRA distillation model. Needs
-                SELF_HOSTED_LLM_BASE_URL; vLLM does not check the API key so
-                any placeholder value works.
+    google      Gemini through its OpenAI-compatible endpoint, needs GEMINI_API_KEY (or GOOGLE_API_KEY).
+                Uses the openai client because langchain-google-genai pulls in protobuf 6, which breaks streamlit.
+    self_hosted a vLLM server running the fine-tuned model, needs SELF_HOSTED_LLM_BASE_URL (vLLM ignores the key)
 
-Anthropic is the production provider. openai, google, and self_hosted exist
-for the cross-provider bakeoff (eval/provider_bakeoff.py) and are not on the
-default path.
+Anthropic is the production provider. The others are only for the provider bakeoff. The provider
+comes from the argument, or DEFAULT_LLM_PROVIDER.
 """
 
 from __future__ import annotations
@@ -32,15 +21,10 @@ from src.config import DEFAULT_LLM_PROVIDER
 
 
 def response_text(response: Any) -> str:
-    """Pull the plain text out of a LangChain chat response.
+    """The plain text of a chat response.
 
-    On most models `response.content` is a string. On models that return
-    thinking blocks (for example claude-opus-5, where thinking is on by
-    default) it comes back as a list of typed blocks instead, and calling
-    `.strip()` on that list raises AttributeError. So every call site goes
-    through this helper rather than touching `.content` directly.
-
-    Thinking blocks are dropped and only the text is returned.
+    On models that think by default (claude-opus-5) content is a list of blocks, and .strip() on it
+    raises, so everything goes through here. Thinking blocks are dropped.
     """
     content = getattr(response, "content", response)
 
@@ -59,11 +43,8 @@ def response_text(response: Any) -> str:
     return str(content).strip()
 
 
-# Default model per provider.
-# claude-sonnet-4-20250514 was retired on 2026-06-15 and now 404s;
-# claude-sonnet-4-6 is the current Sonnet. We stay on Sonnet instead of Opus
-# on purpose: the pipeline makes about four calls per question, so the lower
-# price matters, and Sonnet 4.6 still accepts temperature=0.
+# default model per provider. claude-sonnet-4-20250514 was retired and now 404s. Sonnet over Opus
+# because of price, and Sonnet 4.6 still accepts temperature=0.
 _DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-sonnet-4-6",
     "openai": "gpt-4o-mini",
@@ -71,18 +52,11 @@ _DEFAULT_MODELS: dict[str, str] = {
     "self_hosted": "citera-finetuned",
 }
 
-# Gemini speaks an OpenAI-compatible dialect at this endpoint, so one client
-# library (openai, via langchain-openai) covers both non-Anthropic providers.
+# gemini has an openai-compatible endpoint, so one client covers both non-Anthropic providers
 _GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
-# Models that dropped the sampling parameters (temperature, top_p, top_k).
-# Opus 4.7 and later, and Sonnet 5, reject them with a 400; Sonnet 4.6 and
-# Opus 4.6 still take them. So we send temperature only on models that accept
-# it. Passing temperature=0 to, say, claude-opus-5 (which we use as the eval
-# judge) would fail the request outright.
-#
-# temperature=0 was never a promise of identical output anyway. It lowers
-# variance, it does not make sampling deterministic.
+# these models reject temperature, top_p and top_k with a 400 (Opus 4.7 and later, Sonnet 5), so
+# don't send it. Temperature 0 never made output deterministic anyway.
 _NO_SAMPLING_PARAMS: frozenset[str] = frozenset(
     {
         "claude-opus-5",
@@ -94,30 +68,13 @@ _NO_SAMPLING_PARAMS: frozenset[str] = frozenset(
     }
 )
 
-# ChatAnthropic defaults max_tokens to 1024, which is tight for a step-by-step
-# answer and can cut it off mid-sentence. On models where thinking is on by
-# default this budget also has to cover the thinking tokens, since max_tokens
-# caps thinking plus text.
+# ChatAnthropic's default of 1024 can cut a step-by-step answer off. On models that think, max_tokens
+# also has to cover the thinking.
 _DEFAULT_MAX_TOKENS: int = 4096
 
-# Transport resilience. A transient failure (a 429 rate limit, a 500 or 503
-# from the provider, a dropped connection) should not reach the user as a
-# crash. Two settings cover the two failure modes.
-#
-# max_retries retries transient errors with exponential backoff. We let the
-# Anthropic SDK do this rather than writing our own loop, because the SDK
-# respects the server's Retry-After header. A hand-rolled retry that ignores
-# Retry-After just hammers a service that already asked us to slow down and
-# makes the rate limit worse. Retrying is safe here because each call is a
-# stateless completion with no side effects.
-#
-# timeout caps a single attempt so one hung socket cannot stall the whole
-# graph. The SDK default is effectively unbounded, so without this a stuck
-# connection would hang forever and no retry would ever fire.
-#
-# 60 seconds per attempt is plenty for a long answer but still finite, and
-# three retries with backoff cover almost every transient blip without making
-# the user wait minutes on a provider that is genuinely down.
+# retries and timeout, so a 429, a 5xx or a dropped connection doesn't become a crash. The SDK
+# does the retrying (it honours Retry-After), and each call is stateless so retrying is safe. The
+# default timeout is effectively none, so a hung socket would block forever and no retry would fire.
 _DEFAULT_TIMEOUT_SECONDS: float = 60.0
 _DEFAULT_MAX_RETRIES: int = 3
 
@@ -129,27 +86,14 @@ def get_llm(
     max_tokens: int = _DEFAULT_MAX_TOKENS,
     **kwargs,
 ) -> BaseChatModel:
-    """Return a LangChain chat model.
+    """A LangChain chat model for the provider and model (both default from config).
 
-    Args:
-        provider:    "anthropic", "openai", "google", or "self_hosted".
-                     Defaults to DEFAULT_LLM_PROVIDER.
-        model:       Model id override. Uses the provider default when None.
-        temperature: Sampling temperature, sent only on models that still
-                     accept it (see _NO_SAMPLING_PARAMS). Low temperature
-                     lowers variance; it does not make output deterministic.
-        max_tokens:  Output cap. On thinking-by-default models it also has to
-                     cover the thinking tokens.
-        **kwargs:    Passed through to the model constructor.
-
-    Raises:
-        ValueError:           unknown provider.
-        NotImplementedError:  provider recognised but not wired up yet.
+    temperature is only sent to models that still accept it, and kwargs go straight to the
+    constructor. Raises ValueError for an unknown provider.
     """
     provider = (provider or DEFAULT_LLM_PROVIDER).lower()
     model = model or _DEFAULT_MODELS.get(provider)
 
-    # Anthropic is the provider we actually use.
     if provider == "anthropic":
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise EnvironmentError(
@@ -157,22 +101,19 @@ def get_llm(
                 "  ANTHROPIC_API_KEY=sk-ant-..."
             )
 
-        from langchain_anthropic import ChatAnthropic  # imported lazily
+        from langchain_anthropic import ChatAnthropic
 
         kwargs.setdefault("max_tokens", max_tokens)
-        # Retry transient errors with the SDK's backoff and cap each attempt.
-        # setdefault so an explicit caller or a test can still override either.
+        # setdefault so a caller or a test can still override these
         kwargs.setdefault("timeout", _DEFAULT_TIMEOUT_SECONDS)
         kwargs.setdefault("max_retries", _DEFAULT_MAX_RETRIES)
-        # Send temperature only to models that still accept it; newer models
-        # reject sampling parameters with a 400.
         if model not in _NO_SAMPLING_PARAMS:
             kwargs.setdefault("temperature", temperature)
 
         return ChatAnthropic(model=model, **kwargs)
 
     elif provider in ("openai", "google", "self_hosted"):
-        from langchain_openai import ChatOpenAI  # imported lazily
+        from langchain_openai import ChatOpenAI
 
         if provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
@@ -185,9 +126,7 @@ def get_llm(
             key_name = "GEMINI_API_KEY"
             required = api_key
         else:
-            # vLLM's OpenAI-compatible server does not check the key at all,
-            # so any non-empty placeholder satisfies ChatOpenAI's requirement
-            # for one; the base URL is the thing that actually has to be set.
+            # vLLM doesn't check the key, but ChatOpenAI wants one, so any value works
             api_key = "not-needed"
             base_url = os.getenv("SELF_HOSTED_LLM_BASE_URL")
             key_name = "SELF_HOSTED_LLM_BASE_URL"

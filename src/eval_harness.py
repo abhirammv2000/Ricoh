@@ -1,42 +1,15 @@
-"""
-src/eval_harness.py - Quality-focused evaluation harness for Citera.
+"""Evaluation harness: how good are the answers?
 
-The original ``src/evaluate.py`` only measured *latency* and whether a
-citation regex matched.  It never checked whether answers were
-correct or faithful to the sources - so it could not answer the
-one question any company will ask: *"How do you know it's good?"*
+Four metrics. Evidence recall and citation precision need no LLM: did the expected document
+reach the synthesizer, and do the cited documents exist in the evidence. Groundedness and
+correctness are scored by an LLM judge: is every claim supported by the evidence, and does the
+answer carry the expected key facts (or refuse when it should). It also records whether the system
+answered or refused as expected.
 
-This harness measures RAG quality with four metrics:
+Writes eval/metrics.json and eval/eval_report.md.
 
-1. Retrieval recall@k (objective, no LLM)
-   Of the documents we EXPECT to be relevant (from ground_truth.json),
-   how many actually showed up in the retrieved evidence?  This is the
-   metric that catches retrieval misses - e.g. a question that gets
-   refused only because the right document was never retrieved.
-
-2. Citation precision (objective, no LLM)
-   Of the documents the answer CITES, how many are actually present in
-   the retrieved evidence?  Guards against fabricated citations.
-
-3. Groundedness / faithfulness (LLM-judged, 0-1)
-   The gold-standard RAG metric: is every claim in the answer supported
-   by the retrieved evidence, with no hallucination?  Needs no external
-   ground truth, so it is non-circular.
-
-4. Answer correctness (LLM-judged, 0-1)
-   Does the answer convey the curated ``key_facts`` (or correctly refuse
-   when ``expected_behavior == 'refuse'``)?
-
-It also records a behaviour match (did the system answer vs. refuse
-when it should have?) which surfaces probable retrieval misses.
-
-Outputs:
-  - eval/metrics.json   - machine-readable aggregate + per-question scores
-  - eval/eval_report.md - human-readable report
-
-Usage:
-    python -m src.eval_harness            # run the full harness
-    python -m src.eval_harness --no-judge # objective metrics only (no API)
+    python -m src.eval_harness            # full run
+    python -m src.eval_harness --no-judge # objective metrics only, no API calls
 """
 
 from __future__ import annotations
@@ -51,7 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-# Ensure config.py runs first (logging + telemetry silencing)
+# config has to be imported first (logging and telemetry setup)
 from src.config import (
     DEFAULT_LLM_PROVIDER,
     USE_PLANNER,
@@ -63,7 +36,7 @@ from src.config import (
     RETRIEVAL_TOP_K,
 )
 
-# Quiet the noisy ingest/retriever logs during evaluation
+# keep the ingest and retriever logs quiet during an eval
 for _quiet in ("src.ingest", "src.retriever"):
     logging.getLogger(_quiet).setLevel(logging.WARNING)
 
@@ -81,13 +54,13 @@ GROUND_TRUTH_PATH: Path = PROJECT_ROOT / "eval" / "ground_truth.json"
 METRICS_PATH: Path = PROJECT_ROOT / "eval" / "metrics.json"
 REPORT_PATH: Path = PROJECT_ROOT / "eval" / "eval_report.md"
 
-# Defined next to the synthesizer prompt; re-exported so existing imports work.
+# these live in agent.py next to the prompt, re-exported here for the other modules
 from src.agent import CITATION_RE as _CITATION_RE  # noqa: E402,F401
 from src.agent import REFUSAL_MARKER, is_refusal as _is_refusal  # noqa: E402,F401
 from src.agent import cited_docs as _cited_docs  # noqa: E402,F401
 
 
-# 1. LLM-AS-JUDGE
+# llm judge
 
 JUDGE_PROMPT = """\
 You are a strict evaluator for a retrieval-augmented technical-support \
@@ -134,16 +107,11 @@ def _judge(
     key_facts: list[str],
     expected_behavior: str,
 ) -> dict[str, Any]:
-    """Run the LLM judge for one question. Resilient to bad JSON.
+    """Score one answer with the judge. Unparseable output scores zero instead of crashing.
 
-    The judge runs on ``JUDGE_MODEL``, deliberately a *different and
-    stronger* model than the agent under test.  Letting a model grade its
-    own output produces self-preference bias and makes the resulting
-    groundedness/correctness scores uninterpretable.
-
-    Provider is pinned to Anthropic even when the agent runs on another
-    provider (``LLM_PROVIDER=google``), so the judge is stable across
-    agent-model experiments and ``JUDGE_MODEL`` (a Claude id) always resolves.
+    The judge is a different, stronger model than the agent so it isn't grading its own writing.
+    It always runs on Anthropic, even when the agent is on another provider, because JUDGE_MODEL
+    is a Claude id.
     """
     llm = get_llm(provider="anthropic", model=JUDGE_MODEL, max_tokens=JUDGE_MAX_TOKENS)
     prompt = JUDGE_PROMPT.format(
@@ -168,64 +136,40 @@ def _judge(
         return {"groundedness": 0.0, "correctness": 0.0, "rationale": "JUDGE_PARSE_ERROR"}
 
 
-# 2. OBJECTIVE METRICS (no LLM)
-#
-# _CITATION_RE and _cited_docs are imported from src.agent above: that is now
-# the canonical citation-extraction logic, shared with the production
-# citation guardrail (src.agent.record_citation_guardrail), so the eval
-# metric and the live check can never drift apart into two different
-# definitions of what counts as a citation.
+# metrics that need no llm
+# (_cited_docs comes from agent.py, so the metric and the live citation check agree on what a
+# citation is)
 
 
 def _evidence_docs(evidence: list[dict[str, Any]]) -> set[str]:
-    """Distinct source documents present in the retrieved evidence."""
+    """The distinct source documents in the evidence."""
     return {e.get("source_document", "") for e in evidence if e.get("source_document")}
 
 
 def _evidence_recall(
     expected: list[str], evidence_docs: set[str], any_hit: bool = False
 ) -> float | None:
-    """Fraction of expected source docs present in the FULL accumulated evidence.
+    """Fraction of the expected documents that reached the synthesizer at all.
 
-    This is deliberately not called "recall@k".  ``evidence_docs`` is
-    the union of every chunk the agent accumulated, across all planner
-    sub-queries, the entity-boost pass, and any retry, which in practice
-    ranges from 5 to 40+ chunks.  Reporting that as "recall@k" (where
-    ``RETRIEVAL_FINAL_K`` is 5) overstates the retriever, because the net
-    cast is far wider than k.
-
-    Read this as: *did the right document reach the synthesizer at all?*
-    For retriever quality in isolation, see ``_retriever_only_recall``.
-
-    Returns None when no expected sources are defined (can't be scored).
+    Not recall@k: evidence_docs is everything the agent collected over every sub-query, entity pass
+    and retry, often 5 to 40 chunks, so it is much wider than k. For the retriever alone see
+    _retriever_only_recall. Returns None if there are no expected sources.
     """
     if not expected:
         return None
-    # Two different meanings share this field, so the caller must say which:
-    #   any_hit=False (curated set)  - several documents are JOINTLY relevant;
-    #                                  recall is the fraction retrieved.
-    #   any_hit=True  (generated set) - the documents are ALTERNATIVES, each
-    #                                  independently able to answer; retrieving
-    #                                  any one of them is fully correct.
-    # Applying the wrong one silently halves the score on correct retrievals.
+    # the expected sources mean different things in the two question sets:
+    #   any_hit=False (curated): all of them are needed, so score the fraction found
+    #   any_hit=True (generated): any one of them answers it, so one hit is a full score
     if any_hit:
         return 1.0 if set(expected) & evidence_docs else 0.0
     hits = sum(1 for d in expected if d in evidence_docs)
     return hits / len(expected)
 
 
-# Depths for the retriever-only diagnostic.
-#
-# These MUST mirror production (`RETRIEVAL_TOP_K`), and an earlier version
-# of this file got that wrong with real consequences.  It used a deliberately
-# wider pool (top_k=50) so that recall@20 was "measurable", but RRF is not
-# monotonic in pool size, so that measured a configuration the agent never
-# runs and understated true recall@5 (0.81 measured vs 1.00 actual).  A
-# diagnostic that does not mirror production is worse than no diagnostic: it
-# produces confident, wrong conclusions about where the bottleneck is.
-#
-# Depths stop at RETRIEVAL_FINAL_K because that is all the synthesizer ever
-# sees; deeper numbers would describe a system that does not exist.
+# depths for the retriever-only check. These have to match production: an earlier version used
+# top_k=50, and since RRF doesn't improve steadily with a bigger pool it measured a setup the agent
+# never runs (recall@5 0.81 instead of 1.00). Depths stop at RETRIEVAL_FINAL_K, which is all the
+# synthesizer sees.
 RETRIEVER_DIAG_TOP_K: int = RETRIEVAL_TOP_K
 RETRIEVER_DIAG_DEPTHS: tuple[int, ...] = (1, 3, RETRIEVAL_FINAL_K)
 
@@ -233,23 +177,11 @@ RETRIEVER_DIAG_DEPTHS: tuple[int, ...] = (1, 3, RETRIEVAL_FINAL_K)
 def _retriever_only_recall(
     question: str, expected: list[str], any_hit: bool = False
 ) -> dict[str, float]:
-    """Recall@N of the retriever alone, on the RAW question.
+    """Recall@N of one plain retrieval on the raw question, with no planner, entities or retries.
 
-    This bypasses the planner entirely: one retrieval call, original
-    question, no sub-query decomposition, no entity boosting, no retry,
-    run at production settings so it is a like-for-like control.
-
-    Why it matters: ``_evidence_recall`` conflates two very different
-    failure modes, the retriever cannot find the document, versus the
-    retriever ranks it fine but the planner rewrote the question into
-    something worse.  This is the control that separates them, and it
-    doubles as the do-nothing baseline: if the full agentic pipeline
-    does not beat a single retrieval on the raw question, the planner,
-    verifier, and retry loop are not paying for themselves.
-
-    Ranks are counted over distinct documents, not chunks, because on
-    this corpus (mostly one-page help articles) the task is selecting the
-    right document out of 733.
+    It separates "the retriever can't find the document" from "the planner reworded the question
+    into something worse", and it is the baseline the full pipeline has to beat. Ranks count
+    distinct documents, since most pages here are one-page articles.
     """
     if not expected:
         return {}
@@ -277,22 +209,19 @@ def _retriever_only_recall(
 
 
 def _citation_precision(cited: set[str], evidence_docs: set[str]) -> float | None:
-    """Fraction of cited docs that are actually in the evidence.
-
-    Returns None when the answer cites nothing (e.g. a refusal).
-    """
+    """Fraction of cited documents that are in the evidence, or None if it cites nothing (a refusal)."""
     if not cited:
         return None
     valid = sum(1 for d in cited if d in evidence_docs)
     return valid / len(cited)
 
 
-# 3. AGENT RUNNER (returns full state, like the Streamlit app)
+# running the agent
 
 def _run_agent_full(
     query: str, use_planner: bool = True, use_verifier: bool = True
 ) -> dict[str, Any]:
-    # The router and the tool loop replace the graph, so score their path, not it.
+    # the router and tool loop replace the graph, so score those when they're on
     from src.config import USE_ROUTER, USE_TOOL_LOOP
 
     if USE_ROUTER:
@@ -314,9 +243,8 @@ def _run_agent_full(
 
 
 def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
-    """Render the FULL evidence the synthesizer saw, so the groundedness
-    judge scores against the same material (no truncation / capping,
-    an earlier capped version understated groundedness)."""
+    """The full evidence the synthesizer saw, so the judge scores against the same text. Don't truncate it, an
+    earlier capped version understated groundedness."""
     if not evidence:
         return "(no evidence retrieved)"
     lines = []
@@ -328,7 +256,7 @@ def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
     return "\n\n".join(lines)
 
 
-# 4. MAIN EVALUATION LOOP
+# main loop
 
 def evaluate(
     use_judge: bool = True,
@@ -337,19 +265,14 @@ def evaluate(
     ground_truth_path: Path = GROUND_TRUTH_PATH,
     split: str | None = None,
 ) -> dict[str, Any]:
-    # Default to the PRODUCTION composition from config, not to True.
-    # Hard-coding True here meant the harness silently benchmarked the full
-    # agentic pipeline while production shipped the single-retrieval path,
-    # i.e. the headline numbers would have described a system nobody runs.
-    # Ablation callers still pass these explicitly.
+    # default to the production setup from config. Defaulting to True once benchmarked the full
+    # pipeline while production ran plain retrieval. The ablation passes these explicitly.
     use_planner = USE_PLANNER if use_planner is None else use_planner
     use_verifier = USE_VERIFIER if use_verifier is None else use_verifier
     gt = json.loads(ground_truth_path.read_text(encoding="utf-8"))
     questions = gt["questions"]
     if split:
-        # Held-out slices exist so a final number can be reported that no
-        # decision was fitted to. Filtering here keeps that discipline
-        # enforceable from the command line rather than by convention.
+        # lets you report on the holdout split from the command line
         questions = [q for q in questions if q.get("split") == split]
     print(f"Questions: {len(questions)} from {ground_truth_path.name}"
           + (f" (split={split})" if split else ""))
@@ -362,15 +285,12 @@ def evaluate(
         expected_behavior = item.get("expected_behavior", "answer")
         key_facts = item.get("key_facts", [])
         expected_sources = item.get("expected_sources", [])
-        # Generated questions carry alternative sources; curated ones carry
-        # jointly-relevant sources. See _evidence_recall.
+        # generated questions list alternative sources, curated ones list required ones
         alternatives = item.get("provenance") == "generated"
 
         print(f"\n{'=' * 70}\n  Q{qid}: {question}\n{'=' * 70}")
 
-        # The agent run is recorded separately from the judge: the agent is
-        # what a user pays for, the judge is evaluation overhead. Reporting a
-        # single blended figure would overstate the cost of serving a query.
+        # agent and judge are recorded separately, since only the agent's cost is what serving a query costs
         t0 = time.perf_counter()
         with record_run(query=question) as agent_run:
             try:
@@ -408,27 +328,23 @@ def evaluate(
             "evidence_chunks": len(evidence),
             "evidence_docs": sorted(ev_docs),
             "expected_sources": expected_sources,
-            # Planner trace. Without these, a retrieval miss is unattributable:
-            # you cannot tell whether the retriever failed or the planner
-            # rewrote the question into something worse. Recording them is
-            # what made the planner regression visible at all.
+            # without the planner trace you can't tell a retriever miss from a bad rewrite
             "sub_queries": sub_queries,
             "entities": entities,
-            # "direct" or "escalate" when USE_ROUTER is on, else None.
+            # "direct" or "escalate" with the router on, else None
             "router_decision": router_decision,
-            # End-to-end: did the expected doc reach the synthesizer at all,
-            # across every sub-query / entity pass / retry?
+            # did the expected doc reach the synthesizer at all
             "evidence_recall": _evidence_recall(
                 expected_sources, ev_docs, any_hit=alternatives
             ),
-            # Retriever in isolation: raw question, single pass, no planner.
+            # the retriever on its own
             "retriever_recall": _retriever_only_recall(
                 question, expected_sources, any_hit=alternatives
             ),
             "citation_precision": _citation_precision(cited, ev_docs),
             "needs_verification": item.get("needs_verification", False),
             "answer": answer,
-            # Product cost: what serving this one query actually costs.
+            # what serving this query costs
             "cost_usd": agent_run.total_cost_usd,
             "llm_calls": agent_run.llm_calls,
             "llm_seconds": agent_run.total_llm_seconds,
@@ -438,7 +354,7 @@ def evaluate(
         }
 
         if use_judge and not answer.startswith("ERROR"):
-            # Judge spend is eval overhead; keep it out of the request trace log.
+            # judge spend is eval overhead, so keep it out of the request traces
             with record_run(persist=False) as judge_run:
                 verdict = _judge(
                     question,
@@ -451,7 +367,7 @@ def evaluate(
                 groundedness=round(verdict["groundedness"], 3),
                 correctness=round(verdict["correctness"], 3),
                 judge_rationale=verdict["rationale"],
-                # Eval overhead, tracked separately and never folded into cost_usd.
+                # kept apart from cost_usd
                 judge_cost_usd=judge_run.total_cost_usd,
             )
 
@@ -488,21 +404,12 @@ def _bootstrap_ci(
     alpha: float = 0.05,
     seed: int = 0,
 ) -> list[float] | None:
-    """Percentile bootstrap 95% CI for the mean.
-
-    At n=10 the sampling error on any of these means is enormous, a single
-    question moves a mean by 10 points.  Reporting a bare "0.98
-    groundedness" invites the reader to believe a precision the sample size
-    cannot support, so every mean ships with the interval around it.
-
-    If the CI spans most of [0, 1], that is the honest finding: this eval
-    set is too small to distinguish the system from a materially worse one.
-    """
+    """95% percentile bootstrap interval for the mean, so a mean never shows without its uncertainty."""
     nums = [v for v in values if v is not None]
     if len(nums) < 2:
         return None
 
-    rng = random.Random(seed)  # fixed seed -> reproducible intervals
+    rng = random.Random(seed)  # fixed seed so the interval is repeatable
     n = len(nums)
     means = []
     for _ in range(iterations):
@@ -515,15 +422,7 @@ def _bootstrap_ci(
 
 
 def _cost_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """Cost and per-stage rollup across the run.
-
-    Two figures are kept apart on purpose:
-      * ``mean_cost_per_query_usd``: what serving one query costs. This is
-        the number that scales with traffic and belongs in any unit-economics
-        discussion.
-      * ``eval_judge_cost_usd``: what grading the benchmark costs. It is
-        overhead paid once per eval run, not per user query.
-    """
+    """Cost and per-stage totals for the run. Serving cost (per query) and judge cost (once per eval run) are kept apart."""
     n = len(rows)
     stages: dict[str, dict[str, float]] = {}
     for r in rows:
@@ -535,8 +434,7 @@ def _cost_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
             acc["seconds"] += agg["seconds"]
             acc["cost_usd"] += agg["cost_usd"]
 
-    # Share of total LLM wall-clock, which is what identifies the stage worth
-    # optimising. Cost share and time share are usually NOT the same stage.
+    # share of time and of cost by stage (they're usually not the same stage)
     total_secs = sum(s["seconds"] for s in stages.values()) or 1.0
     total_cost = sum(s["cost_usd"] for s in stages.values()) or 1.0
     for s in stages.values():
@@ -564,7 +462,7 @@ def _cost_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _worst(rows: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
-    """The single worst question for a metric, means hide these."""
+    """The lowest-scoring question for a metric, which the mean hides."""
     scored = [r for r in rows if r.get(key) is not None]
     if not scored:
         return None
@@ -618,33 +516,26 @@ def _aggregate(
     return {
         "generated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "judge_enabled": use_judge,
-        # Recorded so a result is never ambiguous about who graded it.
+        # so a result always says who graded it
         "judge_model": JUDGE_MODEL if use_judge else None,
         "agent_model": _DEFAULT_MODELS.get(DEFAULT_LLM_PROVIDER),
         "retrieval_final_k": RETRIEVAL_FINAL_K,
         "retrieval_top_k": RETRIEVAL_TOP_K,
-        # Pipeline configuration under test. Recorded so an ablation result
-        # can never be mistaken for a production-config result.
+        # which pipeline setup was tested, so an ablation can't be mistaken for production
         "config": {"use_planner": use_planner, "use_verifier": use_verifier},
         "summary": summary,
         "per_question": rows,
     }
 
 
-# 5. REPORT WRITERS
+# report
 
 def write_outputs(
     report: dict[str, Any],
     metrics_path: Path = METRICS_PATH,
     report_path: Path = REPORT_PATH,
 ) -> None:
-    """Write the metrics JSON and the human-readable report.
-
-    The paths are parameters rather than hard-coded constants so that
-    ablation runs and smoke tests write somewhere harmless.  Hard-coding
-    them once cost me the real artifacts when a synthetic test overwrote
-    the production files.
-    """
+    """Write the metrics json and the markdown report. The paths are parameters because a test once overwrote the real files."""
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nMetrics  -> {metrics_path}")
@@ -782,8 +673,6 @@ def _fmt(v: float | None) -> str:
     return "n/a" if v is None else f"{v:.2f}"
 
 
-# __main__
-
 def _ensure_index() -> None:
     retriever = HybridRetriever()
     if retriever.index_size == 0 or not retriever.bm25_ready:
@@ -792,7 +681,7 @@ def _ensure_index() -> None:
         if not chunks:
             raise SystemExit("No PDFs found in data/. Add PDFs and retry.")
         retriever.build_index(chunks)
-        reset_retriever()  # drop any cached instance so the agent reloads the fresh index
+        reset_retriever()  # so the agent picks up the new index
     print(f"Index ready: {retriever.index_size} chunks, BM25={retriever.bm25_ready}")
 
 

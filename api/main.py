@@ -1,18 +1,10 @@
-"""FastAPI backend for the agent.
+"""FastAPI backend for the agent, so anything can call it (the Streamlit app uses the same agent code).
 
-This is the API-first boundary in front of the same agent the Streamlit UI
-uses. It exists so the system can be called by any client, load tested, rate
-limited, and eventually put behind a gateway, rather than only through one UI.
-Both surfaces call the same agent code, so there is one source of truth for how
-a question gets answered.
+    GET  /health         liveness check
+    POST /query          answer a question, with its cost and latency
+    POST /query/stream   stream the answer as server-sent events
 
-Endpoints:
-    GET  /health         liveness check for load balancers and container probes
-    POST /query          answer a question, return the answer plus its trace
-    POST /query/stream   stream the answer token by token as server-sent events
-
-Run locally:
-    uvicorn api.main:api --port 8000
+Run it with: uvicorn api.main:api --port 8000
 """
 
 from __future__ import annotations
@@ -37,16 +29,11 @@ from src.ratelimit import TokenBucketLimiter
 
 api = FastAPI(title="Citera RAG API", version="1.0.0")
 
-# Cap the input length. This is a cheap first guardrail: it bounds the prompt
-# size (and so the cost) of a single request and rejects obviously bad input at
-# the edge instead of paying for it downstream.
+# cap the input length, which bounds the cost of one request and rejects bad input early
 MAX_QUERY_CHARS = 2000
 
-# Per-client rate limit. A steady RATE_LIMIT_RPS requests a second with a burst
-# of RATE_LIMIT_BURST, keyed by client IP, so one caller cannot exhaust the
-# budget or starve others. The defaults suit a single demo instance; both are
-# environment tunable. Health checks are intentionally left off this limit so a
-# load balancer can always probe liveness.
+# rate limit per client ip: RATE_LIMIT_RPS requests a second with a burst of RATE_LIMIT_BURST.
+# Both can be set in the environment. /health is left out so a load balancer can always probe it
 _limiter = TokenBucketLimiter(
     rate_per_sec=float(os.getenv("RATE_LIMIT_RPS", "1")),
     capacity=int(os.getenv("RATE_LIMIT_BURST", "10")),
@@ -70,12 +57,7 @@ class QueryRequest(BaseModel):
 
 
 def _screen(query: str) -> None:
-    """Reject a query that fails the input guardrail, before any LLM call.
-
-    Length is already bounded by the request model. This adds the content
-    check: a known override or jailbreak pattern is turned away with 400 rather
-    than answered. Legitimate questions pass straight through.
-    """
+    """Turn away a known jailbreak or override pattern with a 400, before any LLM call."""
     verdict = screen_input(query)
     if not verdict.allowed:
         raise HTTPException(status_code=400, detail=verdict.reason)
@@ -97,17 +79,9 @@ def health() -> dict:
 async def query(req: QueryRequest) -> QueryResponse:
     """Answer one question and return the answer with its cost and latency.
 
-    The whole call is wrapped in record_run, so it is traced exactly like a UI
-    request and shows up in traces/traces.jsonl alongside the rest.
-
-    Runs arun_agent, the async path, so a slow synthesis call awaits on the
-    event loop instead of holding a worker thread. arun_agent only covers the
-    production default (no planner/verifier/tool-loop/router, no semantic
-    cache); if any of those is on it raises UnsupportedAsyncConfig, caught
-    here to fall back to the sync run_agent in a worker thread via
-    asyncio.to_thread, so the endpoint is correct for every configuration and
-    only loses the async benefit for the ones that were never the
-    concurrency-sensitive case.
+    It is traced like a UI request (traces/traces.jsonl). It uses the async arun_agent, which only
+    handles the default setup. For any other configuration it catches UnsupportedAsyncConfig and
+    runs the sync run_agent in a worker thread.
     """
     _screen(req.query)
     started = time.perf_counter()
@@ -126,18 +100,12 @@ async def query(req: QueryRequest) -> QueryResponse:
 
 @api.post("/query/stream", dependencies=[Depends(rate_limit)])
 def query_stream(req: QueryRequest) -> StreamingResponse:
-    """Stream the answer token by token as server-sent events.
+    """Stream the answer as server-sent events.
 
-    Starlette drives a streaming generator across threadpool contexts, one per
-    next(), which breaks the ContextVar the tracer relies on: the token set on
-    enter cannot be reset on exit, and spans recorded in a different context are
-    lost. So the traced generation runs in a single worker thread, where the
-    tracer's set, get, and reset all line up, and tokens are handed to the
-    response through a queue.
-
-    Each token arrives as a `data: {"token": "..."}` event. A final
-    `data: {"done": true, ...}` event carries the cost, the call count, and the
-    time to first token, so a client gets the same trace summary the UI shows.
+    Starlette runs each step of a generator in a different thread context, which breaks the tracer's
+    ContextVar. So the traced generation runs in one worker thread and passes tokens to the response
+    through a queue. Each token is a data: {"token": "..."} event, and a last data: {"done": true, ...}
+    event carries the cost, call count and time to first token.
     """
     _screen(req.query)
     channel: queue.Queue[tuple[str, Any]] = queue.Queue()

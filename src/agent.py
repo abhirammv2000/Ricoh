@@ -1,32 +1,8 @@
-"""
-src/agent.py - LangGraph Agentic State Machine.
+"""LangGraph agent: plan, retrieve, verify, synthesize.
 
-Orchestrates a
-Plan -> Retrieve -> Verify -> Synthesize loop that:
-
-1. Plans - decomposes a user question into focused sub-queries
-   and extracts key entities (error codes, model numbers).
-2. Retrieves - calls the HybridRetriever for each sub-query.
-3. Verifies - asks the LLM whether the retrieved evidence is
-   sufficient to answer the question definitively.
-4. Synthesises - generates a grounded answer with strict
-   page-level citations in [Document Name, Page X] format.
-
-The agentic loop allows one retry: if the Verifier says
-"INSUFFICIENT" and we haven't exhausted iterations, we loop
-back to the Planner to broaden the search.
-
-The planner and verifier are off by default (config A). The default path is
-retrieve then synthesize; see build_agent_graph and src/config.py.
-
-Design decisions
-- We use LangGraph's StateGraph for explicit, auditable control
-  flow - no hidden chains or prompt-chaining magic.
-- ``iterations`` is capped at 2 to prevent runaway API costs.
-- Temperature is 0.0 to reduce variance, NOT to make output
-  deterministic, which temperature 0 has never guaranteed. The
-  planner's sub-queries do vary run to run; retrieval does not.
-- All prompts are defined as module-level constants for easy tuning.
+The planner and verifier are off by default, so the normal path is just retrieve then
+synthesize (see build_agent_graph and src/config.py). With both on, an insufficient
+verdict sends the graph back to the planner once. The prompts are module-level constants.
 """
 
 from __future__ import annotations
@@ -58,21 +34,15 @@ from src.llm_factory import get_llm
 from src.retriever import get_retriever
 from src.semantic_cache import get_semantic_cache
 
-# Logging is configured centrally in config.py.
 logger = logging.getLogger(__name__)
 
-# Constants.
-MAX_ITERATIONS: int = 2  # hard cap on agentic retries
+MAX_ITERATIONS: int = 2  # cap on planner retries
 
 
-# 1. STATE DEFINITION
+# state
 
 class AgentState(TypedDict):
-    """Typed state that flows through every node in the graph.
-
-    Keeping it as a TypedDict lets LangGraph serialise / inspect
-    the state at every step - invaluable for debugging.
-    """
+    """What gets passed between the nodes."""
     user_query: str                          # original question
     sub_queries: list[str]                   # decomposed sub-questions
     entities: list[str]                      # error codes, model numbers, part names
@@ -82,7 +52,7 @@ class AgentState(TypedDict):
     iterations: int                          # loop counter (max 2)
 
 
-# 2. PROMPT TEMPLATES
+# prompts
 
 PLANNER_PROMPT = """\
 You are a query planner for a Ricoh technical support system.
@@ -155,9 +125,8 @@ Answer:
 """
 
 
-# The synthesizer emits this English sentence verbatim when it cannot answer
-# (rule 4 of SYNTHESIZER_PROMPT). The harness and the router both key off it.
-# Match is case- and whitespace-insensitive, and a translation may follow.
+# the synthesizer says this (rule 4 of its prompt) when it can't answer. The harness and the
+# router look for it, ignoring case and whitespace.
 REFUSAL_MARKER = "information unavailable"
 
 
@@ -165,9 +134,7 @@ def is_refusal(answer: str) -> bool:
     return REFUSAL_MARKER in " ".join(answer.lower().split())
 
 
-# Citation format the synthesizer prompt requires: [Document Name, Page X].
-# Canonical here so eval_harness.py imports it instead of keeping its own
-# copy, the same relationship REFUSAL_MARKER already has with the harness.
+# matches the [Document Name, Page X] citations the prompt asks for (eval_harness imports it)
 CITATION_RE = re.compile(r"\[([^\]]+?),\s*Page\s*\d+\]", re.IGNORECASE)
 
 
@@ -177,28 +144,14 @@ def cited_docs(answer: str) -> set[str]:
 
 
 def record_citation_guardrail(answer: str, evidence: list[dict[str, Any]]) -> None:
-    """Record whether every citation in the answer names a retrieved document.
+    """Log whether every cited document was actually retrieved.
 
-    Pre-LLM screening (src/guardrails.py) checks what goes into the model.
-    Nothing checked what comes out, so a fabricated citation, a document the
-    model named but never actually retrieved, would ship with no guardrail
-    catching it and no record of it happening.
-
-    This does not touch the answer. Citation precision has measured 1.00 on
-    the full 100-question benchmark, so this has never fired in practice, and
-    editing generated prose on a failure mode with a measured 0% observed rate
-    is exactly the over-engineering this project's own ablation work argues
-    against: the fix on evidence this thin is to make the failure visible, not
-    to build a correction loop for a problem that has not been observed. If it
-    ever does fire, the trace shows exactly which document was fabricated,
-    which is the evidence a real fix would then be built from.
-
-    Costs one regex pass and a set comparison, no LLM call, so it runs
-    unconditionally rather than behind a flag.
+    It only records the result and never edits the answer. Citation precision was 1.00 on the
+    100-question benchmark, so this hasn't fired yet. It costs a regex and a set comparison.
     """
     cited = cited_docs(answer)
     if not cited:
-        return  # a refusal cites nothing; nothing to check
+        return  # a refusal cites nothing
     evidence_docs = {e.get("source_document", "") for e in evidence if e.get("source_document")}
     fabricated = sorted(cited - evidence_docs)
     with span(
@@ -212,10 +165,10 @@ def record_citation_guardrail(answer: str, evidence: list[dict[str, Any]]) -> No
         logger.warning("Answer cites document(s) not in evidence: %s", fabricated)
 
 
-# 3. HELPER - format evidence for prompts
+# helpers
 
 def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
-    """Render evidence chunks into a numbered text block for prompts."""
+    """Numbered text block of the evidence, for the prompts."""
     if not evidence:
         return "(no evidence retrieved)"
 
@@ -230,18 +183,13 @@ def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-# 4. GRAPH NODES
+# graph nodes
 
 class PlannerOutput(BaseModel):
-    """Expected shape of the planner's JSON.
+    """The shape the planner's JSON has to have.
 
-    json.loads succeeding is not the same as the shape being right. A model
-    that returns {"sub_queries": "how do I reset it", "entities": []}, a plain
-    string instead of a list, would pass json.loads, then retriever_node's
-    ``for sq in state["sub_queries"]`` would iterate the string character by
-    character, one-letter queries silently sent to the retriever. Validating
-    against this model turns that into the same handled fallback as malformed
-    JSON, rather than a retrieval bug with no error anywhere in the trace.
+    Valid json isn't enough: a string where the list should be would be searched one letter at
+    a time. Checking the shape sends that to the same fallback as broken json.
     """
 
     sub_queries: list[str]
@@ -249,14 +197,13 @@ class PlannerOutput(BaseModel):
 
 
 def planner_node(state: AgentState) -> dict[str, Any]:
-    """Node 1 - Decompose the user query into sub-queries.
+    """Split the question into sub-queries and pull out entities like error codes.
 
-    On a retry (iterations > 0), we inject context about what has
-    already been retrieved so the LLM can broaden its search.
+    On a retry it tells the model which sources were already searched.
     """
     llm = get_llm()
 
-    # Build retry context if this is a second pass
+    # on a retry, say what was already searched
     retry_context = ""
     if state["iterations"] > 0:
         already = set(
@@ -277,8 +224,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
 
     content = instrumented_invoke(llm, prompt, stage="planner")
 
-    # Parse the JSON response. Strip markdown fences if the model wraps them
-    # despite the instructions.
+    # strip markdown fences if the model adds them anyway
     content = re.sub(r"^```(?:json)?\s*", "", content)
     content = re.sub(r"\s*```$", "", content)
 
@@ -287,10 +233,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
         sub_queries = parsed.sub_queries or [state["user_query"]]
         entities = parsed.entities
     except ValidationError as exc:
-        # model_validate_json raises ValidationError for malformed JSON syntax
-        # as well as a valid-JSON-wrong-shape response (verified: pydantic 2.13
-        # reports both as json_invalid / type errors through this one path),
-        # so one except clause covers both failure modes.
+        # covers bad json and valid json with the wrong shape
         logger.warning("Planner output failed validation (%s). Using raw query.", exc)
         sub_queries = [state["user_query"]]
         entities = []
@@ -298,7 +241,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
     logger.info("Planner entities: %s", entities)
     logger.info("Planner sub-queries: %s", sub_queries)
 
-    # Pretty-print for terminal visibility.
+    # show progress in the terminal
     print(f"\nPLANNER - Iteration {state['iterations'] + 1}")
     print(f"   Entities : {entities}")
     print(f"   Sub-queries:")
@@ -309,23 +252,16 @@ def planner_node(state: AgentState) -> dict[str, Any]:
 
 
 def retriever_node(state: AgentState) -> dict[str, Any]:
-    """Node 2 - Run hybrid retrieval with TWO passes.
-
-    Pass 1: Search using the sub-queries from the Planner.
-    Pass 2: Search using entity-boosted refined queries
-            (error codes, model numbers, part names).
-
-    De-duplicates results by chunk ID across both passes.
-    """
+    """Search every sub-query, then every entity combined with the question, without duplicates."""
     retriever = get_retriever()
 
-    # Collect existing IDs to avoid duplicates
+    # skip chunks we already have
     seen_ids: set[str] = {
         e["id"] for e in state["retrieved_evidence"] if "id" in e
     }
     new_evidence: list[dict[str, Any]] = list(state["retrieved_evidence"])
 
-    # Pass 1: sub-query retrieval.
+    # first pass: the sub-queries
     for sq in state["sub_queries"]:
         results = retriever.retrieve(
             query=sq,
@@ -340,11 +276,10 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
     pass1_count = len(new_evidence)
     print(f"\nRETRIEVER - Pass 1 (sub-queries): {pass1_count} chunks")
 
-    # Pass 2: entity-boosted refined queries.
+    # second pass: each entity plus the original question
     entities = state.get("entities", [])
     if entities:
         for entity in entities:
-            # Refine: combine entity with original question for context
             refined_query = f"{entity} {state['user_query']}"
             results = retriever.retrieve(
                 query=refined_query,
@@ -368,10 +303,7 @@ def retriever_node(state: AgentState) -> dict[str, Any]:
 
 
 def verifier_node(state: AgentState) -> dict[str, Any]:
-    """Node 3 - Check whether evidence is sufficient.
-
-    Forces the LLM to output strictly "SUFFICIENT" or "INSUFFICIENT".
-    """
+    """Ask whether the evidence is enough to answer: SUFFICIENT or INSUFFICIENT."""
     llm = get_llm()
 
     evidence_block = _format_evidence_block(state["retrieved_evidence"])
@@ -382,13 +314,13 @@ def verifier_node(state: AgentState) -> dict[str, Any]:
 
     verdict = instrumented_invoke(llm, prompt, stage="verifier").upper()
 
-    # Normalise: accept partial matches
+    # accept partial matches
     if "SUFFICIENT" in verdict and "INSUFFICIENT" not in verdict:
         status = "SUFFICIENT"
     elif "INSUFFICIENT" in verdict:
         status = "INSUFFICIENT"
     else:
-        # Default to sufficient to avoid infinite loops
+        # default to sufficient so we can't loop forever
         logger.warning("Verifier gave unexpected output: '%s'", verdict)
         status = "SUFFICIENT"
 
@@ -398,11 +330,7 @@ def verifier_node(state: AgentState) -> dict[str, Any]:
 
 
 def synthesizer_node(state: AgentState) -> dict[str, Any]:
-    """Node 4 - Generate a grounded answer with strict citations.
-
-    This is the final node.  It produces the user-facing answer
-    with [Document Name, Page X] citations.
-    """
+    """Write the final answer with [Document Name, Page X] citations."""
     llm = get_llm()
 
     evidence_block = _format_evidence_block(state["retrieved_evidence"])
@@ -419,15 +347,10 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
     return {"final_answer": answer}
 
 
-# 5. CONDITIONAL EDGE - Verifier routing logic
+# routing after the verifier
 
 def should_retry_or_synthesize(state: AgentState) -> str:
-    """Decide whether to loop back to the planner or move on.
-
-    Returns "planner" if the evidence was INSUFFICIENT and we are still under
-    MAX_ITERATIONS, otherwise "synthesizer" (evidence was sufficient, or we
-    have used up our retries).
-    """
+    """Back to the planner if the evidence was insufficient and retries are left, else synthesize."""
     if (
         state["verification_status"] == "INSUFFICIENT"
         and state["iterations"] < MAX_ITERATIONS
@@ -442,42 +365,18 @@ def should_retry_or_synthesize(state: AgentState) -> str:
     return "synthesizer"
 
 
-# 6. GRAPH ASSEMBLY
+# graph assembly
 
 def build_agent_graph(
     use_planner: bool = True,
     use_verifier: bool = True,
 ) -> Any:
-    """Construct and compile the LangGraph state machine.
+    """Build and compile the graph.
 
-    With both flags on the flow is: planner, then retriever, then verifier, which
-    either loops back to the planner (when the evidence is insufficient and we
-    are under 2 iterations) or goes on to the synthesizer and then END. Both
-    flags default off in production (config A); see src/config.py.
-
-    Why the flags exist. Every node here costs an LLM call, and anything that
-    costs money has to earn it. These flags run the same code path as a reduced
-    pipeline, so each stage's contribution can be measured by removing it rather
-    than argued about:
-
-        use_planner=False, use_verifier=False   retrieve then synthesize (default)
-        use_planner=True,  use_verifier=False   adds query decomposition
-        use_planner=True,  use_verifier=True    adds verify and retry
-
-    This is the real graph rather than a separate "simple pipeline", on purpose:
-    a benchmark that compares two different code paths measures the difference
-    between the implementations as much as the difference between the designs.
-
-    Args:
-        use_planner:  Run the query-decomposition node. When False, the caller
-                      has to seed sub_queries with the raw question (run_agent
-                      and the harness both do this).
-        use_verifier: Run the sufficiency check and the retry loop.
-
-    Note: with use_planner=False there is no retry target, since the retry edge
-    loops back to the planner, so the verifier (if enabled) always routes
-    forward to the synthesizer. That combination measures the verifier's cost
-    without its retry benefit, and is reported as such.
+    The flags make the same code run as a smaller pipeline, so the ablation can measure a stage
+    by turning it off. Both are off in production. use_planner=False means the caller seeds
+    sub_queries with the raw question, and the verifier then always goes forward, because the
+    retry edge points at the planner.
     """
     graph = StateGraph(AgentState)
 
@@ -510,45 +409,30 @@ def build_agent_graph(
     return graph.compile()
 
 
-# The compiled graph is stateless (all run state is passed to .invoke()), so it
-# can be built once and reused across queries instead of recompiling on every
-# call. It is cached at module level for that reason, keyed by (use_planner,
-# use_verifier) so an ablation run does not silently reuse a graph compiled for
-# a different configuration, which would make every ablation result identical
-# and look like the flags had no effect.
-_COMPILED_GRAPHS: dict[tuple[bool, bool], Any] = {}
+# the compiled graph holds no run state, so build it once per (use_planner, use_verifier)
+# and reuse it. Keyed on both so an ablation never gets a graph built for another setting.
+_compiled_graphs: dict[tuple[bool, bool], Any] = {}
 
 
 def get_agent_graph(
     use_planner: bool | None = None,
     use_verifier: bool | None = None,
 ) -> Any:
-    """Return a process-wide compiled agent graph for this configuration.
-
-    Defaults come from ``config.USE_PLANNER`` / ``config.USE_VERIFIER`` so
-    production composition is a documented configuration decision backed by
-    the ablation, not a hard-coded literal buried in a call site.
-    """
+    """The compiled graph for this configuration, built once. Defaults come from config."""
     use_planner = USE_PLANNER if use_planner is None else use_planner
     use_verifier = USE_VERIFIER if use_verifier is None else use_verifier
     key = (use_planner, use_verifier)
-    if key not in _COMPILED_GRAPHS:
-        _COMPILED_GRAPHS[key] = build_agent_graph(
+    if key not in _compiled_graphs:
+        _compiled_graphs[key] = build_agent_graph(
             use_planner=use_planner, use_verifier=use_verifier
         )
-    return _COMPILED_GRAPHS[key]
+    return _compiled_graphs[key]
 
 
-# 7. PUBLIC API - convenience runner
+# public api
 
 def initial_state(query: str, use_planner: bool | None = None) -> AgentState:
-    """Build the starting state for a run.
-
-    When the planner is disabled nothing else will populate ``sub_queries``,
-    so it is seeded with the raw question.  That is exactly what the planner
-    already falls back to when its JSON fails to parse, so the disabled path
-    is a real configuration rather than a special case.
-    """
+    """Starting state for a run. Without the planner, sub_queries is just the raw question."""
     use_planner = USE_PLANNER if use_planner is None else use_planner
     return {
         "user_query": query,
@@ -567,26 +451,12 @@ def run_agent(
     use_verifier: bool | None = None,
     history: Sequence[Turn] | None = None,
 ) -> str:
-    """Run the agentic pipeline on a single query.
+    """Answer one question with the configured pipeline.
 
-    Args:
-        query:        Natural-language technical support question.
-        use_planner:  See :func:`build_agent_graph`.
-        use_verifier: See :func:`build_agent_graph`.
-        history:      Prior conversation turns. When given, the query is first
-                      rewritten to stand on its own (src/conversation.py) and
-                      everything downstream, cache included, sees that rewrite.
-                      Omit it for a one-shot question: no history means no extra
-                      call and the exact single-turn path section 7 measures.
-
-    Returns:
-        The final synthesised answer string with citations.
-
-    When the semantic cache is enabled (off by default), an identical or
-    near-duplicate query returns the stored answer without running the pipeline.
-    The hit is recorded as a zero-cost span, so a trace shows the saving. The
-    eval harness never reaches this path, so cache hits cannot affect measured
-    numbers.
+    history is the earlier turns. If given, the question is first rewritten to stand on its own
+    (src/conversation.py), and everything after that, the cache included, sees the rewrite. With the
+    semantic cache on, a near-duplicate question returns the stored answer. The eval harness never
+    comes through here, so a cache hit can't change a measured number.
     """
     if history:
         query = condense_query(history, query)
@@ -599,8 +469,7 @@ def run_agent(
                 pass
             return hit.answer
 
-    # Router (USE_ROUTER): cheap path, escalate to the tool loop on a refusal.
-    # Takes precedence over the tool loop and the planner/verifier flags.
+    # router: cheap path first, tool loop only on a refusal. Wins over the other flags
     if USE_ROUTER:
         from src.router import route_and_run
 
@@ -609,10 +478,7 @@ def run_agent(
             cache.store(query, answer)
         return answer
 
-    # Tool-calling path (USE_TOOL_LOOP, off by default). The model runs its own
-    # searches instead of taking one fixed retrieval, so it bypasses the graph
-    # rather than forming a node inside it: the whole point is that the control
-    # flow is the model's, not the graph's.
+    # tool loop: the model runs its own searches, so it skips the graph
     if USE_TOOL_LOOP:
         from src.tools import run_tool_loop
 
@@ -631,40 +497,19 @@ def run_agent(
 
 
 class UnsupportedAsyncConfig(RuntimeError):
-    """arun_agent was called while a flag it does not support is enabled.
+    """arun_agent was called with a flag it can't handle.
 
-    A distinct type rather than a bare RuntimeError, so a caller catching this
-    to fall back to run_agent cannot also swallow an unrelated RuntimeError
-    raised by an actual failure inside the retriever or the LLM call.
+    Its own type so a fallback to run_agent doesn't also catch unrelated RuntimeErrors.
     """
 
 
 async def arun_agent(query: str) -> str:
-    """Async twin of run_agent(), scoped to exactly the production default.
+    """Async version of run_agent, for the default pipeline only.
 
-    Only the plain retrieve-then-synthesize path (USE_PLANNER, USE_VERIFIER,
-    USE_TOOL_LOOP, USE_ROUTER, and the semantic cache all off) has an async
-    version. Those flags each add their own LLM and retrieval calls that have
-    not been converted, so this raises rather than silently running a mix of
-    async and blocking sync work, which would be worse than the fully-sync
-    path it is meant to improve on.
-
-    Retrieval runs in a worker thread (asyncio.to_thread): it is local disk and
-    CPU work (ChromaDB, BM25, ONNX embedding), not I/O the event loop can await
-    natively, and running it inline would block every concurrent request. The
-    synthesizer call uses instrumentation.ainvoke, which awaits
-    ChatAnthropic.ainvoke(), verified to call anthropic's AsyncClient rather
-    than a thread-wrapped sync call, so it is a genuine non-blocking await.
-
-    This does not go through build_agent_graph/retriever_node/synthesizer_node.
-    For this exact configuration (no entities, a single sub-query) those nodes
-    do nothing beyond what is reproduced here, so this is a faithful mirror of
-    that path's behaviour, not a second implementation that can drift from it,
-    as long as this configuration is what production actually runs.
-
-    Single-turn only. Multi-turn condensation lives on run_agent and
-    stream_agent; the async API endpoint is a stateless one-shot call and has
-    no conversation to condense.
+    The flags and the cache add calls that aren't async yet, so it raises UnsupportedAsyncConfig
+    instead of mixing blocking and async work. Retrieval runs in a thread because it is disk and cpu
+    bound. It mirrors the default path (one sub-query, no entities) rather than going through the
+    graph. Single turn only.
     """
     if USE_PLANNER or USE_VERIFIER or USE_TOOL_LOOP or USE_ROUTER:
         raise UnsupportedAsyncConfig(
@@ -694,28 +539,17 @@ async def arun_agent(query: str) -> str:
 
 @dataclass
 class StreamResult:
-    """Carries the final state and timing out of stream_agent.
-
-    A generator cannot easily return a value next to the items it yields, so the
-    caller passes one of these in and reads it once the stream is exhausted.
-    """
+    """Filled in by stream_agent: the final state and the timings. Read it after the stream ends."""
 
     final_state: dict[str, Any] | None = None
     ttft_seconds: float | None = None
     total_seconds: float | None = None
-    # Set to the rewritten question when history condensation changed it, so the
-    # Glass Box can show what was actually retrieved on. None on a one-shot
-    # question or when the rewrite came back identical.
+    # the rewritten question, if history changed it (the UI shows it)
     condensed_query: str | None = None
 
 
 def _chunk_text(message: Any) -> str:
-    """Text of one streamed chunk, without stripping.
-
-    This deliberately does not strip, unlike response_text. A chunk boundary
-    often falls on a space, so stripping each chunk would delete the spaces
-    between words once the chunks are joined back together.
-    """
+    """Text of one streamed chunk. It doesn't strip, since a chunk can end on a space the next one needs."""
     content = getattr(message, "content", "")
     if isinstance(content, str):
         return content
@@ -737,26 +571,12 @@ def stream_agent(
     use_verifier: bool | None = None,
     history: Sequence[Turn] | None = None,
 ) -> Iterator[str]:
-    """Run the agent and stream the synthesizer's answer token by token.
+    """Stream the synthesizer's answer as it is written.
 
-    Yields answer text as it is generated. The upstream stages (condensation,
-    planning, retrieval, verification) run first and do not stream, since the
-    synthesizer output is the only text the user reads. We stream only the
-    synthesizer node, filtered by the node name in the message metadata, so
-    enabling the planner or verifier does not leak their internal LLM output
-    into the answer.
-
-    Grounding is not weakened by streaming: verification already happened
-    upstream and gates whether we synthesize at all, so streaming the final
-    answer only changes how it is delivered, not what it is based on.
-
-    When ``history`` is given the question is rewritten to stand on its own
-    before retrieval (src/conversation.py); the rewrite lands on
-    ``result.condensed_query`` if it changed anything. With no history this is
-    the exact single-turn path, no extra call.
-
-    Once the generator is exhausted, `result` holds the full final state, the
-    time to first token, and the total time.
+    The earlier stages run first and don't stream. Only the synthesizer node's text is yielded, so
+    turning on the planner or verifier doesn't leak their output. With history, the rewritten
+    question lands on result.condensed_query. When the generator is exhausted, result holds the
+    final state, the time to first token and the total time.
     """
     if history:
         standalone = condense_query(history, query)
@@ -782,7 +602,7 @@ def stream_agent(
     result.total_seconds = time.perf_counter() - started
 
 
-# __main__ - Smoke test with a complex multi-part question
+# quick manual check
 
 if __name__ == "__main__":
     import sys
@@ -794,7 +614,7 @@ if __name__ == "__main__":
     print("  Citera agent smoke test")
     print("=" * 70)
 
-    # Step 1: make sure the retrieval index is populated.
+    # make sure the index exists
     print("\nChecking/building retrieval index...")
     retriever = HybridRetriever()
 
@@ -810,7 +630,7 @@ if __name__ == "__main__":
     else:
         print(f"   Index already populated: {retriever.index_size} docs, BM25: ready.")
 
-    # Step 2: run the agent on a complex multi-part question.
+    # a two-part question
     test_query = (
         "How do I configure network settings and "
         "what paper does the bypass tray take?"

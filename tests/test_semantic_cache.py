@@ -95,13 +95,13 @@ def test_invalid_threshold_rejected():
 
 def test_get_semantic_cache_disabled_by_default(monkeypatch):
     monkeypatch.setattr(sc, "SEMANTIC_CACHE_ENABLED", False)
-    monkeypatch.setattr(sc, "_SINGLETON", None)
+    monkeypatch.setattr(sc, "_singleton", None)
     assert sc.get_semantic_cache() is None
 
 
 def test_get_semantic_cache_singleton_when_enabled(monkeypatch):
     monkeypatch.setattr(sc, "SEMANTIC_CACHE_ENABLED", True)
-    monkeypatch.setattr(sc, "_SINGLETON", None)
+    monkeypatch.setattr(sc, "_singleton", None)
     monkeypatch.setattr(sc, "_default_embedder", vec_embed)  # avoid loading ONNX
     c = sc.get_semantic_cache()
     assert c is not None

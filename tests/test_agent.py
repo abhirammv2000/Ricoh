@@ -1,10 +1,4 @@
-"""Unit tests for agent control flow and parsing (src/agent.py).
-
-The LLM is mocked, so these tests run offline and deterministically.
-They cover the parts most likely to break silently: retry routing,
-planner JSON parsing (including fenced / malformed output), and
-verifier verdict normalisation.
-"""
+"""Tests for the agent's control flow and parsing (src/agent.py). The LLM is mocked, so they run offline."""
 
 from __future__ import annotations
 
@@ -25,7 +19,7 @@ from src.instrumentation import record_run
 from tests.helpers import FakeLLM
 
 
-# Routing logic
+# routing
 
 def test_routes_back_to_planner_when_insufficient_and_under_cap():
     state = {"verification_status": "INSUFFICIENT", "iterations": 1}
@@ -42,7 +36,7 @@ def test_routes_to_synthesizer_when_sufficient():
     assert should_retry_or_synthesize(state) == "synthesizer"
 
 
-# Planner JSON parsing
+# planner json
 
 def _patch_llm(monkeypatch, response, fake_cls):
     monkeypatch.setattr(agent, "get_llm", lambda *a, **k: fake_cls(response))
@@ -71,11 +65,8 @@ def test_planner_falls_back_on_bad_json(monkeypatch):
 
 
 def test_planner_falls_back_on_valid_json_wrong_shape(monkeypatch):
-    # Valid JSON that json.loads would have accepted, but sub_queries is a
-    # string, not a list. Before the pydantic schema this would silently reach
-    # retriever_node's `for sq in state["sub_queries"]` and iterate the string
-    # one character at a time. The schema must catch this the same way it
-    # catches malformed JSON, not let it through as a "successful" parse.
+    # valid json, but sub_queries is a string. Before the schema it would have been searched one
+    # letter at a time, so it has to fail like malformed json does
     resp = '{"sub_queries": "fix SC542", "entities": []}'
     _patch_llm(monkeypatch, resp, FakeLLM)
     out = planner_node({"user_query": "orig query", "iterations": 0, "retrieved_evidence": []})
@@ -83,7 +74,7 @@ def test_planner_falls_back_on_valid_json_wrong_shape(monkeypatch):
     assert out["entities"] == []
 
 
-# Verifier verdict normalisation
+# verifier verdicts
 
 def test_verifier_accepts_sufficient(monkeypatch):
     _patch_llm(monkeypatch, "SUFFICIENT", FakeLLM)
@@ -92,7 +83,7 @@ def test_verifier_accepts_sufficient(monkeypatch):
 
 
 def test_verifier_detects_insufficient_even_though_it_contains_sufficient(monkeypatch):
-    # "INSUFFICIENT" contains the substring "SUFFICIENT" - must not misclassify.
+    # "INSUFFICIENT" contains "SUFFICIENT", don't mix them up
     _patch_llm(monkeypatch, "INSUFFICIENT", FakeLLM)
     out = verifier_node({"user_query": "q", "retrieved_evidence": [], "iterations": 1})
     assert out["verification_status"] == "INSUFFICIENT"
@@ -104,13 +95,8 @@ def test_verifier_defaults_to_sufficient_on_garbage(monkeypatch):
     assert out["verification_status"] == "SUFFICIENT"
 
 
-# Citation guardrail
-# Pre-LLM screening (src/guardrails.py) checks what goes into the model.
-# record_citation_guardrail is the post-LLM half: does every citation in the
-# answer actually name a document that was retrieved. These test the function
-# directly, then confirm each of the three places that produce a final answer
-# actually calls it, so a future edit to any of those three cannot silently
-# drop the check.
+# citation guardrail: tests the function, then that each of the three places that produce a
+# final answer calls it
 
 _EVIDENCE = [{"source_document": "a.pdf", "page_number": 1, "text": "..."}]
 
@@ -133,8 +119,7 @@ def test_citation_guardrail_records_fabricated_citation():
 
 
 def test_citation_guardrail_records_nothing_for_a_refusal():
-    # A refusal cites nothing. Recording a span here would just be noise on
-    # the common case, so the function returns before calling span() at all.
+    # a refusal cites nothing, so no span is recorded
     with record_run(query="q", persist=False) as rec:
         record_citation_guardrail("Information unavailable in provided documents.", _EVIDENCE)
     assert rec.spans == []
@@ -163,21 +148,15 @@ def test_arun_agent_calls_the_guardrail(monkeypatch):
     assert "citation_guardrail" in stages
 
 
-# Pipeline configuration / ablation wiring
-# These guard the ablation instrument itself. If graph construction or the
-# state-seeding contract silently breaks, every ablation config would run
-# the same pipeline and the comparison would read as "no effect", a
-# false negative that is invisible in the results table.
+# ablation wiring. If graph building or the seeding of the state broke, every config would run
+# the same pipeline and the ablation would read as "no effect"
 
 import pytest
 
 from src.agent import build_agent_graph, get_agent_graph, initial_state
 
 
-# arun_agent - async default-path runner
-# Retrieval and the LLM are both faked, matching the sync node tests above:
-# these check arun_agent's own logic (the config guard, wiring retrieval into
-# the prompt, awaiting the LLM), not real retrieval or real model behaviour.
+# arun_agent. Retrieval and the LLM are faked, so these only check its own logic
 
 class _FakeRetriever:
     def __init__(self, evidence):
@@ -190,9 +169,7 @@ class _FakeRetriever:
 
 
 def _patch_async_defaults(monkeypatch, *, semantic_cache=None, **flags):
-    """Set every flag arun_agent checks to its production default, then
-    override with whatever the test passes. Keeps each test's monkeypatch
-    block down to only the one thing it is actually varying."""
+    """Set every flag arun_agent checks to its default, then apply the overrides the test passes."""
     for name in ("USE_PLANNER", "USE_VERIFIER", "USE_TOOL_LOOP", "USE_ROUTER"):
         monkeypatch.setattr(agent, name, flags.get(name, False))
     monkeypatch.setattr(agent, "get_semantic_cache", lambda: semantic_cache)
@@ -228,7 +205,7 @@ def test_arun_agent_raises_when_semantic_cache_enabled(monkeypatch):
         asyncio.run(arun_agent("q"))
 
 
-# Multi-turn: history condensation feeds the rewrite to everything downstream.
+# multi-turn
 
 class _CapturingGraph:
     def __init__(self):
@@ -308,16 +285,14 @@ def test_full_config_has_every_node():
 
 
 def test_default_config_is_the_full_pipeline():
-    # Ablation support must not silently change production behaviour.
+    # the ablation support mustn't change production behaviour
     assert _node_names(build_agent_graph()) == _node_names(
         build_agent_graph(use_planner=True, use_verifier=True)
     )
 
 
 def test_state_seeds_raw_question_when_planner_disabled():
-    # Without the planner nothing else populates sub_queries; an empty list
-    # would make the retriever a no-op and the config would score 0 for
-    # reasons unrelated to the design being tested.
+    # without the planner nothing else fills sub_queries, and an empty list would search nothing
     st = initial_state("how do I use locations?", use_planner=False)
     assert st["sub_queries"] == ["how do I use locations?"]
 
@@ -331,8 +306,7 @@ def test_state_leaves_sub_queries_empty_when_planner_enabled():
     [(False, False), (True, False), (True, True)],
 )
 def test_graph_cache_is_keyed_by_configuration(use_planner, use_verifier):
-    # A single cached graph shared across configs would make every ablation
-    # rung run identical code.
+    # one shared graph would make every ablation config run the same code
     a = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
     b = get_agent_graph(use_planner=use_planner, use_verifier=use_verifier)
     assert a is b, "same config should reuse the compiled graph"
@@ -341,13 +315,8 @@ def test_graph_cache_is_keyed_by_configuration(use_planner, use_verifier):
 
 
 def test_harness_defaults_match_production_config():
-    """The eval harness must benchmark what production actually runs.
-
-    Regression guard: these defaults were once hard-coded to True while
-    production shipped the single-retrieval path, so a full benchmark run
-    silently measured a pipeline nobody uses. The failure is invisible in the
-    output, the numbers look fine, they just describe the wrong system.
-    """
+    """The eval harness has to benchmark what production runs. These defaults were once hard-coded to
+    True, so a full run measured a pipeline nobody uses."""
     import inspect
 
     from src.config import USE_PLANNER, USE_VERIFIER
@@ -360,7 +329,7 @@ def test_harness_defaults_match_production_config():
     )
     assert params["use_verifier"].default is None
 
-    # And the resolution must actually reach config.
+    # and it has to reach config
     src = inspect.getsource(evaluate)
     assert "USE_PLANNER if use_planner is None" in src
     assert "USE_VERIFIER if use_verifier is None" in src

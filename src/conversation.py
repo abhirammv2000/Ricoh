@@ -1,27 +1,11 @@
-"""History-aware query condensation for multi-turn conversations.
+"""Rewrite follow-up questions so they make sense on their own.
 
-The default pipeline answers each question in isolation. That breaks the moment
-someone asks a follow-up: "How do I create a workflow?" then "Can I copy an
-existing one?" - the second question retrieves nothing useful because "one" has
-no referent on its own.
-
-``condense_query`` rewrites a follow-up into a standalone question before it
-reaches retrieval, using the recent conversation as context. "Can I copy an
-existing one?" becomes "Can I copy an existing workflow in RICOH
-ProcessDirector?", which retrieves and synthesizes like any other standalone
-question.
-
-What this does not change. Condensation only rewrites the question fed to
-retrieval and synthesis. The synthesizer still answers from retrieved evidence
-only and still emits the refusal marker when the evidence does not support an
-answer, so a poor rewrite degrades to a retrieval miss, usually a refusal,
-rather than to a hallucination. The single-turn path is untouched: with no
-history there is no extra LLM call and behaviour is identical to before, which
-is what keeps the section 7 benchmark valid as a measure of that path.
-
-Not yet measured. There is no multi-turn question set and no judged run, so this
-ships as a mechanism with mocked tests. Whether condensation helps or hurts
-end-to-end answer quality is a question the eval side has not paid for.
+Each question is answered separately, so after "How do I create a workflow?" the follow-up "Can I
+copy an existing one?" finds nothing, because "one" means nothing alone. condense_query turns it into
+"Can I copy an existing workflow in RICOH ProcessDirector?" before retrieval. Only the question is
+rewritten. The synthesizer still answers only from the evidence, so a bad rewrite gives a miss or a
+refusal, not a made-up answer. With no history there is no extra LLM call, so the single-turn path
+the benchmark measures is unchanged. (The multi-turn eval, multiturn_eval.py, measures this.)
 """
 
 from __future__ import annotations
@@ -33,20 +17,16 @@ from typing import Any
 from src.instrumentation import invoke as instrumented_invoke
 from src.llm_factory import get_llm
 
-# Only the most recent turns are used as context. Enough to resolve a reference
-# a few exchanges back, bounded so a long chat does not grow the condense
-# prompt (and its cost) without limit.
+# only the latest turns are used as context, enough to resolve a reference and short enough to keep the prompt cheap
 MAX_HISTORY_TURNS: int = 4
 
-# Prior answers are truncated in the prompt. The rewrite needs to know what was
-# discussed, not re-read every cited passage, and answers here run to hundreds
-# of words with tables and citations.
+# earlier answers are cut short in the prompt, the rewrite only needs to know what was discussed
 _ANSWER_PREVIEW_CHARS: int = 400
 
 
 @dataclass(frozen=True)
 class Turn:
-    """One completed exchange: what the user asked and what the system replied."""
+    """One finished exchange, the question and the answer."""
 
     question: str
     answer: str
@@ -74,7 +54,7 @@ Standalone question:
 
 
 def _format_history(turns: Sequence[Turn]) -> str:
-    """Render turns as a numbered transcript, with each answer truncated."""
+    """A numbered transcript of the turns, with each answer cut short."""
     lines: list[str] = []
     for i, turn in enumerate(turns, 1):
         answer = turn.answer.strip()
@@ -91,15 +71,11 @@ def condense_query(
     *,
     llm: Any | None = None,
 ) -> str:
-    """Rewrite ``question`` as standalone given the conversation ``history``.
+    """Rewrite the question to stand alone, using the history.
 
-    Returns ``question`` unchanged when there is no history, without an LLM
-    call, so the single-turn path pays nothing for this. Otherwise runs one
-    cheap LLM call, recorded under the ``condense`` stage, and falls back to the
-    original question if the model returns nothing usable.
-
-    ``llm`` is injectable for tests; production passes nothing and gets the
-    configured model.
+    With no history it returns the question as is and makes no LLM call. Otherwise it makes one cheap
+    call (the condense stage) and falls back to the original if the model gives nothing usable. llm can
+    be passed in for tests.
     """
     turns = list(history)[-MAX_HISTORY_TURNS:]
     if not turns:
@@ -110,6 +86,6 @@ def condense_query(
         history=_format_history(turns), question=question.strip()
     )
     rewritten = instrumented_invoke(llm, prompt, stage="condense").strip()
-    # Models occasionally wrap the line in quotes despite the instruction.
+    # sometimes the model wraps the line in quotes anyway
     rewritten = rewritten.strip('"').strip("'").strip()
     return rewritten or question

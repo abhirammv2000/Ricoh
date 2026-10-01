@@ -1,13 +1,10 @@
-"""Compare embedding models on retrieval quality, no LLM involved.
+"""Compare embedding models on retrieval quality, with no LLM.
 
-The production index uses all-MiniLM-L6-v2 (ChromaDB's default, a 2021 model).
-This measures whether a newer model, a wider candidate pool, or the reranker
-improve retrieval on the 100-question benchmark. Retrieval is deterministic, so
-the numbers are free and reproduce exactly. Whether a retrieval gain carries
-through to judged answer quality is a separate paid question for the harness.
-
-Each model needs its own index (vectors are model-specific), built under
-eval/indexes/<label>/ so production chroma_db/ is untouched.
+Production uses all-MiniLM-L6-v2 (chroma's default, a 2021 model). This checks whether a newer model,
+a wider candidate pool or the reranker retrieves better on the 100 questions. Retrieval is
+deterministic, so the numbers are free and exactly repeatable. Whether a gain carries into judged
+answer quality is a separate, paid question. Each model gets its own index under eval/indexes/<label>/,
+so production chroma_db/ isn't touched.
 
     python -m eval.sweep_embeddings --build bge-small
     python -m eval.sweep_embeddings --measure           # + --rerank for the reranker rows
@@ -27,8 +24,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Cap the thread pools before torch loads; without this, embedding thrashes on a
-# CPU-only box under memory pressure.
+# limit the thread pools before torch loads, or embedding thrashes on a cpu-only machine
 os.environ.setdefault("OMP_NUM_THREADS", "4")
 os.environ.setdefault("MKL_NUM_THREADS", "4")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
@@ -60,18 +56,14 @@ MODELS: dict[str, dict[str, Any]] = {
 }
 
 TOP_K_GRID = (10, 20)
-# Reranker rows are off by default (the cross-encoder is the slow part); --rerank adds them.
+# reranker rows are off unless you pass --rerank, the cross-encoder is the slow part
 
 
-# Embedding functions
+# embedding functions
 
 class _PrefixST:
-    """Sentence-transformers embedding function that prepends a fixed prefix.
-
-    bge and e5 want a different instruction on queries vs passages, and ChromaDB
-    calls the embedding function the same way for both. So the prefix is baked in
-    at construction: "doc" mode when building, "query" mode when measuring.
-    """
+    """Sentence-transformers embedding function that adds a fixed prefix. bge and e5 want a different
+    prefix for queries and passages, and chroma calls it the same way for both, so it's set at construction."""
 
     def __init__(self, model_id: str, prefix: str) -> None:
         import torch
@@ -90,7 +82,7 @@ class _PrefixST:
         return [v.tolist() for v in vecs]
 
     def name(self) -> str:
-        # Ignore the prefix so doc-mode and query-mode read as the same EF to ChromaDB.
+        # leave the prefix out so doc and query mode look like the same function to chroma
         return f"prefix-st:{self._id}"
 
 
@@ -103,8 +95,7 @@ def _embedding_function(label: str, mode: str):
         return None
 
     if kind == "openai":
-        # chromadb 0.6.3's OpenAIEmbeddingFunction targets openai<1.0 and breaks
-        # on the current SDK. Needs a pinned pair or a hand-rolled EF; untested.
+        # chromadb 0.6.3's OpenAIEmbeddingFunction expects openai<1.0 and breaks on the current SDK. Untested
         if not os.getenv("OPENAI_API_KEY"):
             raise SystemExit(f"{label} needs OPENAI_API_KEY.")
         from chromadb.utils import embedding_functions
@@ -113,13 +104,12 @@ def _embedding_function(label: str, mode: str):
             api_key=os.environ["OPENAI_API_KEY"], model_name=spec["model_id"]
         )
 
-    # _PrefixST even with an empty prefix, so doc and query vectors share the
-    # same normalisation and pooling.
+    # use _PrefixST even with no prefix, so doc and query vectors are processed the same way
     prefix = spec.get("doc_prefix" if mode == "doc" else "query_prefix", "")
     return _PrefixST(spec["model_id"], prefix)
 
 
-# Build
+# building
 
 def build_index(label: str) -> None:
     if label not in MODELS:
@@ -142,7 +132,7 @@ def build_index(label: str) -> None:
     print(f"  done: {retriever.index_size} chunks")
 
 
-# Metrics
+# metrics
 
 def _distinct_ranked_docs(results: list[dict[str, Any]]) -> list[str]:
     seen: list[str] = []
@@ -167,7 +157,7 @@ def _score_one(ranked: list[str], expected: list[str], any_hit: bool) -> dict[st
     out["mrr"] = 1.0 / first_rank if first_rank else 0.0
 
     if any_hit:
-        # Alternatives: ideal is one at rank 1 (idcg = 1), only the first counts.
+        # alternatives: the ideal is one at rank 1, and only the first one counts
         out["ndcg@5"] = 1.0 / math.log2(first_rank + 1) if first_rank and first_rank <= 5 else 0.0
     else:
         dcg = sum(1.0 / math.log2(i + 2) for i, d in enumerate(ranked[:5]) if d in exp)
@@ -183,7 +173,7 @@ def _agg(rows: list[dict[str, float]]) -> dict[str, float]:
 
 
 def measure_matrix(label: str) -> list[dict[str, Any]]:
-    """Every (top_k, reranker) combo for one model, in this process."""
+    """Every top_k and reranker combination for one model."""
     from src.retriever import HybridRetriever
 
     index_dir = INDEX_ROOT / label
@@ -225,7 +215,6 @@ def measure_matrix(label: str) -> list[dict[str, Any]]:
     return out
 
 
-# Orchestration
 
 def _run_all(labels: list[str]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
@@ -233,7 +222,7 @@ def _run_all(labels: list[str]) -> list[dict[str, Any]]:
         print(f"== {label} ==", flush=True)
         rows_path = INDEX_ROOT / label / "_sweep_rows.json"
         rows_path.unlink(missing_ok=True)
-        # A subprocess per model so the loaded models don't stack up in memory.
+        # one subprocess per model so they don't pile up in memory
         proc = subprocess.run(
             [sys.executable, "-m", "eval.sweep_embeddings", "--one", label],
             cwd=str(PROJECT_ROOT),

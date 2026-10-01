@@ -1,15 +1,10 @@
-"""Turn user feedback into eval candidates for a person to label.
+"""Turn user feedback into eval candidates for me to label by hand.
 
-The benchmark has one weakness the README names: production traffic never
-flows back into it. This closes the first half of that loop. It takes the
-questions people gave a thumbs down (and, optionally, a seeded sample of thumbs
-ups so the set isn't all failures) and writes them out in the benchmark's shape.
-
-It does not add anything to the benchmark. Every candidate comes out with
-`needs_label: true` and empty `expected_sources`, because the label has to come
-from reading the source documents. An earlier mislabeled entry in this
-benchmark made a correct refusal look like a retrieval miss, and a candidate
-that inherits the system's own answer as its label would repeat that mistake.
+Production questions never reach the benchmark, and this is the first half of fixing that. It takes the
+thumbs-down questions (and optionally a seeded sample of thumbs-up ones) and writes them in the
+benchmark's shape. It doesn't add anything to the benchmark: each candidate has needs_label true and no
+expected_sources, because the label has to come from reading the documents. A candidate that took the
+system's own answer as its label would repeat the old Q2 mistake.
 
     python -m src.feedback                        # how much feedback there is
     python -m eval.feedback_candidates            # thumbs down only
@@ -40,7 +35,7 @@ def _normalise(question: str) -> str:
 
 
 def known_questions(eval_dir: Path = PROJECT_ROOT / "eval") -> set[str]:
-    """Every question already in a benchmark file, so a candidate isn't a duplicate."""
+    """Every question already in the benchmark files, to avoid duplicates."""
     known: set[str] = set()
     for name in _BENCHMARK_FILES:
         path = eval_dir / name
@@ -58,7 +53,7 @@ def build_candidates(
     include_up: int = 0,
     seed: int = 20260929,
 ) -> list[dict[str, Any]]:
-    """Thumbs-down questions first, then a seeded sample of thumbs-up ones."""
+    """The thumbs-down questions, then a seeded sample of thumbs-up ones."""
     downs = [e for e in events if e["vote"] == -1]
     ups = [e for e in events if e["vote"] == 1]
     sampled_ups = random.Random(seed).sample(ups, min(include_up, len(ups))) if include_up else []

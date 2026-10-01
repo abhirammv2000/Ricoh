@@ -1,23 +1,13 @@
-"""Build supervised fine-tuning data by distilling Citera's synthesizer.
+"""Build fine-tuning data by distilling Citera's synthesizer.
 
-The goal is not to teach a small model Ricoh facts from scratch. It is to
-teach it the specific skill Citera's synthesizer node performs: given
-retrieved evidence and a question, write a grounded, cited answer, or refuse
-in the exact machine-readable way when the evidence does not cover it. So
-each training example is built the same way a real synthesizer call is built
-in production: real retrieval over the real index, then Claude Sonnet with
-Citera's actual SYNTHESIZER_PROMPT as the teacher.
+The aim isn't to teach a small model Ricoh facts. It's to teach what the synthesizer does: given
+evidence and a question, write a grounded, cited answer, or refuse in the exact marker format when the
+evidence doesn't cover it. Each example is built like a real call: real retrieval, then Claude Sonnet
+with the real SYNTHESIZER_PROMPT as the teacher.
 
-Leakage: every question here is generated from a document Citera's own eval
-suite (eval/generated_questions.json, ground_truth.json, multihop_questions
-.json, multiturn_questions.json) never uses, computed in
-data/available_documents.txt. Judging the fine-tuned model on Citera's
-existing 100-question benchmark afterwards is then a fair, unseen-document
-test, not a train/test overlap.
-
-Lives inside the Ricoh repo (finetune/) rather than its own project, and
-needs the retrieval index already built one level up, since this reuses that
-index and that prompt directly rather than a copy that could drift.
+Every question comes from a document that none of Citera's eval sets use (data/available_documents.txt),
+so judging the fine-tuned model on the 100-question benchmark is a test on unseen documents. It needs
+the retrieval index already built in the repo root, because it reuses that index and prompt directly.
 
     python -m finetune.scripts.generate_training_data --pilot   # 3 examples, ~$0.10
     python -m finetune.scripts.generate_training_data --n 350
@@ -77,10 +67,8 @@ def _load_available_chunks() -> list[dict[str, Any]]:
 def generate(n: int, seed: int, skip: int = 0) -> int:
     chunks = _load_available_chunks()
     sample = _sample_chunks(chunks, n, seed)
-    # _sample_chunks shuffles with this seed regardless of n, so the first
-    # `skip` entries here are exactly the ones a prior run with the same seed
-    # already produced. Skipping them resumes a partial run without paying to
-    # regenerate examples already sitting in train_examples.jsonl.
+    # _sample_chunks shuffles with this seed whatever n is, so the first `skip` entries are the ones an
+    # earlier run already made. Skipping them resumes without paying for them again
     if skip:
         sample = sample[skip:]
     print(f"Sampled {len(sample)} chunks from {len(chunks)} available (leakage-safe) chunks (skipped {skip})\n")
@@ -88,19 +76,14 @@ def generate(n: int, seed: int, skip: int = 0) -> int:
     question_llm = get_llm()  # default provider/model, same as Citera's own generator
     retriever = get_retriever()
 
-    # Continue id numbering from what is already on disk, so a resumed run's
-    # ids don't collide with the prior run's (both would otherwise start at 1).
+    # carry on the ids from the file so a resumed run doesn't reuse them
     generated = sum(1 for _ in open(OUT_PATH, encoding="utf-8")) if OUT_PATH.exists() else 0
     start_id = generated
     rejected = 0
     failed = 0
 
-    # Opened once and flushed after every example, not batched to the end.
-    # A run this long (roughly a call a second, ~350 examples means over an
-    # hour of sequential API calls) has real odds of a transient network or
-    # rate-limit error partway through. Writing incrementally means a crash
-    # loses only the one in-flight example, not every example, and every
-    # dollar, spent before it.
+    # flush after every example. The run is over an hour of API calls, and a crash should only lose
+    # the one in progress
     out_f = open(OUT_PATH, "a" if OUT_PATH.exists() else "w", encoding="utf-8")
 
     with record_run() as rec:
@@ -127,9 +110,8 @@ def generate(n: int, seed: int, skip: int = 0) -> int:
 
                     question = parsed["question"]
 
-                    # Real retrieval, same settings the agent uses in production, so
-                    # the teacher sees exactly the evidence the fine-tuned model will
-                    # see at serving time, not the source chunk handed to it directly.
+                    # real retrieval with the production settings, so the teacher sees the same evidence the
+                    # fine-tuned model will, not the source chunk
                     results = retriever.retrieve(
                         query=question, top_k=RETRIEVAL_TOP_K, final_k=RETRIEVAL_FINAL_K
                     )

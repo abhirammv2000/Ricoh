@@ -1,20 +1,9 @@
-"""Concurrent load test for the agent.
+"""Load test for the agent: send a batch of real queries at a set concurrency.
 
-You cannot claim a latency or throughput number you have not measured under
-load. A single query timed once tells you nothing about tail latency or how the
-system behaves when several requests arrive at the same time. This fires a batch
-of real queries at a set concurrency and reports the numbers that actually
-matter in production:
+A single timed query says nothing about tail latency or several requests at once. It reports p50, p95
+and p99 latency, throughput (queries per second), cost per query from the traces, and the error rate.
+Each run goes through record_run, so the traces land where the app's do (python -m src.trace_view).
 
-    p50 / p95 / p99 latency   what a typical and a worst-case user waits
-    throughput (QPS)          completed queries per wall-clock second
-    cost per query            mean and total dollar cost, from the traces
-    error rate                failed queries as a fraction of the batch
-
-Every run is wrapped in record_run, so the same traces the app writes are also
-written here and can be inspected later with `python -m src.trace_view`.
-
-Usage:
     python -m eval.loadtest                      # 12 queries, concurrency 4
     python -m eval.loadtest --n 24 --concurrency 8
     python -m eval.loadtest --planner --verifier # test the full agent path
@@ -49,12 +38,7 @@ class Result:
 
 
 def _load_queries(n: int) -> list[str]:
-    """Take questions from the ground-truth set and repeat them up to n.
-
-    Repeating is fine for a load test: we are measuring serving behaviour under
-    concurrency, not answer quality, and repeats also exercise any cache once
-    that lands.
-    """
+    """Questions from the ground truth, repeated up to n. Repeats are fine since this tests serving, not answer quality."""
     data = json.loads(GROUND_TRUTH.read_text(encoding="utf-8"))
     base = [q["question"] for q in data["questions"]]
     out: list[str] = []
@@ -64,12 +48,7 @@ def _load_queries(n: int) -> list[str]:
 
 
 def _percentile(values: list[float], p: float) -> float:
-    """Nearest-rank percentile, so p95 of 20 samples is a real sample.
-
-    statistics.quantiles interpolates, which invents a value between two
-    measurements. For latency SLOs the nearest actual measurement is the honest
-    choice, so we use the nearest-rank method here.
-    """
+    """Nearest-rank percentile, so p95 is a real measurement. statistics.quantiles interpolates between two."""
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -92,9 +71,8 @@ def run_load_test(
 ) -> dict:
     queries = _load_queries(n)
 
-    # The agent prints progress to stdout on every node. Under concurrency those
-    # lines interleave into noise, so we send them to a throwaway buffer for the
-    # duration of the batch and print only the report afterwards.
+    # the agent prints from every node, which turns into noise under concurrency, so capture it
+    # during the batch and only print the report
     wall_start = time.perf_counter()
     results: list[Result] = []
     with contextlib.redirect_stdout(io.StringIO()):

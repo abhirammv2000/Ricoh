@@ -1,13 +1,8 @@
-"""Latency and citation smoke test over the 10 seed questions.
+"""Quick latency and citation check over the 10 seed questions.
 
-Runs each question through the agent and writes two files: a CSV of the raw
-results and a Markdown summary. Both are generated output, not checked in.
-
-This only measures how long an answer took and whether it carried a citation.
-It does not check whether the answer was right. Use src/eval_harness.py for
-that: it scores groundedness, correctness, and retrieval recall against
-ground truth. This script is kept because it is cheap to run and catches gross
-breakage without spending judge tokens.
+Runs each one through the agent and writes a CSV and a markdown summary (not checked in). It only
+measures how long an answer took and whether it has a citation, not whether it's right (that's
+eval_harness.py). It's cheap and catches gross breakage without spending judge tokens.
 """
 
 from __future__ import annotations
@@ -19,11 +14,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-# Ensure config.py runs first (logging + telemetry silencing)
+# config has to be imported first
 from src.config import PROJECT_ROOT
 
-# Suppress ingestion + retriever detail logs during eval
-# (we only want agent-level "thoughts" in the terminal)
+# quiet the ingest and retriever logs, only the agent's output is useful here
 for _quiet in ("src.ingest", "src.retriever"):
     logging.getLogger(_quiet).setLevel(logging.WARNING)
 
@@ -33,7 +27,7 @@ from src.retriever import HybridRetriever
 
 logger = logging.getLogger(__name__)
 
-# The 10 seed questions.
+# the 10 seed questions
 
 SEED_QUESTIONS: list[str] = [
     "What property do I set if I want the printers to enable after a restart?",
@@ -48,29 +42,23 @@ SEED_QUESTIONS: list[str] = [
     "What inserters does RPD support?",
 ]
 
-# Output paths
 CSV_PATH: Path = PROJECT_ROOT / "evaluation_results.csv"
 REPORT_PATH: Path = PROJECT_ROOT / "evaluation_report.md"
 
 
-# 2. EVALUATION RUNNER
+# running the questions
 
 def _extract_sources(answer: str) -> list[str]:
-    """Pull unique [Document, Page X] citations from the answer text."""
+    """The unique [Document, Page X] citations in the answer."""
     import re
 
-    # Match citations like [filename.pdf, Page 3]
     pattern = r"\[([^\]]+?),\s*Page\s*\d+\]"
     matches = re.findall(pattern, answer, re.IGNORECASE)
     return sorted(set(matches)) if matches else ["(no citations found)"]
 
 
 def run_evaluation() -> list[dict[str, Any]]:
-    """Run every seed question and collect the results.
-
-    Returns:
-        List of result dicts, one per question.
-    """
+    """Run every seed question and return one result dict each."""
     results: list[dict[str, Any]] = []
 
     total = len(SEED_QUESTIONS)
@@ -106,10 +94,10 @@ def run_evaluation() -> list[dict[str, Any]]:
     return results
 
 
-# 3. CSV WRITER
+# csv
 
 def save_csv(results: list[dict[str, Any]], path: Path = CSV_PATH) -> None:
-    """Write evaluation results to a CSV file."""
+    """Write the results to a csv."""
     fieldnames = [
         "question_number",
         "question",
@@ -126,12 +114,12 @@ def save_csv(results: list[dict[str, Any]], path: Path = CSV_PATH) -> None:
     print(f"\nCSV saved -> {path}")
 
 
-# 4. MARKDOWN REPORT WRITER
+# markdown report
 
 def save_markdown_report(
     results: list[dict[str, Any]], path: Path = REPORT_PATH
 ) -> None:
-    """Write the results out as a Markdown report."""
+    """Write the results as a markdown report."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     total_time = sum(r["latency_seconds"] for r in results)
     avg_time = total_time / len(results) if results else 0
@@ -192,7 +180,6 @@ def save_markdown_report(
     print(f"Markdown report saved -> {path}")
 
 
-# __main__ - Run the full evaluation
 
 if __name__ == "__main__":
     import sys
@@ -201,14 +188,13 @@ if __name__ == "__main__":
     print("  Citera latency and citation smoke test")
     print("=" * 70)
 
-    # Ensure index is ready
     print("\nChecking retrieval index...")
     retriever = HybridRetriever()
 
     if retriever.index_size == 0 or not retriever.bm25_ready:
         reason = "empty" if retriever.index_size == 0 else "BM25 missing"
         print(f"   Index needs (re)build ({reason}) - ingesting PDFs...")
-        # Temporarily restore ingest logging for visibility
+        # show the ingest logs while it builds
         logging.getLogger("src.ingest").setLevel(logging.INFO)
         chunks = ingest_all()
         if not chunks:
@@ -220,15 +206,12 @@ if __name__ == "__main__":
     else:
         print(f"   Index ready: {retriever.index_size} docs, BM25: ")
 
-    # Run evaluation
     print(f"\nRunning {len(SEED_QUESTIONS)} seed questions...")
     results = run_evaluation()
 
-    # Save outputs
     save_csv(results)
     save_markdown_report(results)
 
-    # Final summary
     total = sum(r["latency_seconds"] for r in results)
     print(f"\n{'=' * 70}")
     print(f"  EVALUATION COMPLETE")

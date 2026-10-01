@@ -1,20 +1,16 @@
-"""Progressive-removal ablation: does each pipeline stage pay for itself?
+"""Ablation: does each stage of the pipeline pay for itself?
 
-Runs the same benchmark with the same retriever and judge, varying only how much
-of the pipeline runs:
+Same benchmark, retriever and judge, but a bit more of the pipeline each time:
 
-    A  retrieve_only   retrieve(raw question) -> synthesize        ~1 LLM call
-    B  planner         + query decomposition + entity pass         ~2 calls
-    C  full            + verifier and retry loop                   ~3 calls
+    A  retrieve_only   retrieve(raw question) -> synthesize        about 1 LLM call
+    B  planner         + query decomposition + entity pass         about 2 calls
+    C  full            + verifier and retry loop                   about 3 calls
 
-Each rung adds one mechanism, so a difference between adjacent rungs is
-attributable to it. Judge noise on borderline answers runs up to 0.10, so a
-difference under that, or one or two questions flipping, is not a result; the
-script prints per-question deltas for that reason.
-
-The default run is the curated 10-question set. `--n100` runs the 70-question
-dev split with the judge; that run revised the n=10 conclusion (README section
-7): the verifier still earns nothing, the planner helps on dev but not holdout.
+Each step adds one thing, so a difference between neighbours is down to it. Judge noise goes up to
+0.10 on borderline answers, so a smaller difference, or one or two questions flipping, isn't a result,
+which is why it prints per-question deltas. The default is the curated 10 questions. --n100 runs the
+70-question dev split with the judge, which changed the n=10 conclusion (README section 7): the verifier
+still earns nothing, and the planner helps on dev but not holdout.
 
 Usage:
     python -m eval.ablation                 # curated 10 questions
@@ -80,8 +76,7 @@ def run(
     ground_truth_path: Path = GROUND_TRUTH_PATH,
     split: str | None = None,
 ) -> int:
-    # The 10-question run keeps writing into eval/ablation/ (the README links its
-    # files). Anything else goes to a named subdir so they don't clobber.
+    # the 10 question run writes to eval/ablation/ (the README links those files), anything else gets its own subfolder
     is_default = ground_truth_path == GROUND_TRUTH_PATH and split is None
     out_dir = OUT_DIR
     if not is_default:
@@ -151,9 +146,8 @@ def _print_comparison(reports: dict[str, dict[str, Any]], use_judge: bool) -> No
         row += _fmt(s.get("behavior_match_rate"))
         print(row)
 
-    # Per-question deltas against the cheapest config: a mean can hide a
-    # config that wins on some questions and loses on others, which is
-    # exactly the pattern that would justify a router.
+    # per-question deltas against the cheapest config, since a mean can hide one that wins on some
+    # questions and loses on others (which is what a router would exploit)
     base_key = list(reports)[0]
     base_rows = {r["id"]: r for r in reports[base_key]["per_question"]}
     for key, rep in list(reports.items())[1:]:

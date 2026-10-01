@@ -1,28 +1,12 @@
-"""Semantic answer cache, opt-in and off by default.
+"""Answer cache, off by default.
 
-The synthesizer is where almost all of a query's cost and latency go, so the
-highest-leverage saving left is not calling it at all when the same question, or
-a close paraphrase, has already been answered. This caches the final answer
-keyed by the query, with two layers:
-
-1. An exact layer on the normalized query string. Zero risk: identical questions
-   (case and spacing aside) return the stored answer with no similarity math.
-2. A semantic layer over query embeddings. A new query is embedded and, if its
-   cosine similarity to a cached query clears a conservative threshold, the
-   stored answer is returned.
-
-The correctness risk is real and is taken seriously. A grounded QA system whose
-whole value is not guessing must not serve a cached answer for a question that
-only looks similar. Three things contain that risk: a high default threshold so
-only near-duplicate phrasings match, the exact layer so identical queries never
-depend on fuzzy matching, and the fact that the cache is opt-in and is bypassed
-entirely by the eval harness (which invokes the graph directly, not run_agent),
-so a cache hit can never contaminate a measured number.
-
-Scope: in memory, per process, bounded with least-recently-used eviction. That
-fits a single instance. Behind more than one replica the store would move to a
-shared backend such as Redis, and the class is small so that swap is contained.
-The embedder is injectable so the behaviour is testable without a model.
+The synthesizer is where most of the cost and latency go, so a repeated or near-identical question
+can skip it. Two layers: an exact match on the normalized question, and a semantic match on the
+embeddings if the cosine similarity is above a high threshold. A cached answer for a question that
+only looks similar would be wrong, so the threshold is high, the exact layer doesn't depend on
+fuzzy matching, and the eval harness bypasses the cache so a hit can't change a measured number.
+It lives in memory per process with least-recently-used eviction. Several replicas would need a
+shared store like Redis. The embedder can be passed in so tests don't need a model.
 """
 
 from __future__ import annotations
@@ -47,8 +31,7 @@ _WHITESPACE = re.compile(r"\s+")
 
 
 def _normalize(query: str) -> str:
-    """Fold away the differences that should never count as a new question:
-    surrounding space, internal runs of whitespace, and case."""
+    """Lowercase and collapse whitespace, so those differences don't make a new question."""
     return _WHITESPACE.sub(" ", query.strip().lower())
 
 
@@ -74,7 +57,7 @@ class _Entry:
 
 
 class SemanticCache:
-    """Query-keyed answer cache with an exact layer and a semantic layer."""
+    """Answer cache with an exact layer and a semantic layer."""
 
     def __init__(
         self,
@@ -93,7 +76,7 @@ class SemanticCache:
         self._lock = threading.Lock()
 
     def lookup(self, query: str) -> CacheHit | None:
-        """Return a hit for an identical or near-duplicate query, else None."""
+        """A hit for an identical or near-duplicate query, else None."""
         key = _normalize(query)
         with self._lock:
             exact = self._entries.get(key)
@@ -101,8 +84,7 @@ class SemanticCache:
                 self._entries.move_to_end(key)
                 return CacheHit(answer=exact.answer, kind="exact", similarity=1.0)
 
-        # Embedding is done outside the lock (it can be slow) since it touches
-        # no shared state.
+        # embed outside the lock, it can be slow and uses no shared state
         qvec = _unit(self._embed(query))
 
         with self._lock:
@@ -121,7 +103,7 @@ class SemanticCache:
         return None
 
     def store(self, query: str, answer: str) -> None:
-        """Remember an answer for this query, evicting the oldest if full."""
+        """Store an answer for this query, dropping the oldest if the cache is full."""
         key = _normalize(query)
         vec = _unit(self._embed(query))
         with self._lock:
@@ -135,40 +117,34 @@ class SemanticCache:
             return len(self._entries)
 
 
-# Production embedder: ChromaDB's ONNX all-MiniLM-L6-v2, the same offline model
-# the default retriever uses. Loaded lazily and once, so importing this module
-# stays cheap and no model is loaded unless the cache is actually enabled.
-_ONNX_EF = None
+# the real embedder is chroma's MiniLM, the same one the retriever uses. It loads on first use
+_onnx_ef = None
 
 
 def _default_embedder(text: str) -> list[float]:
-    global _ONNX_EF
-    if _ONNX_EF is None:
+    global _onnx_ef
+    if _onnx_ef is None:
         from chromadb.utils import embedding_functions
 
-        _ONNX_EF = embedding_functions.ONNXMiniLM_L6_V2()
-    return list(_ONNX_EF([text])[0])
+        _onnx_ef = embedding_functions.ONNXMiniLM_L6_V2()
+    return list(_onnx_ef([text])[0])
 
 
-_SINGLETON: SemanticCache | None = None
+_singleton: SemanticCache | None = None
 _SINGLETON_LOCK = threading.Lock()
 
 
 def get_semantic_cache() -> SemanticCache | None:
-    """Return the process-wide cache, or None when caching is disabled.
-
-    Off by default. run_agent calls this and skips the cache entirely on None,
-    so default behaviour is unchanged and the eval path never sees a cache.
-    """
+    """The shared cache, or None when caching is off (the default). run_agent skips the cache on None."""
     if not SEMANTIC_CACHE_ENABLED:
         return None
-    global _SINGLETON
-    if _SINGLETON is None:
+    global _singleton
+    if _singleton is None:
         with _SINGLETON_LOCK:
-            if _SINGLETON is None:
-                _SINGLETON = SemanticCache(
+            if _singleton is None:
+                _singleton = SemanticCache(
                     embedder=_default_embedder,
                     threshold=SEMANTIC_CACHE_THRESHOLD,
                     max_entries=SEMANTIC_CACHE_MAX_ENTRIES,
                 )
-    return _SINGLETON
+    return _singleton

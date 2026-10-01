@@ -91,7 +91,7 @@ def run(rerankers: list[str], index_label: str) -> int:
 
     for model_id in rerankers:
         print(f"reranker: {model_id}")
-        rmod._RERANKER = None
+        rmod._reranker = None
         rmod.RERANKER_MODEL = model_id
         t0 = time.time()
         try:

@@ -1,34 +1,11 @@
-"""eval/sweep_retrieval_depth.py - Justify RETRIEVAL_TOP_K and RETRIEVAL_FINAL_K.
+"""Measure RETRIEVAL_TOP_K and RETRIEVAL_FINAL_K instead of guessing them.
 
-Both constants were originally set by intuition.  This script replaces the
-intuition with a measurement, and, just as importantly, shows the cost side
-of the trade so the choice is not simply "bigger is better".
+final_k is how many fused chunks the synthesizer sees. More of them means a better chance the right
+document is in context, but more input tokens on every LLM call and more irrelevant text. So the
+question is where recall stops improving and what that costs per query. Retrieval is deterministic,
+so the recall side is free and exactly repeatable, and only generation quality needs API spend.
+There are only 8 scorable questions here, so pick the knee of the curve, not the best single value.
 
-The trade-off being measured
-``final_k`` is how many fused chunks the synthesizer actually sees.
-
-  Raising it   -> higher chance the right document is in context (recall up)
-  Raising it   -> more input tokens per call, on EVERY LLM call downstream
-                 (verifier and synthesizer both embed the evidence block),
-                 and more irrelevant text competing with the answer.
-
-So the honest question is not "which k maximises recall" but "where does
-recall stop improving, and what does that k cost per query".
-
-Why the retriever sweep is free
-Retrieval is deterministic (verified: identical results across repeated runs
-with fresh clients). So the recall side of this sweep costs nothing and is
-exactly reproducible. Only the downstream generation quality needs API spend,
-which is why we settle k here first and validate once, rather than sweeping
-the whole pipeline.
-
-Overfitting caveat, read before trusting the output
-There are only 8 scorable questions. Choosing k to squeeze out the last one
-is fitting a hyperparameter to 8 samples and will not generalise. Prefer the
-knee of the curve over the argmax, and treat any k justified by a single
-question as unproven until the eval set is larger.
-
-Usage:
     python -m eval.sweep_retrieval_depth
 """
 
@@ -46,9 +23,8 @@ GROUND_TRUTH_PATH: Path = PROJECT_ROOT / "eval" / "ground_truth.json"
 TOP_K_GRID = (10, 25, 50)
 FINAL_K_GRID = (1, 3, 5, 8, 10, 15, 20)
 
-# Rough proxy for what a chunk costs downstream. The evidence block is
-# embedded in BOTH the verifier and synthesizer prompts, so each extra chunk
-# is paid for more than once per query.
+# rough cost of one chunk downstream. The evidence goes into both the verifier and synthesizer
+# prompts, so each chunk is paid for twice
 MEDIAN_CHUNK_WORDS = 307
 TOKENS_PER_WORD = 1.3
 PROMPTS_EMBEDDING_EVIDENCE = 2
@@ -69,9 +45,8 @@ def sweep() -> int:
     max_final = max(FINAL_K_GRID)
 
     for top_k in TOP_K_GRID:
-        # Retrieve once at the deepest final_k, then evaluate every shallower
-        # depth as a prefix of that ranking - the ranking is stable, so this
-        # is equivalent to re-running and far cheaper.
+        # retrieve once at the deepest final_k and score shallower depths as prefixes of it, same
+        # result as rerunning but much cheaper
         per_question_docs: list[tuple[list[str], list[str]]] = []
         for q in questions:
             results = retriever.retrieve(
