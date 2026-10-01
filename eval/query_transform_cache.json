@@ -1,0 +1,786 @@
+{
+ "1": {
+  "hyde": "To retrieve orders from a MarcomCentral store, configure a SOAP web service input device based on the **MarcomCentral** input device type. This input device calls the **MarcomCentral Web Service** to query the store for new orders and download the associated job payload files. Once retrieved, RICOH ProcessDirector automatically processes the order data and submits the resulting jobs into the specified workflow.",
+  "rewrites": [
+   "Which prototype device and web service operation are required to configure a SOAP web service input device for MarcomCentral order retrieval?",
+   "What base input device must be used and which web service is called when setting up MarcomCentral integration using a SOAP web service input device?",
+   "For MarcomCentral order collection, what is the required base device type and invoked web service for a SOAP web service input device?"
+  ]
+ },
+ "2": {
+  "hyde": "To export records from a data collector to a CSV file, open the RICOH ProcessDirector user interface and navigate to **System** > **Data Collectors**. Select the row for the target data collector, open the **Actions** menu, and click **Export records**. In the **Export Data Collector Records** dialog, specify your desired date range or filter criteria and click **Export**. When prompted, click **Download** to save the generated comma-separated values (.csv) file to your local workstation.",
+  "rewrites": [
+   "Exporting data collector records from the Reports database to a CSV file",
+   "How to export data collector report data to a CSV format",
+   "Procedure for saving Reports database records for a data collector as a CSV file"
+  ]
+ },
+ "3": {
+  "hyde": "To establish the initial record of individual documents in a PDF job, include the **Build PDF document inventory** step template in your workflow. This step parses the incoming PDF file to locate document boundaries based on your defined indexing rules or control file settings. Upon completion, the step generates an XML document inventory file that details all detected documents and their associated properties. Subsequent document-processing steps in RICOH ProcessDirector use this inventory file to track, manipulate, and route individual documents throughout the job lifecycle.",
+  "rewrites": [
+   "Which step template builds the document list for a PDF job and what output file does it create?",
+   "What step template identifies individual documents within a PDF file to produce the document property file?",
+   "Which PDF step template creates the initial document inventory for a workflow and what file is generated?"
+  ]
+ },
+ "4": {
+  "hyde": "When you enable a feature using Feature Manager, RICOH ProcessDirector automatically initiates an evaluation period, allowing the feature to begin working immediately without requiring an initial license key. To maintain uninterrupted functionality, you must purchase the feature and install a permanent license key before the evaluation period ends. If a valid license key is not installed before the evaluation period expires, the feature becomes disabled and any associated workflow steps will no longer process jobs.",
+  "rewrites": [
+   "Are features installed using Feature Manager available immediately under an evaluation period before requiring a license key?",
+   "What are the licensing requirements for Feature Manager features and the consequences of operating without a permanent license?",
+   "Does Feature Manager provide a temporary trial for newly installed features and what happens when the grace period expires?"
+  ]
+ },
+ "5": {
+  "hyde": "To connect directly to the Reports database and run custom SQL queries without an external BI tool, you can use the **`psql`** command-line utility provided with the RICOH ProcessDirector database installation. The `psql` terminal allows administrators to execute SQL statements directly against the reporting tables to extract specific operational and job tracking data. You must connect using a database user account that has appropriate read privileges for the Reports database schema. For complete schema details and table relationships, consult the Database Reference topic in the RICOH ProcessDirector Information Center.",
+  "rewrites": [
+   "How do I connect to the Reports feature database and execute SQL statements using native RICOH ProcessDirector tools?",
+   "Which built-in utility allows direct SQL query execution against the reporting database without third-party software?",
+   "What native database client or command is available to query the Reports database directly?"
+  ]
+ },
+ "6": {
+  "hyde": "An order property mapping assigns metadata from an input file or job descriptor to properties that apply to the entire job or order. In contrast, a document property mapping assigns values to properties for individual documents within an order during document-based processing. While order property mappings govern job-level settings such as customer identification and global workflow routing, document property mappings control piece-level attributes used for document indexing, envelope insertion, and postal tracking.",
+  "rewrites": [
+   "Document property mapping versus order property mapping comparison",
+   "How does a document property mapping differ from an order property mapping?",
+   "Distinguish between document property mappings and order property mappings in RICOH ProcessDirector"
+  ]
+ },
+ "7": {
+  "hyde": "When you configure a secondary SMTP server in RICOH ProcessDirector, it is used only by workflow steps\u2014such as the SendEmail step\u2014and notification profiles that explicitly specify that secondary server in their properties. The default SMTP server continues to process all system-level event notifications, administrative alerts, and system health error messages. Any email action or step notification that does not explicitly select the secondary SMTP server automatically routes through the default server.",
+  "rewrites": [
+   "Which email notification types can be configured to use a secondary SMTP server instead of the default primary mail server?",
+   "How are email notifications routed between the primary SMTP server and a secondary SMTP server in RICOH ProcessDirector?",
+   "What system email notifications support secondary SMTP server configuration versus the default mail server?"
+  ]
+ },
+ "8": {
+  "hyde": "When configuring AFP Download Plus to submit jobs to RICOH ProcessDirector, you must specify the work-selection (WS) criteria for each Functional Subsystem Application (FSA) in the JES initialization dataset. The work-selection criteria defined for each FSA must explicitly include both the **CLASS** and **DEST** parameters. Including these two parameters enables JES to identify and select the appropriate spool files intended for transfer to the RICOH ProcessDirector receiver. Additional work-selection criteria can be specified depending on your installation's job-routing requirements.",
+  "rewrites": [
+   "Which two JES work-selection parameters are required when configuring a Functional Subsystem Application FSA for AFP Download Plus in RICOH ProcessDirector?",
+   "What mandatory parameters must be specified in the JES work selection criteria when defining an AFP Download Plus FSA for RICOH ProcessDirector?",
+   "When configuring an AFP Download Plus FSA, which two JES selection criteria parameters are required for RICOH ProcessDirector processing?"
+  ]
+ },
+ "9": {
+  "hyde": "RICOH ProcessDirector can be installed on supported Linux, AIX, and Microsoft Windows Server operating systems. Users access and manage the application using a supported web browser to connect to the RICOH ProcessDirector user interface over the network. This web-based interface allows operators and administrators to control workflows, monitor job status, and configure system settings from any compatible client workstation. Consequently, no specialized client software needs to be installed on individual user devices.",
+  "rewrites": [
+   "What host operating systems are supported for RICOH ProcessDirector and how do users access the web interface?",
+   "What are the server operating system requirements and client access methods for RICOH ProcessDirector?",
+   "Which operating platforms support RICOH ProcessDirector installation and how do users log in to the system?"
+  ]
+ },
+ "10": {
+  "hyde": "Yes, you must restart the RICOH ProcessDirector service after modifying the `repository.cfg` file for your changes to take effect. RICOH ProcessDirector reads the configuration and performance tuning parameters from `repository.cfg` only during system startup. After saving your edits to the file, stop and restart the RICOH ProcessDirector server to apply the updated Archive search settings. Once the service has successfully restarted, the new parameters will govern all subsequent Archive search operations.",
+  "rewrites": [
+   "Is a restart of RICOH ProcessDirector required after modifying repository.cfg to tune Archive search performance?",
+   "Do changes made to repository.cfg for Archive search optimization require restarting ProcessDirector services?",
+   "How are repository.cfg configuration changes applied for Archive search performance without restarting RICOH ProcessDirector?"
+  ]
+ },
+ "11": {
+  "hyde": "When a job ticket contains both a product ID and a media name, RICOH ProcessDirector checks the product ID first to set the Media property for the job. If a matching product is found in the system, RICOH ProcessDirector assigns the media defined within that product to the job's Media property. If the product ID is invalid or does not specify a media, RICOH ProcessDirector then evaluates the media name provided in the job ticket to set the Media property.",
+  "rewrites": [
+   "What is the evaluation order between Product ID and media name when setting the Media job property in RICOH ProcessDirector?",
+   "Does Product ID take precedence over media name when RICOH ProcessDirector determines the Media property from a job ticket?",
+   "How does RICOH ProcessDirector resolve the Media job property when a job ticket contains both a Product ID and a media name?"
+  ]
+ },
+ "12": {
+  "hyde": "When conflicting page-level media options are specified for the same page, RICOH ProcessDirector evaluates the media mapping list from top to bottom. The option positioned higher in the list takes precedence over any options listed below it. Once a matching entry is identified, the system applies the higher media selection and ignores subsequent conflicting options lower in the list. You can adjust the precedence hierarchy by using the table controls to move preferred media options higher in the list.",
+  "rewrites": [
+   "What is the order of precedence for conflicting page-level media properties in a list?",
+   "Does a higher or lower list position take priority during page media conflict resolution?",
+   "How does RICOH ProcessDirector evaluate priority between conflicting page-level media overrides?"
+  ]
+ },
+ "13": {
+  "hyde": "When monitoring jobs on Ricoh PDF printers managed by an EFI Fiery controller, the **% Printed** job property indicates the percentage of total pages that the printer device has reported as successfully printed. RICOH ProcessDirector updates this value dynamically based on real-time page-count status notifications received from the Fiery controller during job execution. The **% Printed** property displays as complete (100%) only after the controller confirms that the final page of the print job has passed through the marking engine and delivered to the output tray.",
+  "rewrites": [
+   "How is the Percent printed job property calculated and when is it marked complete for EFI Fiery PDF printers?",
+   "What does the Percent printed property indicate for PDF printer devices connected to an EFI Fiery controller?",
+   "At what point does the Percent printed property update to 100 percent on an EFI Fiery DFE?"
+  ]
+ },
+ "14": {
+  "hyde": "RICOH ProcessDirector supports the RICOH Pro 8400S, Pro 8410S, and Pro 8420S printer models. These models require a TotalFlow Print Server digital front end (DFE) to enable job submission and bi-directional status monitoring. The DFE must be configured with the IPDS or PDF/PostScript feature enabled depending on the printer device type defined in RICOH ProcessDirector. For detailed configuration requirements, refer to the printer attachment documentation in the RICOH ProcessDirector Information Center.",
+  "rewrites": [
+   "RICOH Pro 8400 series supported printer devices and required digital front end controllers",
+   "RICOH Pro 8400 printer model compatibility and required DFE prerequisites",
+   "Supported RICOH Pro 8400 series models and corresponding digital front end requirements"
+  ]
+ },
+ "15": {
+  "hyde": "No, you do not need to retain the **EditAFP** step in your workflow when the **Edit first** option is enabled in the **FillWhiteSpace** step. When this option is selected, RICOH ProcessDirector automatically applies all page modifications to the document prior to searching for available white space. Removing the separate **EditAFP** step eliminates redundant processing and optimizes workflow performance. Ensure that any preceding step that defines page modifications remains positioned before the **FillWhiteSpace** step in your phase.",
+  "rewrites": [
+   "Is the EditAFP step required in a workflow if the Edit first property is selected in the FillWhiteSpace step?",
+   "Does enabling the Edit first property for FillWhiteSpace replace the EditAFP step in the workflow sequence?",
+   "Relationship between the FillWhiteSpace step Edit first property and the EditAFP step requirement in workflow design."
+  ]
+ },
+ "16": {
+  "hyde": "RICOH ProcessDirector continuously evaluates a job's predicted outcome by comparing the time remaining before the job's deadline against the sum of the estimated durations for all remaining workflow steps. If the **PrintJobs** step has not started, the system changes the job's predicted outcome to **May miss** as soon as the remaining time until the deadline drops to 10 minutes\u2014matching the estimated step duration. In this scenario with a 35-minute deadline, the transition occurs when 25 minutes have elapsed without the step starting, leaving zero slack time. If processing does not begin immediately, the predicted outcome will subsequently update to **Will miss**.",
+  "rewrites": []
+ },
+ "17": {
+  "hyde": null,
+  "rewrites": [
+   "Which output color space values are supported for target groups in a color mapping table?",
+   "What are the allowable output color space options when configuring a color mapping table target group?",
+   "What output color space types can be specified for a target group in a color map?"
+  ]
+ },
+ "18": {
+  "hyde": "When print jobs containing RGB content from monitors or cameras yield colors that do not match the printer output, out-of-gamut colors are usually responsible. To control how the printer or transform processes these non-reproducible colors, set the **Rendering intent** property in the job or step properties. Options such as *Perceptual* or *Relative colorimetric* dictate how out-of-gamut source colors are mapped to the target device's printable gamut. Applying the correct rendering intent maintains visual harmony and ensures consistent color translation across your RICOH ProcessDirector workflow.",
+  "rewrites": [
+   "How to configure rendering intent properties in RICOH ProcessDirector to manage out-of-gamut colors from source device profiles",
+   "Which color management setting controls gamut mapping and rendering intent for unreproducible input colors",
+   "How to specify rendering intent to handle color space conversion mismatches for print jobs"
+  ]
+ },
+ "19": {
+  "hyde": "To modify the definition of an active custom property, navigate to the Custom Properties feature in the Administration tab and set the property status to Disabled. Make the required changes to the property attributes, and then set the status back to Enabled to reactivate it. After reactivating the custom property, you must manually update any step templates, workflows, or existing job properties that reference it to ensure they align with the updated definition.",
+  "rewrites": [
+   "How to edit an active custom property definition and perform post-reactivation tasks",
+   "Steps for modifying an existing custom property and required actions after reactivation",
+   "Procedure to modify a custom property in use and post-activation requirements"
+  ]
+ },
+ "20": {
+  "hyde": "When specifying the X and Y origin coordinates for a barcode in AFP Editor, the position is measured from the top-left corner of the logical page presentation space rather than the physical edge of the sheet. The location of this logical page origin relative to the physical media is determined by the medium origin settings defined in the active form definition (FormDef). Consequently, any page offsets applied in the FormDef or job property settings will shift the logical page origin, altering the final placement of the barcode relative to the physical sheet edge.",
+  "rewrites": [
+   "What reference point determines the X and Y origin coordinates for a barcode area in AFP Editor?",
+   "How are barcode location X and Y offsets measured relative to the page boundary in AFP Editor?",
+   "What coordinate origin is used when defining barcode area positions in RICOH ProcessDirector AFP Editor?"
+  ]
+ },
+ "21": {
+  "hyde": "When you define page inserts using the RICOH ProcessDirector Plug-in for Adobe Acrobat, the settings are saved in a PDF enhancement control file. The **EnhancePDF** step in your ProcessDirector workflow is responsible for actually applying these page inserts to individual documents in a job. During processing, the **EnhancePDF** step reads the control file instructions and dynamically inserts the specified PDF pages based on document properties and positioning rules. Make sure the **EnhancePDF** step is placed in the workflow before any steps that require the complete, updated document structure.",
+  "rewrites": [
+   "Which workflow step applies page inserts configured in the Acrobat Plug-in to job documents?",
+   "What RICOH ProcessDirector step template executes the page insertion rules created in the PDF Plug-in?",
+   "Which processing step inserts pages into job documents based on Acrobat Plug-in settings?"
+  ]
+ },
+ "22": {
+  "hyde": null,
+  "rewrites": []
+ },
+ "23": {
+  "hyde": "To direct a job that encounters a processing error to an alternate branch in the workflow, configure a rule on the conditional connector. Select **Job.State** as the property, set the comparison operator to **Equals**, and specify **Error** as the value. When a step fails, RICOH ProcessDirector evaluates the rule, detects the error condition, and routes the job along the designated alternate path. This prevents failed jobs from continuing along the primary processing path until the issue is resolved.",
+  "rewrites": [
+   "What job property, comparison operator, and value are required in a conditional connector rule to detect an Error job state?",
+   "How to configure connector rule conditions and operators to route failed jobs to an error handling workflow step?",
+   "Which job state properties, relational operators, and values should be set on a connector to branch on error conditions?"
+  ]
+ },
+ "24": {
+  "hyde": "On the **Connection Options** tab in Slingshot, specify the JMF HTTP URL using the format `http://<hostname>:<port>/jmf`, replacing `<hostname>` with the host name or IP address of the primary RICOH ProcessDirector server. Replace `<port>` with the Web Application Server port assigned to RICOH ProcessDirector, which uses default port 15080 for standard HTTP traffic. If secure sockets layer (SSL) communication is enabled on your system, use the `https://` prefix instead and specify the secure port, such as 15443. Slingshot uses this URL to send JDF/JMF job ticket requests directly to the RICOH ProcessDirector system for processing.",
+  "rewrites": [
+   "What is the correct syntax for the JMF HTTP URL field in the Slingshot Connection Options tab?",
+   "How should the JMF HTTP URL parameter be specified when configuring Slingshot connection options?",
+   "What is the required URL format for the JMF HTTP address used to send jobs from Slingshot to RICOH ProcessDirector?"
+  ]
+ },
+ "25": {
+  "hyde": "When setting up inserter control file rules, copy the sample rules files from the system `samples/rules` directory to the custom `control_files/rules` directory. This working location is strongly recommended because RICOH ProcessDirector preserves all files stored in the `control_files` directory during software updates and upgrades. Conversely, any modified files left in the default `samples` directory will be overwritten whenever the system is updated. Storing your customized rule files in the dedicated `control_files/rules` directory ensures that your site-specific inserter logic remains intact and accessible to your workflows.",
+  "rewrites": [
+   "What is the recommended target directory path for copying sample inserter control file rules and what is the rationale for this location?",
+   "Into which directory should sample inserter control file rules be copied and why is that destination path suggested?",
+   "Where should customized sample inserter control file rules be placed and why is this specific folder location recommended?"
+  ]
+ },
+ "26": {
+  "hyde": "To sort an AFP job by a document property such as customer last name, the document database must be enabled and configured on your RICOH ProcessDirector system. The sorting workflow relies on the **IdentifyDocuments** step template to parse the input file and store the customer metadata in the document database. Subsequently, the **SortDocuments** step template reorders the documents based on the customer last name property, and the **BuildAFPFromDocuments** step template generates the final sorted AFP print file.",
+  "rewrites": [
+   "Is the document database required to sort AFP documents by customer property, and which step templates are used in the sorting workflow?",
+   "Which step templates are required for sorting AFP jobs by document properties like customer name, and is the document database a prerequisite?",
+   "Document database requirements and step templates involved in sorting AFP documents by customer name property."
+  ]
+ },
+ "27": {
+  "hyde": "RICOH ProcessDirector uses an embedded PostgreSQL database as its reports database to store long-term operational and performance metrics. Data collected by system data collectors, as well as job properties captured by the **WritePropsToReportsDatabase** step in a workflow, are saved directly into this database. System administrators can query the PostgreSQL database using standard SQL tools or third-party reporting applications to generate custom reports and analyze workflow activity.",
+  "rewrites": [
+   "What database engine is used for the RICOH ProcessDirector reports database to store data from data collectors and the WritePropsToReportsDatabase step?",
+   "Which database management system stores information collected by RICOH ProcessDirector data collectors and WritePropsToReportsDatabase workflow steps?",
+   "What database technology does RICOH ProcessDirector use for the report data repository created by data collectors and WritePropsToReportsDatabase?"
+  ]
+ },
+ "28": {
+  "hyde": "To transfer a printer or input device configuration to another RICOH ProcessDirector system, export the object definition from the source server. From the **Administration** tab, select the device object, click **Actions**, and choose **Export** to save the configuration file to your local system. Next, log in to the target RICOH ProcessDirector system, navigate to the corresponding devices page, and select **Actions** > **Import** to upload the file. After importing the object, edit its properties to update system-specific values, such as IP addresses or hostnames, for the new environment.",
+  "rewrites": [
+   "How do I export and import printer and input device object configurations between RICOH ProcessDirector instances?",
+   "What is the procedure to migrate device settings from one RICOH ProcessDirector system to another?",
+   "How to copy printer and input device configurations to a different RICOH ProcessDirector environment?"
+  ]
+ },
+ "29": {
+  "hyde": "Even when a printer is properly calibrated, color discrepancies occur because monitors display visual output using the additive RGB color space, whereas production printers print using a subtractive CMYK color gamut. While calibration stabilizes the printer's physical ink or toner output, accurate cross-device representation requires end-to-end ICC color management within RICOH ProcessDirector. Differences in media substrate, assigned rendering intents, and uncalibrated monitor display settings can also cause on-screen previews to diverge from final printed output. Ensure that the correct input and output color profiles are applied in your job properties and print queues to achieve optimal color matching.",
+  "rewrites": [
+   "Causes of color mismatch between monitor display and printed output on calibrated printers",
+   "Troubleshooting color rendering discrepancies between display screens and calibrated print engines",
+   "Why printed colors differ from monitor RGB display after performing printer color calibration"
+  ]
+ },
+ "30": {
+  "hyde": "The Archive feature includes a preconfigured sample workflow that allows you to test and evaluate archiving capabilities before creating custom production workflows. Out of the box, this workflow contains a predefined Archive step, a sample input device, and sample job data complete with ready-to-use index properties. Submitting the sample job enables you to observe how RICOH ProcessDirector indexes documents, stores them in the archive repository, and retrieves them using the Archive search interface. You can then use this working sample as a model to copy and adapt step templates for your own operational needs.",
+  "rewrites": [
+   "What default step templates and features are included in the sample Archive workflow?",
+   "Which pre-configured components and settings are provided in the sample workflow for evaluating the Archive feature?",
+   "What is the default configuration of the Archive sample workflow used for testing archive functionality?"
+  ]
+ },
+ "31": {
+  "hyde": "When RICOH ProcessDirector converts line data into Advanced Function Presentation (AFP) format, the page definition resource controls how input records are positioned and formatted on the page. During composition, the page definition specifies page dimensions, margin offsets, text orientation, and the mapping of fonts to specific data fields. It also manages conditional processing triggers and determines where electronic overlays, page segments, and color mappings are applied to the document. By governing these layout parameters, the page definition ensures that raw line data is accurately transformed into a fully formatted AFP print file.",
+  "rewrites": [
+   "What page formatting and layout options are controlled by a page definition during line data to AFP transformation?",
+   "Which print attributes and text positioning parameters does a pagedef specify when converting line data?",
+   "How does a page definition dictate page layout during line data composition to AFP?"
+  ]
+ },
+ "32": {
+  "hyde": "To open the property notebook for a printer or input device, navigate to the **Administration** page in RICOH ProcessDirector. Locate the target printer or input device in the appropriate object list or portlet. Right-click the object and select **Properties** from the pop-up menu, or double-click the object name directly. The property notebook for the selected device opens, displaying various tabs where you can view or modify its configuration settings.",
+  "rewrites": [
+   "How to display property notebooks for printers and input devices in the Administration view",
+   "Opening printer and input device properties from the Administration page",
+   "Accessing the property notebook of a printer or input device on the Administration tab"
+  ]
+ },
+ "33": {
+  "hyde": "When RICOH ProcessDirector processes a PDF 2.0 print file with banner pages enabled, the system automatically modifies the file to insert the requested header and trailer pages. During this document manipulation process, the PDF processing engine normalizes the file structure and converts the output document to PDF 1.7. This conversion ensures compatibility with internal PDF processing tools and downstream printer driver steps. To preserve native PDF 2.0 features, you must disable banner page insertion or process the file through a workflow that does not alter the PDF version.",
+  "rewrites": [
+   "How does enabling banner page insertion affect the PDF version of a PDF 2.0 input file?",
+   "What PDF format or version results from processing a PDF 2.0 job with banner pages enabled?",
+   "Does adding banner pages to a PDF 2.0 document in RICOH ProcessDirector alter or convert the file format version?"
+  ]
+ },
+ "34": {
+  "hyde": "A job usually enters an Error state with a printer error when the AFP file references a character set or code page that is missing from the printer or server font paths, or when an incompatible character set and code page combination is used. To diagnose the failure, check the job log in the RICOH ProcessDirector user interface to identify the specific missing or mismatched font resources. To resolve the issue, either update the job properties to reference a valid character set and code page pair or install the required AFP font resources in the system font path. Once the font references are corrected, release or restart the job from the Error state.",
+  "rewrites": [
+   "How to resolve RICOH ProcessDirector job error states caused by AFP character set and code page mismatches",
+   "Causes and corrective actions for AFP printer errors involving character sets and code pages",
+   "Troubleshooting AFP code page and character set resource errors during job processing"
+  ]
+ },
+ "35": {
+  "hyde": "When configuring a Kodak PDF printer object to generate banner pages, the job-level properties take precedence over the printer object settings. If the **Header copies** and **Trailer copies** job properties are set to 0, RICOH ProcessDirector suppresses the generation of header and trailer pages for that job. Even though banner pages are enabled in the printer definition, a copy count of 0 overrides the printer-level configuration. As a result, the job prints without any header or trailer banner pages.",
+  "rewrites": [
+   "What is the result when Header copies and Trailer copies job properties are set to zero for a Kodak PDF printer with banner pages enabled?",
+   "Does setting Header copies and Trailer copies to 0 suppress banner page printing on a Kodak PDF device with enabled banner pages?",
+   "Behavior of Kodak PDF printer header and trailer page printing when Header copies and Trailer copies job properties equal 0."
+  ]
+ },
+ "36": {
+  "hyde": "When configuring an inserter device that does not generate results files, set the **Completion method** property to **Manual**. Because the inserter cannot supply automated piece-level tracking data back to RICOH ProcessDirector, the system cannot automatically verify when processing has finished. Setting this property to **Manual** requires an operator to explicitly mark the job as complete in the user interface once physical inserting is done. This ensures the job successfully advances to the next step in its workflow without waiting for a non-existent results file.",
+  "rewrites": [
+   "What value should be selected for the Completion method property when configuring an inserter that does not generate a results file?",
+   "How do you set the Completion method property for inserter devices that do not produce results files?",
+   "Which Completion method setting is required for inserter object configurations without results file processing and what is its purpose?"
+  ]
+ },
+ "37": {
+  "hyde": "When configuring a PCLOut printer using YaST on SUSE Linux Enterprise Server 12.0, select **LPD Communication** as the network protocol. In the **Queue Name** field, enter the exact name of the printer object as defined in the RICOH ProcessDirector user interface. Note that the queue name is case-sensitive and must match the RICOH ProcessDirector object name to ensure that PCL output jobs route correctly through the CUPS spooling system.",
+  "rewrites": [
+   "What are the recommended YaST queue name and access protocol settings for configuring a PCLOut printer on SUSE Linux Enterprise Server 12?",
+   "SLES 12 YaST printer setup parameters for PCLOut device queue name and connection protocol",
+   "Defining a PCLOut printer on Linux SLES using YaST queue name value and protocol selection"
+  ]
+ },
+ "38": {
+  "hyde": "When defining barcode objects in your document layout, the available barcode types depend on the processing mode configured for the step. You can create **Data Matrix** barcodes only when operating in **AFP Editor** mode. **AFP Enhancer** mode supports standard 1D and postal barcodes, but it does not support the creation of Data Matrix barcodes. To insert a Data Matrix barcode into your print stream",
+  "rewrites": [
+   "Which barcode symbology can be added exclusively in AFP Editor and is not supported in AFP Enhancer mode?",
+   "What barcode types are unique to AFP Editor and cannot be inserted using AFP Enhancer?",
+   "Which barcode formats can only be generated in AFP Editor compared to AFP Enhancer?"
+  ]
+ },
+ "39": {
+  "hyde": "In the AFP Editor within RICOH Visual Workbench, open the control file and select the barcode target object from the document layout or tree view. Open the **Properties** pane for the object and click the **Conditions** tab to display the selection rules. Select the specific condition you want to remove and click **Delete** on the toolbar or right-click and choose **Remove Condition**. Save the control file to ensure RICOH ProcessDirector applies the updated selection criteria during job processing.",
+  "rewrites": [
+   "How to delete a barcode selection condition in Visual Workbench AFP Editor",
+   "Deleting barcode selection criteria in RICOH Visual Workbench AFP Editor",
+   "How do you remove a barcode selection rule from AFP Editor in Visual Workbench"
+  ]
+ },
+ "40": {
+  "hyde": "For PDF jobs, an LPD input device uses the `lpd_pdf.control` control file to map incoming LPD parameters to RICOH ProcessDirector job properties. This control file parses LPD attributes\u2014such as the job name, owner, and class\u2014and assigns their values to standard system properties during job creation. You can select `lpd_pdf.control` in the **Control file** property when configuring an LPD input device. If your workflow requires custom parameter mapping, you can create a copy of `lpd_pdf.control` in your custom file directory and modify its mapping rules.",
+  "rewrites": [
+   "Which control file maps LPD parameters to RICOH ProcessDirector job properties for PDF print jobs in an LPD input device?",
+   "What LPD control file does an LPD input device use to convert LPD commands into job property values for PDF files?",
+   "Name of the control file used by LPD input devices to assign LPD parameters to job properties for PDF data format jobs."
+  ]
+ },
+ "41": {
+  "hyde": "When replacing POSTNET barcodes with Intelligent Mail barcodes (IMB) in the AFP Editor, the Mailer ID and Serial number fields must combine to contain exactly 15 digits. You can specify either a 6-digit Mailer ID with a 9-digit Serial number or a 9-digit Mailer ID with a 6-digit Serial number. If the specified Mailer ID value is shorter than the expected length, RICOH ProcessDirector automatically pads the field with leading zeros to achieve the required number of digits.",
+  "rewrites": []
+ },
+ "42": {
+  "hyde": "Enabling an individual data collector does not start data capture if system-wide data collection is disabled. In RICOH ProcessDirector, the primary **Enable data collection** system property must be set to **Yes** for any specific collector to gather information. While global data collection is disabled, all individual data collectors remain inactive regardless of their enabled status settings. Consequently, no job, device, or system metrics will be recorded until both the system-level property and the individual data collector are enabled.",
+  "rewrites": [
+   "Does an enabled data collector capture metrics when the global data collection property is disabled?",
+   "Individual data collector behavior when global data collection is set to disabled",
+   "Effect of enabling a data collector while system-level data collection is disabled"
+  ]
+ },
+ "43": {
+  "hyde": "Updating the folder path property for a repository that contains existing job history does not automatically move or migrate the stored data to the new location. RICOH ProcessDirector writes all newly generated job history and file data to the updated path immediately after the change is saved. To retain access to historical job data within the system, you must manually copy or move the existing files from the former directory to the new path. Ensure that the primary computer and any assigned application servers have the necessary read and write permissions for the new location.",
+  "rewrites": [
+   "Does changing the directory path property of a repository automatically move existing job history files to the new location?",
+   "When modifying the repository location, does RICOH ProcessDirector automatically migrate stored job data to the updated directory path?",
+   "Does updating a repository path automatically transfer existing job history to the new directory?"
+  ]
+ },
+ "44": {
+  "hyde": "The **AFP Support** feature is the prerequisite for all other AFP-related features in RICOH ProcessDirector. You must install and enable the AFP Support feature before you can install or use optional features such as the **AFP Indexer** or **AFP Transform** features. This base feature provides the core framework and system services required to parse, process, and manage Advanced Function Presentation (AFP) input files within your workflows. Once the AFP Support feature is installed, you can add supplementary AFP features based on your operational and licensing requirements.",
+  "rewrites": [
+   "Which core AFP Support feature is a prerequisite for using other AFP features in RICOH ProcessDirector?",
+   "What base AFP feature must be installed before enabling additional AFP features in RICOH ProcessDirector?",
+   "Which feature is required as a prerequisite for all other AFP features in RICOH ProcessDirector?"
+  ]
+ },
+ "45": {
+  "hyde": "To verify that RICOH ProcessDirector successfully received a job, open the Avanti Slingshot Integration Log feature from the Administration page. Locate the Import entries associated with the job submission. For a successful import, the **Method** column displays `POST`, the **Purpose** column shows `Import job`, and the **Result Details** column contains `200 OK` (or `Success`). If any of these fields display alternative values or error codes, verify the JDF Web Services connection settings and ensure the workflow service is active.",
+  "rewrites": []
+ },
+ "46": {
+  "hyde": "When using a CopyToFolder step to send print jobs to a printer hot folder instead of a Passthrough printer, RICOH ProcessDirector loses direct, bi-directional communication with the destination device. Consequently, the system cannot monitor real-time printer status, track page-level printing progress, or capture physical job completion feedback. Furthermore, operators lose the ability to control the job\u2014such as pausing, resuming, or canceling it\u2014directly from the RICOH ProcessDirector user interface. In this configuration, job state updates in the system reflect only the completion of the file transfer rather than the actual physical printing process.",
+  "rewrites": [
+   "What feature limitations exist when routing jobs via a CopyToFolder step to a hot folder instead of defining a Passthrough printer object?",
+   "How does job tracking and status monitoring differ between a CopyToFolder step and a Passthrough printer?",
+   "What capabilities are lost when sending output to a printer hot folder using a CopyToFolder step compared to a Passthrough printer device?"
+  ]
+ },
+ "47": {
+  "hyde": "A Kodak PDF printer device uses native communication drivers to send PDF jobs to Kodak printers, enabling bidirectional status tracking and support for vendor-specific print properties within RICOH ProcessDirector. Conversely, a Passthrough printer device transmits pre-formatted print data directly to a printer over standard network protocols without inspecting the payload or returning detailed job status. If your printer model is supported by both device types, select the Kodak PDF printer device to ensure complete job control, accurate status monitoring, and full integration with RICOH ProcessDirector workflows.",
+  "rewrites": [
+   "Compare Kodak PDF printer device type and Passthrough printer device type selection criteria for supported printers",
+   "Differences between Kodak PDF and Passthrough printer devices and guidelines for choosing a device type",
+   "Kodak PDF printer device versus Passthrough printer device comparison and recommended device selection"
+  ]
+ },
+ "48": {
+  "hyde": "An inserter controller object in RICOH ProcessDirector represents the interface that manages communication between the system and an automated inserting machine or its managing software. It defines connection and communication parameters\u2014such as host names, port numbers, and file transfer protocols\u2014used to send control files and retrieve inserter telemetry. Additionally, the object governs piece-level tracking (PLT) behaviors and reconciliation rules, determining how ProcessDirector tracks individual mailpieces, verifies job completion, and handles processing errors or damaged items.",
+  "rewrites": [
+   "What properties and operational attributes are defined by an inserter controller object?",
+   "What device behaviors and configuration settings does the inserter controller govern in RICOH ProcessDirector?",
+   "What are the functions and configurable parameters of an inserter controller object?"
+  ]
+ },
+ "49": {
+  "hyde": "If a workflow uses an external program or custom step to modify the content, layout, or page count of a PDF file, that modification step must be positioned before the **IdentifyPDFDocuments** step. The **IdentifyPDFDocuments** step extracts structural metadata and populates job properties based on the exact state of the PDF at the time it executes. Modifying the PDF file after this step invalidates that cached property data, causing downstream steps and document processing to produce incorrect results. If a PDF file must be modified later in the workflow, you must run the **IdentifyPDFDocuments** step again immediately following the modification step to refresh the job metadata.",
+  "rewrites": [
+   "What is the required workflow step sequence for external programs that modify PDF content relative to the IdentifyPDFDocuments step?",
+   "Where must custom steps that alter PDF file structure or content be positioned in relation to the IdentifyPDFDocuments step template?",
+   "What are the workflow placement rules and restrictions for steps modifying PDF files before or after IdentifyPDFDocuments?"
+  ]
+ },
+ "50": {
+  "hyde": "When you add comments in the AFP Indexer section of Visual Workbench, RICOH ProcessDirector saves them directly into the indexer control file associated with the indexing task. Inside the control file, these comments are stored within the main `<IndexerControlFile>` structure and are wrapped in `<Comment>` and `</Comment>` XML tags. This allows you to document specific trigger, field, and index definitions directly in the control file without affecting the indexing operations during workflow execution.",
+  "rewrites": [
+   "Which XML tags enclose comments added in the Visual Workbench AFP Indexer section of the control file?",
+   "Where are Visual Workbench user comments stored within the AFP Indexer control file XML structure?",
+   "What XML element and location in the AFP Indexer control file represent Visual Workbench comments?"
+  ]
+ },
+ "51": {
+  "hyde": "Before uploading the sample template zip file, open the FusionPro Server Dashboard and navigate to the Template Manager. Click **Add** and enter `RICOH ProcessDirector` in the **Group Name** field. In the **Template Name** field, enter `Sample` so that the default sample workflow can properly locate the template. After saving these values, you can proceed to upload the `FusionProSample.zip` file to complete the setup.",
+  "rewrites": [
+   "What group name and template name must be specified in the FusionPro Server Dashboard Template Manager prior to uploading the FusionPro sample workflow zip file?",
+   "Which group and template names are required in the Template Manager of the FusionPro Server Dashboard when setting up the sample workflow archive?",
+   "Required group name and template name values for uploading the FusionPro sample workflow zip file in the FusionPro Server Dashboard Template Manager."
+  ]
+ },
+ "52": {
+  "hyde": "When an input device processes a submission containing multiple input files, RICOH ProcessDirector creates a parent job and individual child jobs for each file. The parent job uses the workflow specified in the **Workflow** property of the input device. The child jobs use the workflow defined in the **Child workflow** property of the input device. If no child workflow is specified on the input device, the child jobs inherit and use the workflow assigned to the parent job.",
+  "rewrites": [
+   "Input device workflow assignment for parent jobs and child jobs created from multiple input files",
+   "How input devices determine parent job and child job workflows during multi-file job processing",
+   "Specifying parent and child job workflows for multiple input files on an input device"
+  ]
+ },
+ "53": {
+  "hyde": "When using local RICOH ProcessDirector user credentials instead of an external LDAP server, administrators can configure password policies directly on the Security feature page. You can set the minimum password length, enforce complexity requirements requiring combinations of alphabetic, numeric, and special characters, and define a password expiration interval. Additionally, the Security feature allows you to specify account lockout rules based on maximum failed sign-in attempts and set password history restrictions to prevent users from reusing recent passwords.",
+  "rewrites": [
+   "What password policy options can be configured for local user authentication in the RICOH ProcessDirector Security feature?",
+   "Which internal user password properties and rules are available in the RICOH ProcessDirector Security settings?",
+   "How to set local account password restrictions and security properties when not using LDAP in RICOH ProcessDirector?"
+  ]
+ },
+ "54": {
+  "hyde": "IPDS printer objects in RICOH ProcessDirector support bi-directional communication to report live job status and page-level progress while printing. Conversely, Passthrough and PCLOut printer objects do not receive real-time device feedback during physical print execution. For Passthrough and PCLOut printers, RICOH ProcessDirector monitors status only up to transmission, updating the job status to Complete as soon as the data stream is successfully delivered to the destination print queue or operating system.",
+  "rewrites": [
+   "Which printer device types support job status feedback and how is status monitored for Passthrough and PCLOut printers?",
+   "Supported printer types for job status tracking and status monitoring rules for Passthrough and PCLOut printer devices.",
+   "Printer device status reporting capabilities and status tracking mechanisms for Passthrough and PCLOut devices."
+  ]
+ },
+ "55": {
+  "hyde": "If you do not specify a control file in the **IdentifyDocuments** step, RICOH ProcessDirector relies on the internal indexing structure of the input AFP file. The step scans the AFP data stream for embedded structured fields, such as Begin Named Group (BNG) tags or Tag Logical Elements (TLEs), to determine document boundaries. If the AFP file lacks embedded indexing tags, the step treats the entire file as a single document containing all pages. Consequently, the job proceeds through the workflow as a single document without extracting custom document-level properties.",
+  "rewrites": [
+   "What is the default behavior of the IdentifyDocuments step when processing an AFP input file without a control file?",
+   "IdentifyDocuments step processing results for AFP files when no control file is specified in the step properties.",
+   "How does the IdentifyDocuments step handle AFP files if the Control file property is omitted?"
+  ]
+ },
+ "56": {
+  "hyde": "You can extract documents from a PDF print job in RICOH ProcessDirector to handle specific business requirements before the job reaches the printer. The first example use case is separating documents destined for electronic delivery, such as email or web presentment, from those that require physical printing. The second example use case is extracting damaged, incomplete, or reprint-requested documents so they can be routed to a separate re-work workflow. In both scenarios, the extracted documents are split into child jobs while the remaining PDF file continues through the primary print workflow.",
+  "rewrites": [
+   "What sample scenarios illustrate extracting child documents from a PDF print job prior to printing?",
+   "What two example use cases are provided for PDF document extraction in a workflow before job output?",
+   "Which practical applications demonstrate extracting documents from a PDF file prior to print processing?"
+  ]
+ },
+ "57": {
+  "hyde": "To set up manual reconciliation, insert the **SetPropertiesForReconcile** step into your workflow immediately before the step that sends the job to the printer or generates the print-ready file. This step evaluates the job and sets critical tracking properties, such as expected piece counts and sequence identifiers, on the job object. By establishing these baseline properties prior to printing, it enables RICOH ProcessDirector to track the job and accurately reconcile items when operators record manual reconciliation results in the user interface.",
+  "rewrites": [
+   "What is the required workflow placement and function of the SetPropertiesForReconcile step when configuring manual reconciliation?",
+   "Where in the workflow sequence should the SetPropertiesForReconcile step be positioned, and what actions does it perform?",
+   "How is the SetPropertiesForReconcile step used in a workflow phase, and what are its purpose and effects during manual reconciliation?"
+  ]
+ },
+ "58": {
+  "hyde": "After completing the page group and document property definitions in the Adobe Acrobat plug-in, save the generated control file to the RICOH ProcessDirector server. The file must be placed in the designated control files directory associated with your input device or workflow step. Ensure that your user account has write permission for this target directory on the server. Once installed in the control files directory, RICOH ProcessDirector can apply the file to index and process incoming jobs.",
+  "rewrites": [
+   "What target directory location and user access permissions are required when transferring the control file generated by the Adobe Acrobat plug-in?",
+   "Where must the indexer control file be saved after completing page group and document property definitions, and what directory write permissions are needed?",
+   "To what server path should the plug-in control file be deployed, and what file permissions are necessary for that destination folder?"
+  ]
+ },
+ "59": {
+  "hyde": "When the **Batching method** property is set to **Number** for a hot folder input device, set the **Workflow** property to **SetJobTypeFromFileName** or to a specific workflow configured to process batched input. The **Submit files as child jobs** property determines how the batched files are submitted to the system. If this property is set to **Yes**, RICOH ProcessDirector creates an individual child job for each file in the batch under a main parent job. If set to **No**, the input device combines all files in the batch into a single ZIP file and submits it as one job to the assigned workflow.",
+  "rewrites": [
+   "Required workflow configuration and submission criteria for child jobs versus single ZIP file jobs in Hot folder input devices using Number batching",
+   "Which workflow must be assigned to a Hot folder input device with Number batching, and what controls child job versus single ZIP job creation?",
+   "How to configure workflow settings and determine child job or single ZIP job submission for Hot folder input devices using the Number batching method"
+  ]
+ },
+ "60": {
+  "hyde": "Pipeline Manager in RICOH Visual Workbench provides a graphical interface for creating, configuring, and maintaining processing workflows within RICOH ProcessDirector. When working with Advanced Function Presentation (AFP) files, Pipeline Manager allows you to visually define step-by-step operations to index, transform, split, and optimize print streams. You can manipulate AFP data by adding, replacing, or extracting page-level resources and applying conditional processing rules without requiring custom scripting. This capability ensures that AFP print jobs are accurately prepared and formatted for downstream printing or digital delivery.",
+  "rewrites": [
+   "RICOH Visual Workbench Pipeline Manager overview and AFP print stream processing capabilities",
+   "Pipeline Manager purpose and AFP file manipulation features in Visual Workbench",
+   "Functions of Visual Workbench Pipeline Manager for configuring and modifying AFP documents"
+  ]
+ },
+ "61": {
+  "hyde": "To set up data transmission to RICOH Predictive Insight, you must create a Cloud service connection object and a Cloud service output device object. During the creation of the Cloud service connection object, you supply an authentication code generated from the RICOH Predictive Insight portal. This authentication code validates your RICOH ProcessDirector server with the service and exchanges credentials to establish a secure, authorized token for sending data.",
+  "rewrites": [
+   "Which two objects are required to configure a RICOH Predictive Insight connection, and what is the function of the authentication code?",
+   "What objects must be created to enable data transmission to RICOH Predictive Insight, and how is the authentication code used during setup?",
+   "RICOH Predictive Insight integration setup: required objects to create and the role of the authentication code."
+  ]
+ },
+ "62": {
+  "hyde": "Before creating a Custom PDF printer object for a PostScript printer not included in the list of supported devices, you must obtain the PostScript Printer Description (PPD) file for the specific printer model. You can get this file directly from the printer manufacturer, either from the software media supplied with the printer or by downloading it from the manufacturer's support website. You must place this PPD file on the RICOH ProcessDirector server so it is available during printer setup. Importing the PPD file allows RICOH ProcessDirector to properly configure the capabilities and properties for the new printer object.",
+  "rewrites": [
+   "What PostScript Printer Description PPD file is required prior to creating a Custom PDF printer object for an unsupported device and where can it be downloaded?",
+   "Which external file must be acquired from the printer manufacturer before defining a Custom PDF printer for a PostScript printer not on the supported list?",
+   "What prerequisite configuration files are necessary to set up a Custom PDF printer device for a non-supported PostScript printer and what is their source?"
+  ]
+ },
+ "63": {
+  "hyde": "When editing an AFP banner page control file to include barcodes, the barcode height, barcode width, and barcode modifier fields in the barcode line format are optional. You can leave these fields out of the line definition to allow RICOH ProcessDirector to apply the default values for the specified barcode type. Trailing optional fields at the end of the barcode line format can be omitted entirely without including placeholder delimiters. However, mandatory parameters such as the line identifier, positional coordinates, and barcode type must always be specified.",
+  "rewrites": [
+   "In AFP banner page control files, which parameters in the barcode line format syntax are optional?",
+   "Which fields can be omitted when defining a barcode line format in an AFP banner page control file?",
+   "What are the optional field specifications for the barcode line format in RICOH ProcessDirector AFP header page control files?"
+  ]
+ },
+ "64": {
+  "hyde": "When using generic tone transfer curve (TTC) CMRs in AFP color management, the selected appearance value determines the specific dot gain compensation curve applied to the print data. The **Accutone** appearance value is specifically calibrated to compensate for a 15% dot gain on a 50% dot. By applying this curve, RICOH ProcessDirector adjusts midtone density values so that a requested 50% input dot renders accurately without oversaturation on devices with this inherent dot gain profile. You can configure this setting within the color management properties of the job workflow or the document processing object.",
+  "rewrites": [
+   "In AFP color management, what percentage of dot gain does the Accutone appearance value adjust on a 50% dot for generic tone transfer curve CMRs?",
+   "How much dot gain compensation is applied to a 50 percent dot when using the Accutone appearance setting in generic tone transfer curve CMRs?",
+   "For generic tone transfer curve CMRs, what dot gain compensation percentage corresponds to the Accutone appearance value on a 50% dot?"
+  ]
+ },
+ "65": {
+  "hyde": "No, you do not need to link custom document properties to index tags if you only plan to split a job based on the number of sheets per document. During the indexing phase, RICOH ProcessDirector automatically calculates and tracks built-in document metrics, such as page and sheet counts, for each document in the job. Mapping custom document properties to index tags or Tag Logical Elements (TLEs) is only required when splitting or grouping documents based on specific text metadata extracted from the AFP file. You can configure your document processing workflow to use the system-supplied sheet count property directly to determine split boundaries.",
+  "rewrites": [
+   "Is mapping custom document properties to AFP index tags required to split jobs by sheet count?",
+   "Do AFP job splitting rules based on document sheet count require linking properties to index tags?",
+   "Must custom document properties be mapped to index tags when configuring sheet count job splitting for AFP files?"
+  ]
+ },
+ "66": {
+  "hyde": "When using the Pages batching method, RICOH ProcessDirector compares the page count of each incoming file against the configured batch page threshold. If a single PDF file contains more pages than the threshold and the **Exceed pages to batch** property is set to **No**, the system cannot assign the file to any batch. In this situation, the job fails at the batching step and is placed in an **Error** state on the step pipeline. To resolve the issue, an operator must either enable the **Exceed pages to batch** setting, increase the threshold limit, or split the input file.",
+  "rewrites": [
+   "How does ProcessDirector process a PDF that exceeds the page limit during Pages batching when Exceed pages to batch is disabled?",
+   "What is the system behavior when a document page count exceeds the Pages batching threshold and Exceed pages to batch is set to No?",
+   "Processing outcome for single files exceeding the maximum pages per batch with the Exceed pages to batch property turned off."
+  ]
+ },
+ "67": {
+  "hyde": "If you configure IBM DB2 as the primary database for RICOH ProcessDirector and plan to use the Reports feature, you must also install PostgreSQL on the primary computer. Because the Reports feature uses PostgreSQL exclusively to store reporting data, the database software must be present even when DB2 manages the main system database. Additionally, you must ensure that the PostgreSQL ODBC driver is installed on the primary computer to enable communication with the reporting database. No other external database software is required to support this configuration.",
+  "rewrites": [
+   "Prerequisites for using PostgreSQL for Reports with an IBM DB2 system database on the primary server.",
+   "What additional software must be installed on the primary server to enable Reports with PostgreSQL when DB2 is the primary database?",
+   "Software requirements for configuring the embedded PostgreSQL report database alongside an external DB2 system database."
+  ]
+ },
+ "68": {
+  "hyde": "When a JDF job ticket uses absolute path names to reference files, RICOH ProcessDirector relies on JDF path mapping to translate the path submitted in the ticket into a path accessible by the primary server. The system compares the beginning of the incoming absolute path against defined source prefixes and substitutes matching paths with the corresponding destination location on the server or network share. This mapping configuration is stored in the JDF path mapping configuration file and can be managed through the JDF path mapping table in the System settings.",
+  "rewrites": [
+   "How does RICOH ProcessDirector resolve absolute file paths in JDF job tickets, and where is the path mapping configuration stored?",
+   "Where are path substitution and mapping settings configured for JDF tickets containing absolute file paths?",
+   "What configuration file controls how RICOH ProcessDirector maps and locates absolute file paths specified in a JDF job ticket?"
+  ]
+ },
+ "69": {
+  "hyde": "To enhance monochrome photo clarity and prevent dark or flat rendering on InfoPrint 4100 printers, Ricoh recommends upgrading the printer hardware to support 600 dpi multi-bit halftoning with the Enhanced Resolution feature. On the software side, install the RICOH ProcessDirector AFP Color Management feature to enable Color Management Object Content Architecture (CMOCA) processing. Applying custom Tone Transfer Curves (TTC) and optimized halftone algorithms within RICOH ProcessDirector allows you to dynamically adjust contrast and tonal balance before print execution. These combined upgrades ensure smooth grayscale transitions and sharp image detail for photo-embedded letterhead applications.",
+  "rewrites": [
+   "InfoPrint 4100 recommended hardware and software upgrades for improving grayscale photo print quality and halftone detail",
+   "What hardware features and software enhancements optimize monochrome image contrast and grayscale quality on InfoPrint 4100 printers?",
+   "Recommended InfoPrint 4100 hardware features and software options for grayscale image enhancement and halftone reproduction"
+  ]
+ },
+ "70": {
+  "hyde": "When using the Time batching method for a hot folder input device, RICOH ProcessDirector monitors the input directory based on the configured schedule. Any files residing in the hot folder prior to the specified Start date and time remain untouched until the schedule becomes active. Once the configured Start date and time is reached, RICOH ProcessDirector automatically collects all pre-existing files and groups them into the initial batch for processing. These files are then submitted into the workflow together as a single job according to the batching rules.",
+  "rewrites": [
+   "How does RICOH ProcessDirector handle pre-existing files in an input directory prior to the start date and time of the Time batching method?",
+   "What is the processing behavior for files already located in the hot folder before the configured Time batching start time?",
+   "How are existing files in a watched folder processed when the Time batching method start date and time is reached?"
+  ]
+ },
+ "71": {
+  "hyde": "When you process print jobs using a PCLOut printer object, RICOH ProcessDirector converts all required AFP resources, such as overlays and fonts, into PCL format specifically for that individual job. The PCLOut printer does not save or retain these converted resources in memory for reuse in subsequent jobs. Consequently, each job must include or reference all necessary inline and external AFP resources required to render the document correctly. The PCLOut transform converts these resources anew for every print job in the workflow.",
+  "rewrites": [
+   "Does the PCLOut printer retain captured AFP fonts and overlays across consecutive print jobs?",
+   "How does a PCLOut printer handle AFP resource caching and retention between successive print jobs?",
+   "Are inline AFP resources like fonts and overlays persistent across print jobs on a PCLOut printer device?"
+  ]
+ },
+ "72": {
+  "hyde": "To define page groups for PDF files when preparing jobs for an inserter, use **Visual Workbench** to graphically set document boundaries and inserter control mark locations. For AFP input files, use **Index Workbench** to establish page groups by defining indexing rules based on triggers, fields, or Tag Logical Elements (TLEs). Both tools save rule definitions that are subsequently executed by the **IndexPDF** or **IndexAFP** step templates within your job workflow. These step templates then pass the page grouping and control information to the Inserter feature to ensure precise finishing during processing.",
+  "rewrites": [
+   "Which step templates and indexing tools define page groups in PDF and AFP files for inserter processing?",
+   "How do PDF Indexer and AFP indexing methods differ when setting mailpiece boundaries for inserter workflows?",
+   "What features or step properties are used to establish page groups for PDF versus AFP input datastreams in inserting jobs?"
+  ]
+ },
+ "73": {
+  "hyde": "When configuring a workflow with the Advanced Transform feature to process jobs in multiple file formats, set the **Input datastream** property to **Autodetect**. This enables RICOH ProcessDirector to automatically identify the incoming format, such as AFP, PDF, PCL, or PostScript, before applying the appropriate transform filter. You can specify this setting directly on the transform step template or inherit it from the job type properties. Using **Autodetect** eliminates the need to maintain separate workflows for each distinct input datastream type.",
+  "rewrites": [
+   "What is the recommended value for the Input data stream property in an Advanced Transform workflow processing multiple data stream types?",
+   "Advanced Transform workflow input data stream property configuration for jobs with varying data stream formats",
+   "How to set the Input data stream property for Advanced Transform steps handling multiple input data streams"
+  ]
+ },
+ "74": {
+  "hyde": "If you enter a custom property name in the Adobe Acrobat plug-in instead of selecting an existing property from the RICOH ProcessDirector list, the system cannot automatically map the extracted value to a document property in the system database. Consequently, you lose the ability to immediately use the property in workflow decision logic, step conditions, or document search queries in the Control Center. To restore this functionality and use the custom name for document processing or tracking, you must manually create and configure a matching custom document property within RICOH ProcessDirector.",
+  "rewrites": [
+   "What are the limitations of entering a custom document property name instead of selecting a predefined property in the RICOH ProcessDirector Plug-in for Adobe Acrobat?",
+   "Which RICOH ProcessDirector features are unavailable when defining custom document property names in the Acrobat plug-in?",
+   "How does using user-defined document property names instead of standard properties in the Adobe Acrobat plug-in impact system functionality?"
+  ]
+ },
+ "75": {
+  "hyde": "When configuring a Xerox PDF printer, the **Header copies** and **Trailer copies** job properties determine whether header and trailer pages print with a job. Setting the **Header copies** and **Trailer copies** properties to 0 overrides printer-level settings and suppresses the pages. Consequently, no banner or trailer pages are printed for the job, even if banner page printing is turned on at the printer.",
+  "rewrites": [
+   "How do Header copies and Trailer copies job properties set to 0 affect banner page printing on a Xerox PDF printer when banner pages are enabled at the printer level?",
+   "What is the behavior of a Xerox PDF printer if Header copies and Trailer copies are set to 0 while banner pages are turned on in the printer configuration?",
+   "Does setting the Header copies and Trailer copies properties to 0 override device-level banner page settings on a Xerox PDF printer?"
+  ]
+ },
+ "76": {
+  "hyde": "When configuring a barcode in AFP Editor, you can combine multiple static and dynamic data sources to construct the encoded value for the barcode symbol. You can concatenate literal text strings, variable values extracted from document fields, workflow job properties, and system counters such as sequence numbers. In the Barcode Properties pane, simply add and arrange these different data sources in the required order to generate the complete barcode string.",
+  "rewrites": [
+   "What types of variable and static data sources can be combined to define a barcode in AFP Editor?",
+   "Which supported data source types can be concatenated when configuring a barcode object in AFP Editor?",
+   "How to combine multiple property values and data fields into an AFP Editor barcode symbol?"
+  ]
+ },
+ "77": {
+  "hyde": "No, a separate control file is not strictly required if your AFP data stream contains embedded indexing structured fields, such as Tag Logical Elements (TLEs) or Begin Document (BDT) records. RICOH ProcessDirector can use its native AFP indexing capabilities to parse these internal tags and automatically establish document boundaries. If your input file lacks embedded tags, you can either supply an external control file or configure step properties in the workflow to define where documents begin and end. This gives you the flexibility to process both pre-indexed and unindexed AFP jobs efficiently.",
+  "rewrites": [
+   "Is an external control file required to define document boundaries in an AFP data stream?",
+   "Does processing AFP data streams require a separate control file to identify individual documents?",
+   "Are external control files necessary for indexing and document separation in AFP print jobs?"
+  ]
+ },
+ "78": {
+  "hyde": "Yes, you can configure a secondary SMTP server in RICOH ProcessDirector by modifying the mail server settings in the System property sheet. This secondary server can be assigned to process job notification emails or serve as a failover option if the primary server is unreachable. Additionally, you can configure system notification profiles to route system-level event alerts through the same secondary SMTP server. To enable this configuration, navigate to the Administration notebook, select the System object, and define the secondary mail server details.",
+  "rewrites": [
+   "How to configure an additional SMTP server for job notifications and system event emails",
+   "Can a secondary SMTP mail server be used for both job-level and system notification emails?",
+   "Configuring multiple SMTP server settings to handle job notifications and system notifications"
+  ]
+ },
+ "79": {
+  "hyde": "When you insert a JPEG or GIF image into a white space region using Visual Workbench without specifying custom height and width values, the system applies the native dimensions of the image file by default. Visual Workbench calculates the physical size on the page using the resolution metadata embedded within the graphic. If the image file does not contain embedded resolution information, Visual Workbench renders the graphic at a default resolution of 300 dots per inch (DPI). You can override these default dimensions at any time in the Properties pane for the image object.",
+  "rewrites": [
+   "Default dimensions for JPEG and GIF graphics inserted into Visual Workbench white space without specified sizing",
+   "What are the default size settings for JPEG or GIF images added to white space in Visual Workbench?",
+   "Visual Workbench white space default image height and width for unspecified JPEG or GIF dimensions"
+  ]
+ },
+ "80": {
+  "hyde": "To configure a workflow that sends jobs to an InfoPrint 5000 hot folder, open the workflow in the Workflow Editor and delete the default **PrintJobs** step. Connect the output connector from the step preceding the deleted step, such as **SetJobProps**, directly to the **CopyToFolder** step. Then, connect the output connector of the **CopyToFolder** step to the **RetainJobs** step to complete the workflow path. This routing ensures RICOH ProcessDirector transfers the print files to the designated hot folder location instead of sending them to a print queue.",
+  "rewrites": [
+   "How to remove steps and connect step connectors to CopyToFolder in an InfoPrint 5000 hot folder workflow",
+   "Which step must be deleted and how are connectors configured to route jobs to CopyToFolder for an InfoPrint 5000 destination?",
+   "Modifying InfoPrint 5000 workflow step sequence and removing steps to connect to CopyToFolder hot folder destination"
+  ]
+ },
+ "81": {
+  "hyde": "After dragging an external program step into the Workflow Editor, select the step to open its details in the **Properties** pane. In the **Name** field, enter a unique name that clearly describes the step's specific function in your processing pipeline. Click **Save** on the Workflow Editor toolbar to apply your changes to the workflow.",
+  "rewrites": [
+   "How do I change the step name property of an ExternalProgram step in Workflow Builder?",
+   "Renaming a step instance in a workflow definition after adding it from the step templates palette",
+   "How to modify the display name of a step placed in the RICOH ProcessDirector workflow editor"
+  ]
+ },
+ "82": {
+  "hyde": "When modifying a default AFP banner page control file, save your edited copy in the custom control files directory (`/aiw/aiw1/control_files/custom` on Linux or `C:\\aiw\\aiw1\\control_files\\custom` on Windows). Storing files in the custom directory ensures that RICOH ProcessDirector preserves your customized settings and prevents them from being overwritten during software updates or upgrades. Once saved, update the **Banner page control file** property in the appropriate workflow step to reference your customized file.",
+  "rewrites": [
+   "Directory location for storing modified AFP banner page control files to prevent overwriting during updates",
+   "Where to save custom AFP banner page control files to preserve changes through product upgrades",
+   "Recommended file path for user-customized AFP banner page control files to survive software updates"
+  ]
+ },
+ "83": {
+  "hyde": "If a job misses its first deadline, RICOH ProcessDirector displays a red dot in the Deadlines portlet to alert operators to the delay. Even if the job subsequently completes before its second deadline, the red dot stays in the Deadlines portlet to indicate that a deadline violation occurred during processing. This ensures that any past deadline exceptions remain visible for monitoring and auditing purposes. The red dot is cleared only when the job is removed from the portlet or moves out of the active monitoring phase.",
+  "rewrites": [
+   "Does the red deadline indicator in the Deadlines portlet persist if a job exceeds its first deadline but completes prior to the second deadline?",
+   "Is the Deadlines portlet red status indicator cleared when a job misses the primary deadline but finishes before the secondary deadline?",
+   "How does the Deadlines portlet handle red indicator alerts for completed jobs that missed an initial deadline but met a subsequent deadline?"
+  ]
+ },
+ "84": {
+  "hyde": "In the AFP Editor, open the target control file and select the barcode object in the design view. In the **Properties** pane, navigate to the **Condition** section and enter the conditional expression using document or page index values. Assign the appropriate barcode definition to each branch of the condition logic. Save the control file to update the step definition so RICOH ProcessDirector dynamically selects the correct barcode during workflow processing.",
+  "rewrites": [
+   "How to configure conditional barcode selection rules in AFP Editor",
+   "Procedure for setting up rule-based barcode selection in AFP Editor",
+   "Steps to modify barcode selection criteria based on conditions in AFP Editor"
+  ]
+ },
+ "85": {
+  "hyde": "When you install a new color conversion CMR using AFP Resource Installer, the software automatically updates the Resource Access Table (RAT) and creates the necessary links between the CMR and its associated target color profiles. It also generates the required color mapping instructions so they can be efficiently referenced within the print data stream. This automated process enables the printer to use ready-made conversion tables rather than performing complex color calculations dynamically during raster image processing (RIP). Consequently, it significantly reduces the printer's processing load, optimizing print throughput while ensuring accurate and consistent color output.",
+  "rewrites": [
+   "What automated actions are performed when installing a color conversion CMR using the AFP Resource Installer, and how do they optimize printer processing?",
+   "How does installing a color conversion Color Management Resource (CMR) via AFP Resource Installer automatically update the Resource Access Table (RAT) to improve print engine performance?",
+   "What occurs automatically during the installation of a color conversion CMR in AFP Resource Installer and what is the benefit to IPDS color rendering?"
+  ]
+ },
+ "86": {
+  "hyde": "When you configure multiple text edit options for a trigger or index field in the AFP Visual Indexer, RICOH ProcessDirector applies them sequentially from top to bottom in the order they appear in the Text Edit Options list. Each edit option operates on the intermediate text string produced by the preceding operation rather than the original extracted text. You can adjust the execution order at any time by using the Move Up and Move Down buttons in the Text Edit dialog box. Arranging the options in the correct sequence ensures that initial modifications, such as character removal or trimming, occur before subsequent formatting or string insertions are applied.",
+  "rewrites": [
+   "What is the sequence of execution when multiple text edit options are specified in the AFP Indexer?",
+   "In what order are combined text edit modifications applied during AFP indexing in RICOH ProcessDirector?",
+   "How does the AFP Indexer prioritize processing order when multiple text edit rules are defined together?"
+  ]
+ },
+ "87": {
+  "hyde": "When configuring a history record notification on the Event tab, you can select the **Job state** property to monitor changes in a job's processing condition as it moves through the workflow. You can also choose to monitor a specific **Job property** to trigger a history record whenever the value of that property is updated. Once configured, RICOH ProcessDirector automatically writes an entry to the job history log each time the monitored property meets the specified event criteria. This provides an accurate audit trail of critical events and property modifications throughout the life of the job.",
+  "rewrites": [
+   "What Job property can be monitored on the Event tab when configuring a History record notification?",
+   "Which monitored property is available on the Event tab of a notification object for history tracking?",
+   "What property on the Event notebook tab can a history notification use to monitor job processing?"
+  ]
+ },
+ "88": {
+  "hyde": "Summing the **Cumulative pages stacked** metric across all steps in a Predictive Insight widget produces incorrect totals because cumulative values carry forward page counts from preceding job steps. Applying a `SUM` aggregation across multiple steps results in double-counting, as the metric records a running total at each stage of the workflow. To fix this issue, filter the widget data to target a single specific step, such as the final stacking step in the workflow. Alternatively, replace the cumulative field with a step-specific metric, such as **Pages stacked**, when analyzing performance across multiple job steps.",
+  "rewrites": [
+   "How to resolve incorrect total page counts caused by aggregating Cumulative pages stacked across multiple steps in Predictive Insight Job Step Progress widgets?",
+   "Why does summing Cumulative pages stacked in Predictive Insight Job Step Progress datasets result in overcounted totals and how to correct the aggregation method?",
+   "What causes inaccurate totals when summing the Cumulative pages stacked measure across workflow steps in Predictive Insight and how to configure the correct summary calculation?"
+  ]
+ },
+ "89": {
+  "hyde": "When you shut down a Passthrough printer while a job is in the Printing state, RICOH ProcessDirector stops sending data to the device and changes the status of the job to **Error**. Because Passthrough printers do not provide page-level tracking, the system cannot determine how much of the file was successfully printed before the printer was shut down. Once the printer is returned to an active state, an operator must clear the error and either restart the job from the beginning or move it to another printer object.",
+  "rewrites": [
+   "What is the resulting job state when a Passthrough printer is disabled during active printing?",
+   "How does stopping a Passthrough printer affect the status of an in-progress job?",
+   "What status does an active job transition to if the Passthrough device is shut down?"
+  ]
+ },
+ "90": {
+  "hyde": "To import a custom PDF printer definition file, navigate to the **Administration** tab in the RICOH ProcessDirector user interface and select **Printer definitions**. From the **Actions** menu, select **Import printer definition** to open the configuration dialog. In the **Import printer definition** dialog box, click **Browse** to locate and select your custom PDF printer definition file from your directory. Click **OK** to import the file and add the custom definition to the list of available printer models.",
+  "rewrites": [
+   "How do you import a custom PDF printer definition file in RICOH ProcessDirector, including the menu navigation path and file upload location?",
+   "What is the procedure for importing a custom printer definition file, and which tab and menu options contain the import action?",
+   "Where in the RICOH ProcessDirector user interface do I navigate to load a custom PDF printer definition file?"
+  ]
+ },
+ "91": {
+  "hyde": "When RICOH ProcessDirector transmits print volume data to Avanti Slingshot, it can report usage in several units of measure depending on the media type and workflow configuration. For cut-sheet print jobs, volume can be reported as impressions, pages, or sheets. For continuous-feed print jobs, RICOH ProcessDirector reports volume using linear measurement units, specifically feet or meters. These units are mapped to the appropriate count types in the Avanti Slingshot web service integration settings.",
+  "rewrites": [
+   "What units of measure are supported when RICOH ProcessDirector reports print volume to Avanti Slingshot?",
+   "Which job volume measurement units can be transmitted to Avanti Slingshot during accounting reporting?",
+   "What print volume units of measure does the RICOH ProcessDirector Avanti Slingshot integration use?"
+  ]
+ },
+ "92": {
+  "hyde": "To remove a hidden area that was previously set up through the AFP Editor, open the document in RICOH Visual Workbench and navigate to the page containing the area. In the **Page view** panel, click the bounding box corresponding to the hidden area to select it. Right-click the selected hidden area and choose **Delete**, or press the **Delete** key on your keyboard. Finally, save the changes to update the control file and remove the suppression region from the job.",
+  "rewrites": [
+   "Deleting a hidden area in Visual Workbench that was created with AFP Editor",
+   "How to remove an AFP Editor hidden area using RICOH Visual Workbench",
+   "Procedure for deleting hidden areas created by AFP Editor in Visual Workbench"
+  ]
+ },
+ "93": {
+  "hyde": "By default, a Download input device uses the system locale specified during RICOH ProcessDirector server installation for its daemon messages. To receive daemon messages in a different language, you must set the **Language** property in the properties notebook for that Download input device. Specifying a language code in this property overrides the server default for all status, error, and log messages generated by that specific Download daemon.",
+  "rewrites": [
+   "Which property specifies the language used for daemon messages on a Download input device?",
+   "How do you configure the message language property for a Download input device daemon?",
+   "What Download input device property overrides the server installation language for daemon messages?"
+  ]
+ },
+ "94": {
+  "hyde": "To use custom JRXML files for PDF banner pages, place your custom template files in the `/aiw/aiw1/control_files/banner_pages/` directory on the primary server. Next, open the job properties and set the **Header page template** or **Trailer page template** property to the file name of your custom JRXML file. Finally, ensure that the **Print header page** or **Print trailer page** job property is set to **Yes** so RICOH ProcessDirector generates the banner page during processing. Ensure the template file permissions allow the system user account read access.",
+  "rewrites": [
+   "Primary server file location for custom JRXML PDF banner page templates and required job property settings",
+   "How to store custom JasperReports JRXML files on the primary server and configure job properties for custom PDF banner pages",
+   "Custom PDF banner page JRXML file directory path on the primary server and associated job property configuration"
+  ]
+ },
+ "95": {
+  "hyde": "The REST implementation of the RICOH ProcessDirector Web Services feature supports both JSON (JavaScript Object Notation) and XML data formats for payload exchanges. In comparison, the SOAP implementation exclusively supports the XML format required by standard SOAP messaging. While SOAP requires structured XML schemas, the REST option gives administrators and developers greater flexibility to choose between JSON and XML when submitting requests or retrieving system data.",
+  "rewrites": [
+   "What input and output data formats are supported by REST web services compared to SOAP web services in RICOH ProcessDirector?",
+   "Comparison of supported payload formats between ProcessDirector REST and SOAP web service APIs.",
+   "How do the supported message formats for REST web services differ from those supported by SOAP web services?"
+  ]
+ },
+ "96": {
+  "hyde": "When you remove every condition from a whitespace rule in Visual Workbench, the **Condition** setting for that rule automatically changes to **Always**. RICOH ProcessDirector then treats the rule as unconditional and applies it to all evaluated pages or documents in the workflow step. To restrict when the rule is executed again, you must define at least one new condition for the rule.",
+  "rewrites": [
+   "Visual Workbench whitespace rule condition setting default behavior after deleting all conditions",
+   "Effect of removing all conditions on the condition property of a Visual Workbench whitespace rule",
+   "How clearing all rule conditions affects the condition setting of a whitespace rule in Visual Workbench"
+  ]
+ },
+ "97": {
+  "hyde": "When setting up a Hot Folder input device to process paired Quadient Inspire files, set the **Batching method** property to **Pattern matching** to group matching `.wfd` and `.pdf` files into a single job. In the batching configuration, set the **Spool file usage** property to **Use PDF file** so that RICOH ProcessDirector assigns the PDF as the primary job spool file. This ensures that the PDF serves as the main input file while the accompanying `.wfd` file is preserved and passed as a resource file to Quadient Inspire Designer during workflow execution.",
+  "rewrites": [
+   "How to configure Batching method and Spool file usage properties on a Hot Folder input device for Quadient Inspire WFD and PDF job files",
+   "Which Hot Folder input device Batching method and Spool file usage values process combined WFD and PDF files for Quadient Inspire",
+   "Configuring Hot Folder input device Batching method and Spool file usage properties for Quadient Inspire WFD and companion PDF files"
+  ]
+ },
+ "98": {
+  "hyde": "If a PDF 2.0 file travels through a workflow where no steps modify the PDF content, RICOH ProcessDirector passes the file through in its original format without converting it to PDF 1.7. However, if banner pages are enabled when sending the job to a Ricoh PDF printer, RICOH ProcessDirector must concatenate the generated banner page with the main document. Because this merging operation modifies the file, RICOH ProcessDirector converts the resulting output file to PDF 1.7 before transmitting it to the printer.",
+  "rewrites": [
+   "Does passthrough processing of an unmodified PDF 2.0 file convert it to PDF 1.7, and what occurs when banner pages are enabled for a Ricoh PDF printer?",
+   "PDF 2.0 file version conversion to PDF 1.7 in unmodified workflows and banner page processing on Ricoh PDF printers",
+   "Will a PDF 2.0 input document downlevel to PDF 1.7 if no workflow steps modify it, and how does banner page insertion affect Ricoh PDF printer device output?"
+  ]
+ },
+ "99": {
+  "hyde": "When you deactivate a custom property in RICOH ProcessDirector to modify its settings, the system preserves all existing associations with your configured objects. Any jobs, input devices, or workflow steps that previously contained the property maintain those connections while it is inactive. Once you reactivate the custom property, it automatically becomes available again on all objects to which it was originally assigned with the updated settings applied. You do not need to manually re-add or reassign the custom property after reactivating it.",
+  "rewrites": [
+   "Are custom property assignments to objects retained after deactivating and reactivating the property?",
+   "Is reassigning a custom property to objects required after deactivating it to modify settings?",
+   "Do object associations persist when a custom property is disabled for modification and then enabled?"
+  ]
+ },
+ "100": {
+  "hyde": "Yes, you can route jobs intended for an InfoPrint 5000 to an InfoPrint 4100 or InfoPrint 4000 printer device as a fallback by defining alternate destinations in your RICOH ProcessDirector workflow. To ensure output compatibility, the workflow must include a transform step to convert full-color data streams into the monochrome or grayscale AFP required by these older devices. You can manage this automatically by configuring printer groups or using conditional routing steps based on printer availability and device capabilities. This failover capability maintains continuous production without requiring manual job re-creation or re-submission.",
+  "rewrites": [
+   "Can monochrome printers like the InfoPrint 4100 or 4000 be configured as alternate printers for InfoPrint 5000 color jobs?",
+   "Is printer substitution supported for routing color jobs from an InfoPrint 5000 to monochrome InfoPrint 4000 or 4100 devices?",
+   "How to set up fallback printer routing for InfoPrint 5000 color jobs to run on InfoPrint 4100 or 4000 printers?"
+  ]
+ }
+}

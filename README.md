@@ -155,7 +155,7 @@ The default path is one retrieval call followed by one Claude Sonnet call at tem
 
 ## 7. Evaluation and metrics
 
-The headline numbers are in the TL;DR above. The full write-up is in [docs/EVALUATION.md](docs/EVALUATION.md#7-evaluation-and-metrics). It covers the 100-question benchmark and how the judge is set up, the ablation (n=10, n=100, holdout, multi-hop), tool calling and routing, multi-turn follow-ups, the embedding and reranker sweeps, the Azure AI Search comparison, the cross-provider bakeoff, the fine-tuned model, the prompt-injection guardrail test, and corrections I made to my own earlier results.
+The headline numbers are in the TL;DR above. The full write-up is in [docs/EVALUATION.md](docs/EVALUATION.md#7-evaluation-and-metrics). It covers the 100-question benchmark and how the judge is set up, the ablation (n=10, n=100, holdout, multi-hop), tool calling and routing, multi-turn follow-ups, the embedding and reranker sweeps, query rewriting (HyDE and multi-query), the Azure AI Search comparison, the cross-provider bakeoff, the fine-tuned model, the prompt-injection guardrail test, and corrections I made to my own earlier results.
 
 ---
 
