@@ -1,23 +1,16 @@
-"""Cross-provider bakeoff: same pipeline, same judge, different agent model.
+"""Provider bakeoff: same pipeline and judge, a different model writing the answer.
 
-The system runs on claude-sonnet-4-6. The README's section 6 says GPT-4o was
-"considered"; this measures what actually changes if the synthesizer runs on a
-cheaper non-Anthropic model instead.
+The system runs on claude-sonnet-4-6. This measures what changes if the synthesizer is a cheaper model
+from another provider. Only that model varies: retrieval is shared (run once per question), the setup
+is retrieve then synthesize, and the judge is always claude-opus-5.
 
-Only the synthesizer model varies. Retrieval is identical and deterministic
-(run once per question, shared across providers), the config is A
-(retrieve -> synthesize, no planner), and the judge is always claude-opus-5, so
-a difference is the model, not the harness.
-
-Providers and default models (override with --models):
-    anthropic    claude-sonnet-4-6   (the current production model, the baseline)
+Default models, override with --models:
+    anthropic    claude-sonnet-4-6   (production, the baseline)
     openai       gpt-4o-mini
-    google       gemini-3.6-flash    (via its OpenAI-compatible endpoint)
-    self_hosted  citera-finetuned    (QLoRA-distilled Llama 3.1 8B, own vLLM
-                                      server, see citera-finetune/. Cost shows
-                                      as $0/query: real cost is GPU-hours, not
-                                      per-token, so it is not comparable to the
-                                      other rows' cost column as-is.)
+    google       gemini-3.6-flash    (through its OpenAI-compatible endpoint)
+    self_hosted  citera-finetuned    (the QLoRA Llama 3.1 8B on my vLLM server, see finetune/. Its cost
+                                      shows as $0 per query because it is really GPU-hours, so don't
+                                      compare that column directly.)
 
     pip install -r requirements-providers.txt
     # set OPENAI_API_KEY and GEMINI_API_KEY in .env
@@ -72,7 +65,7 @@ def run(providers: list[str], models: dict[str, str], n: int, seed: int, use_jud
     questions = random.Random(seed).sample(dev, min(n, len(dev)))
     retriever = get_retriever()
 
-    # Retrieval once per question, shared across providers.
+    # retrieval once per question, shared by every provider
     shared: dict[int, dict[str, Any]] = {}
     for q in questions:
         ev = retriever.retrieve(q["question"], top_k=RETRIEVAL_TOP_K, final_k=RETRIEVAL_FINAL_K)
@@ -109,7 +102,7 @@ def run(providers: list[str], models: dict[str, str], n: int, seed: int, use_jud
                 "output_tokens": rec.total_output_tokens,
                 "system_refused": refused,
                 "behavior_match": (q.get("expected_behavior", "answer") == "answer") != refused,
-                # generated questions carry alternative sources: any hit is a hit.
+                # generated questions have alternative sources, so any hit counts
                 "evidence_recall": 1.0 if (set(expected) & set(s["retrieved_docs"])) else 0.0,
             }
             if use_judge and not answer.startswith("ERROR"):

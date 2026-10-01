@@ -1,18 +1,12 @@
-"""Export a slice of a harness run for an independent RAGAS cross-check.
+"""Export some of a harness run so RAGAS can check it from its own environment.
 
-Why this is two scripts and not one. RAGAS (0.4.x) pins langchain-core and
-langgraph to 1.x, which collides head-on with this project's langgraph 0.2.74.
-The two cannot share a virtualenv. So this script runs in the project env and
-writes a plain JSONL, and eval/ragas_eval.py reads that JSONL from a separate
-env that has RAGAS installed. Nothing in the RAGAS step imports ``src``.
-
-What it writes, per sampled question:
-  question, answer  - taken straight from the harness metrics file
-  contexts          - the retrieved passages, re-retrieved here; deterministic
-                      for a config-A run, so this reproduces what the
-                      synthesizer saw (same assumption as label_for_kappa.py)
-  judge_groundedness - our LLM judge's score, so ragas_eval.py can compare its
-                      faithfulness score against it question by question
+RAGAS 0.4.x needs langchain-core and langgraph 1.x, which clash with this project's langgraph 0.2.74, so
+they can't share a virtualenv. This runs in the project env and writes a jsonl, and ragas_eval.py reads
+it from an env with RAGAS. Per sampled question it writes:
+  question, answer   straight from the metrics file
+  contexts           the passages, retrieved again here (deterministic for a plain run, so it's what
+                     the synthesizer saw, same assumption as label_for_kappa.py)
+  judge_groundedness our judge's score, to compare against RAGAS question by question
 
     python -m eval.ragas_export --n 12
     # then, in the RAGAS env:  python eval/ragas_eval.py
@@ -33,7 +27,7 @@ OUT_PATH: Path = PROJECT_ROOT / "eval" / "ragas_input.jsonl"
 
 
 def _contexts(question: str) -> list[str]:
-    """Re-retrieve the passages for one question, as plain text."""
+    """The passages for a question, retrieved again, as plain text."""
     from src.retriever import get_retriever
 
     passages = get_retriever().retrieve(

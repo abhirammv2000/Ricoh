@@ -1,36 +1,18 @@
-"""QLoRA fine-tune of Llama 3.1 8B Instruct on Citera's synthesizer distillation data.
+"""QLoRA fine-tune of Llama 3.1 8B Instruct on the synthesizer data. Needs a GPU, so it runs on the L4 VM
+(infra/create_vm.sh).
 
-Runs on the GCP L4 VM (see infra/create_vm.sh), not locally: this needs a real
-GPU, and unsloth's 4-bit loading path only makes sense with CUDA available.
-
-Hyperparameters below follow unsloth's own published LoRA hyperparameter
-guide for an 8B model, not guessed: rank 32, alpha 64 (2x rank, the guide's
-upper recommendation, since this is a narrow single-skill distillation
-target rather than broad instruction-following), all seven linear layers,
-lr 2e-4, 3 epochs (the guide's ceiling for an instruction dataset this size
-before overfitting risk rises), effective batch 16 via grad accumulation.
-
-Max sequence length is 8192, not the usual tutorial default of 2048: this
-project's training examples embed full retrieved evidence blocks in the user
-turn, and the actual data (data/train_examples.jsonl) runs up to ~5800 tokens.
-Unsloth benchmarks put a single L4 comfortably past 20k tokens of context at
-this LoRA rank, so 8192 has headroom without approaching the card's limit.
-
-Loss is masked to the assistant turn only (unsloth's train_on_responses_only):
-without it the model would spend capacity learning to reproduce retrieved
-documentation text verbatim, which is not the skill being distilled.
+The settings come from unsloth's LoRA guide for an 8B model: rank 32, alpha 64, all seven linear layers,
+learning rate 2e-4, 3 epochs, effective batch 16. The max length is 8192, not the usual 2048, because the
+examples include full evidence blocks and run up to about 5800 tokens. The loss is only on the assistant
+turn (train_on_responses_only), so the model doesn't spend effort memorising the documentation text.
 
     python train/finetune_qlora.py
 """
 
 from __future__ import annotations
 
-# unsloth has to be the first HF-ecosystem import in the process, before trl,
-# transformers, or datasets. It patches those libraries on import, and doing
-# that after they are already imported elsewhere left the tokenizer with an
-# eos_token unsloth's chat-template patch never actually reconciled against
-# the loaded vocabulary (confirmed against unsloth's own reported fix for
-# this exact error).
+# unsloth has to be imported before trl, transformers and datasets, since it patches them. Importing
+# it later left the tokenizer with a mismatched eos_token
 from unsloth import FastLanguageModel, is_bfloat16_supported
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
 
@@ -47,9 +29,8 @@ OUTPUT_DIR = REPO_ROOT / "adapter"
 BASE_MODEL = "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
 MAX_SEQ_LENGTH = 8192
 
-# Held out purely to watch eval loss during training and catch overfitting on
-# this small a dataset. Not the judged benchmark: that comparison happens
-# later, in the Ricoh repo, against documents this training data never saw.
+# held out only to watch eval loss for overfitting. The judged benchmark is separate and uses documents
+# this data never touches
 N_VAL = 20
 SEED = 20260911
 
@@ -134,9 +115,7 @@ def main() -> None:
         ),
     )
 
-    # Mask the loss to the assistant turn only. Llama 3.1's chat template
-    # wraps each turn in these header tokens; get_chat_template above set the
-    # template, this tells the trainer where the boundary between them falls.
+    # only train on the assistant turn. These are the header tokens llama 3.1 puts around each turn
     trainer = train_on_responses_only(
         trainer,
         instruction_part="<|start_header_id|>user<|end_header_id|>\n\n",

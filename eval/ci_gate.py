@@ -1,24 +1,16 @@
-"""Retrieval regression gate for CI.
+"""Retrieval regression check for CI.
 
-The unit suite mocks the LLM and never touches a real index, so a change that
-quietly breaks hybrid retrieval, an RRF bug, a fusion off-by-one, a chunk
-metadata regression at ingest, would pass every test and still ship. This is
-the check that would catch it.
+The unit tests mock the LLM and never touch a real index, so a broken fusion step or a chunk metadata
+bug could pass them. This runs real hybrid retrieval on the committed demo_index/ (46 documents, no API
+key) for the ten seed questions in eval/ground_truth.json, and compares recall@1/3/5 with a saved
+baseline. A drop fails the build.
 
-It runs real hybrid retrieval against the committed ``demo_index/`` (46
-documents, no API key, no model download beyond ChromaDB's bundled MiniLM) on
-the ten seed questions in ``eval/ground_truth.json``, and compares retriever
-recall@1/3/5 against a committed baseline. A drop fails the build.
-
-What this is and is not. ``demo_index`` is a small, curated slice built around
-these questions, so recall here is near-ceiling by construction. That makes it
-a *smoke* gate: it proves the retrieval path still works end to end and did not
-regress, not that retrieval quality on the full 733-document corpus is good.
-The full-corpus numbers come from the paid harness (README section 7) and
-cannot run in CI without the source PDFs.
+demo_index is a small slice built around those questions, so recall is near the ceiling. That makes
+this a smoke test that retrieval still works, not a measure of quality on all 733 documents (those
+numbers come from the paid harness, README section 7).
 
     python -m eval.ci_gate            # check against eval/ci_baseline.json
-    python -m eval.ci_gate --update   # rewrite the baseline (do this deliberately)
+    python -m eval.ci_gate --update   # rewrite the baseline, only on purpose
 """
 
 from __future__ import annotations
@@ -42,22 +34,14 @@ DEPTHS: tuple[int, ...] = (1, 3, 5)
 TOP_K: int = 10
 FINAL_K: int = 5
 
-# How far recall may fall below the baseline before the gate fails. Retrieval is
-# deterministic on a fixed index, so this only absorbs a legitimate reindex of
-# demo_index, not run-to-run noise. A real improvement should be committed with
-# --update rather than tolerated.
+# how far recall can drop below the baseline before it fails. Retrieval is deterministic, so
+# this only covers a legitimate reindex. Commit a real improvement with --update
 TOLERANCE: float = 0.001
 
 
 @contextmanager
 def _readonly_copy(index_dir: Path) -> Iterator[Path]:
-    """Yield a throwaway copy of the index.
-
-    Opening a ChromaDB store for querying rewrites some of its HNSW files, so
-    pointing the retriever straight at the committed ``demo_index/`` would leave
-    the working tree dirty every time the gate runs. Querying a copy keeps the
-    repo untouched.
-    """
+    """Yield a temporary copy of the index. Querying chroma rewrites some of its files, which would dirty the repo."""
     tmp = Path(tempfile.mkdtemp(prefix="citera-ci-gate-"))
     try:
         dest = tmp / index_dir.name
@@ -68,7 +52,7 @@ def _readonly_copy(index_dir: Path) -> Iterator[Path]:
 
 
 def _ranked_docs(retriever: HybridRetriever, question: str) -> list[str]:
-    """Distinct source documents retrieval returns for one question, in order."""
+    """The distinct documents retrieval returns for a question, in order."""
     results = retriever.retrieve(question, top_k=TOP_K, final_k=FINAL_K)
     ordered: list[str] = []
     for r in results:
@@ -79,7 +63,7 @@ def _ranked_docs(retriever: HybridRetriever, question: str) -> list[str]:
 
 
 def measure(index_dir: Path = DEMO_INDEX) -> dict[str, Any]:
-    """Retriever recall@1/3/5 over the answerable seed questions."""
+    """Recall@1, 3 and 5 over the seed questions that have an answer."""
     if not (index_dir / "chroma.sqlite3").exists():
         raise SystemExit(f"{index_dir} does not look like a ChromaDB index")
 
@@ -118,14 +102,10 @@ def measure(index_dir: Path = DEMO_INDEX) -> dict[str, Any]:
 
 
 def manifest_drift() -> list[str]:
-    """Ways the committed demo_index no longer matches what it should serve.
+    """Problems with the committed demo_index.
 
-    demo_index is a binary artifact built by src/build_demo_index.py from the
-    corpus. CI has neither the corpus nor a way to rebuild it, so this checks
-    the cheap invariant instead: the documents the curated benchmark
-    (eval/ground_truth.json) depends on must all be baked into the index. If a
-    question gains a new expected source and the index is not rebuilt, the live
-    demo silently cannot answer it, and this is what says so.
+    CI can't rebuild it (no corpus), so this just checks that every document the curated benchmark
+    expects is in it. Otherwise a question could get a new source and the demo would quietly fail to answer it.
     """
     from src.build_demo_index import _referenced_docs
 
@@ -159,7 +139,7 @@ def _load_baseline() -> dict[str, Any]:
 
 
 def regressions(current: dict[str, Any], baseline: dict[str, Any]) -> list[str]:
-    """Recall depths that fell more than TOLERANCE below the baseline."""
+    """The recall depths that dropped more than TOLERANCE below the baseline."""
     out: list[str] = []
     for depth in DEPTHS:
         key = f"@{depth}"

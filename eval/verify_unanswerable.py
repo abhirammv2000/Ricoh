@@ -1,19 +1,9 @@
-"""eval/verify_unanswerable.py - Audit the "refuse" labels in ground_truth.json.
+"""Check the "refuse" labels in ground_truth.json.
 
-Some benchmark questions are labelled ``expected_behavior: "refuse"`` on the
-claim that the corpus simply does not contain the answer.  That claim is
-load-bearing: if it is wrong, a refusal we score as *correct hallucination
-control* is really a *retrieval miss*, and the headline behaviour-match rate
-is measuring the opposite of what it says.
-
-The retrieval harness cannot settle this. It only ever sees the top-k it
-retrieved, so "the answer wasn't in the evidence" is consistent with both
-"the answer isn't in the corpus" and "retrieval failed to find it".  The only
-way to distinguish them is to read the whole corpus.
-
-This script does that: it scans the raw text of every PDF for the terms that
-*would have to* appear if the answer existed, and prints the evidence so a
-reviewer can check the reasoning instead of taking it on trust.
+Some questions are labelled expected_behavior "refuse" because the corpus doesn't have the answer. If
+that's wrong, a refusal scored as correct is really a retrieval miss. The harness can't tell, since it
+only sees the top results. The only way is to read the whole corpus. This scans every PDF for the terms
+that would have to appear if the answer existed, and prints what it finds so you can check it yourself.
 
 Usage:
     python -m eval.verify_unanswerable
@@ -30,9 +20,8 @@ import fitz  # PyMuPDF
 from src.config import DATA_DIR
 
 
-# Each claim pairs a ground-truth question with the regex whose ABSENCE from
-# the corpus is what makes the question unanswerable.  Keep the pattern broad:
-# the goal is to over-collect candidate evidence, then read it.
+# each claim pairs a question with a regex that must be absent from the corpus for it to be unanswerable.
+# Keep the pattern broad, then read what it finds
 CLAIMS: list[dict[str, object]] = [
     {
         "qid": 2,
@@ -48,13 +37,12 @@ CLAIMS: list[dict[str, object]] = [
     },
 ]
 
-# Lines matching this alongside the claim pattern are the ones that would
-# actually constitute an answer (a quantity), so they get highlighted.
+# lines that match this as well as the claim pattern would be an actual answer (a quantity), so they're highlighted
 QUANTITY = re.compile(r"\d+\s*(?:MB|GB|TB|megabytes?|gigabytes?)", re.I)
 
 
 def _iter_documents(data_dir: Path) -> Iterator[tuple[str, str]]:
-    """Yield (filename, full_text) for every PDF in the corpus."""
+    """Every PDF in the corpus as (filename, full text)."""
     for path in sorted(data_dir.glob("*.pdf")):
         try:
             doc = fitz.open(path)

@@ -1,29 +1,16 @@
-"""Tool-calling retrieval: the model issues its own searches.
+"""Tool-calling retrieval: the model runs its own searches.
 
-The default pipeline retrieves once on the raw question and synthesizes, which
-works because recall@5 is 0.94 across the 100-question benchmark. The 6 failures
-are the interesting case: the model gets one set of chunks and no way to say
-that is not what I asked for.
+The default pipeline retrieves once and answers, and recall@5 is 0.94 on the 100 questions. The 6
+misses get one set of chunks and no way to ask again. Here search_docs is a tool, so the model picks
+how many searches to run and what to search for, and sees the results before deciding to search again.
 
-This exposes `search_docs` as a tool so the model decides how many times to
-search and with what query. Unlike the planner, which rewrote the question up
-front, it sees the actual results before deciding whether to search again.
+It helped more than I expected. Four hand-written rewrites of each failing question recovered 2 of
+the 6, which I took as the ceiling. The model recovered 4, and lost none of a 20 question sample that
+already passed, at 1.77x the cost ($0.0278 vs $0.0157). That only shows the right document reached the
+model, not that answers got better, so it stays off (USE_TOOL_LOOP) until a judged run at n=100.
 
-That turned out to help more than expected. Replaying the six failing questions
-with four hand-written reformulations each recovered two, which I took as a
-ceiling; the model recovered 4 of 6, and lost none of a 20-question sample that
-already passed. Cost is 1.77x the single-retrieval path ($0.0278 vs $0.0157).
-
-That only measures whether the expected document reached the model, not answer
-quality, so the stage stays off by default (USE_TOOL_LOOP) until a judged run at
-n=100 settles groundedness and correctness.
-
-Three things worth knowing about the implementation. Tool results are capped by
-MAX_TOOL_CALLS, enforced by stripping the tool rather than trusting the model to
-stop, because an unbounded search loop is how a $0.016 query becomes a $0.50
-one. Each turn records a span via invoke_messages(), so a tool run shows its real
-cost in the dashboard. And evidence accumulates across calls rather than being
-replaced, so a chunk from the second search is as citable as one from the first.
+Searches are capped by MAX_TOOL_CALLS by taking the tool away, not by asking the model to stop. Every
+turn records a span through invoke_messages(), and evidence builds up across searches.
 """
 
 from __future__ import annotations
@@ -38,9 +25,8 @@ from src.retriever import get_retriever
 
 logger = logging.getLogger(__name__)
 
-# Hard cap on searches per question. In the measured runs the model used 1 to 3
-# searches and never needed a fourth, so this bounds the tail rather than the
-# common case. Without a cap a tool agent turns a $0.016 query into a $0.50 one.
+# cap on searches per question. The model used 1 to 3 in the measured runs, so this only limits the
+# worst case. Without it a $0.016 query could become a $0.50 one
 MAX_TOOL_CALLS: int = 4
 
 SEARCH_DOCS_TOOL: dict[str, Any] = {
@@ -81,7 +67,7 @@ instead of guessing. A correct refusal is better than an unsupported answer.\
 
 
 def _format_results(chunks: list[dict[str, Any]]) -> str:
-    """Render retrieved chunks the way the model is asked to cite them."""
+    """The chunks formatted the way the model should cite them."""
     if not chunks:
         return "No passages found for that query."
     parts = []
@@ -94,21 +80,16 @@ def _format_results(chunks: list[dict[str, Any]]) -> str:
 
 
 def search_docs(query: str) -> list[dict[str, Any]]:
-    """Run one hybrid retrieval at production settings.
-
-    Deliberately the same call the default pipeline makes, so a difference
-    between the two paths is the model's querying, not a different retriever.
-    """
+    """One hybrid retrieval with the production settings, the same call the default pipeline makes."""
     return get_retriever().retrieve(
         query, top_k=RETRIEVAL_TOP_K, final_k=RETRIEVAL_FINAL_K
     )
 
 
 def run_tool_loop(question: str, max_calls: int = MAX_TOOL_CALLS) -> dict[str, Any]:
-    """Let the model search until it can answer, bounded by max_calls.
+    """Let the model search until it can answer, up to max_calls.
 
-    Returns the answer, every chunk seen across all searches, the queries the
-    model chose, and the number of searches it actually used.
+    Returns the answer, every chunk seen, the queries it chose and how many searches it used.
     """
     llm = get_llm()
     bound = llm.bind_tools([SEARCH_DOCS_TOOL])
@@ -118,10 +99,7 @@ def run_tool_loop(question: str, max_calls: int = MAX_TOOL_CALLS) -> dict[str, A
         {"role": "user", "content": question},
     ]
 
-    # Lazy import: src.agent only reaches src.tools the same way, inside
-    # run_agent's USE_TOOL_LOOP branch, never at module load. A top-level
-    # import here would work today but starts relying on which module happens
-    # to load first, so this keeps both sides lazy on purpose.
+    # imported here, not at the top, since agent.py also imports this module lazily
     from src.agent import record_citation_guardrail
 
     evidence: list[dict[str, Any]] = []
@@ -139,8 +117,7 @@ def run_tool_loop(question: str, max_calls: int = MAX_TOOL_CALLS) -> dict[str, A
         }
 
     for turn in range(max_calls + 1):
-        # On the final turn the tool is withdrawn, which forces an answer
-        # instead of relying on the model to notice its own budget.
+        # on the last turn the tool is taken away, which forces an answer
         active = bound if turn < max_calls else llm
         response = invoke_messages(active, messages, stage="tool_agent")
 
@@ -167,5 +144,5 @@ def run_tool_loop(question: str, max_calls: int = MAX_TOOL_CALLS) -> dict[str, A
                 }
             )
 
-    # Unreachable in practice: the final turn has no tool to call.
+    # shouldn't get here, the last turn has no tool
     return _result(response)

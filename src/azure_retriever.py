@@ -1,25 +1,12 @@
-"""
-src/azure_retriever.py - Azure AI Search backend for the same chunks.
+"""Azure AI Search backend for the same chunks, to compare it with the chroma and BM25 retriever.
 
-Takes the chunk list from ``ingest.py`` and indexes it in Azure AI Search, so
-the ChromaDB + BM25 retriever and Azure can be compared on identical input.
-The embeddings come from the same model ChromaDB uses (all-MiniLM-L6-v2, 384
-dimensions), so any ranking difference comes from the search engine and not
-the vectors.
+The embeddings come from the same MiniLM model chroma uses, so a ranking difference comes from the
+search engine. Four modes on one index: keyword (Azure's BM25), vector (HNSW), hybrid (both, fused by
+Azure with RRF) and hybrid_semantic (hybrid, then Azure's semantic ranker, its version of the
+cross-encoder). Needs requirements-azure.txt and the AZURE_SEARCH_* settings in .env. Nothing else
+imports this module.
 
-Four query modes, all on one index:
-
-- ``keyword``: Azure's built-in BM25 over the chunk text.
-- ``vector``: HNSW nearest neighbours on the embedding field.
-- ``hybrid``: keyword and vector together, fused by Azure with RRF.
-- ``hybrid_semantic``: hybrid, then Azure's semantic ranker re-scores the top
-  results (Azure's counterpart to the cross-encoder in retriever.py).
-
-Needs ``pip install -r requirements-azure.txt`` and the AZURE_SEARCH_* values
-in .env. Nothing else in the project imports this module.
-
-Usage:
-    python -m src.azure_retriever --build     # create the index and upload all chunks
+    python -m src.azure_retriever --build     # create the index and upload the chunks
     python -m src.azure_retriever "how do I add a step to a workflow"
 """
 
@@ -39,7 +26,7 @@ from src.config import (
 )
 
 logger = logging.getLogger(__name__)
-# The Azure SDK logs every HTTP request and response at INFO.
+# the azure sdk logs every request at INFO
 logging.getLogger("azure").setLevel(logging.WARNING)
 
 EMBEDDING_DIM = 384
@@ -53,11 +40,7 @@ _UPLOAD_BATCH = 200
 
 
 def _clean_query(query: str) -> str:
-    """Strip the characters Azure's simple query syntax treats as operators.
-
-    A stray quote or a leading minus in a user question would otherwise be read
-    as a phrase or a NOT. Hyphens inside a word (e-mail) are left alone.
-    """
+    """Remove characters that Azure's query syntax reads as operators, like a stray quote or a leading minus."""
     query = re.sub(r'["()*+|~\\]', " ", query)
     query = re.sub(r"(^|\s)-+", r"\1", query)
     return query.strip()
@@ -96,7 +79,7 @@ class AzureRetriever:
     # Embeddings
 
     def _embedder(self):
-        """ChromaDB's default embedding function, the one the local index uses."""
+        """Chroma's default embedding function, the same one the local index uses."""
         if self._embed is None:
             from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
@@ -171,7 +154,7 @@ class AzureRetriever:
         logger.info("Azure index '%s' ready.", self._index_name)
 
     def build_index(self, chunks: list[dict[str, Any]]) -> None:
-        """Embed and upload every chunk. Safe to re-run, documents upsert by id."""
+        """Embed and upload every chunk. Safe to rerun, since documents upsert by id."""
         if not chunks:
             logger.warning("build_index called with empty chunk list.")
             return
@@ -210,10 +193,7 @@ class AzureRetriever:
         top_k: int = RETRIEVAL_TOP_K,
         final_k: int = RETRIEVAL_FINAL_K,
     ) -> list[dict[str, Any]]:
-        """Return up to ``final_k`` chunks in the same shape HybridRetriever uses.
-
-        ``top_k`` is the number of vector neighbours fetched before fusion.
-        """
+        """Up to final_k chunks in the same shape HybridRetriever returns. top_k is how many vector neighbours to fetch before fusion."""
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}, got {mode!r}")
 

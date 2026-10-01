@@ -1,29 +1,16 @@
-"""Build a larger eval set with labels that can be trusted.
+"""Generate a bigger eval set (the first one had only 10 questions, and one question moved a mean by 10 points).
 
-Every claim in this project rested on 10 questions, where one question moves any
-mean by 10 points. That is wider than most effects worth detecting, so the
-strongest result (removing the agentic pipeline) sat on the weakest evidence.
+Each question is written from one chunk, so that chunk's document is the expected source and the
+retrieval label comes free. Answer labels still need the judge (see label_for_kappa.py).
 
-Each question is generated from a specific chunk, so that chunk's document is
-the expected source by construction, which gives retrieval labels for free.
-Answer labels still need the judge, and the judge still needs human calibration
-(see eval/label_for_kappa.py).
+Generated sets tend to be too easy: if a question reuses wording from its chunk, BM25 finds it and
+recall looks perfect for the wrong reason. The generator is told to paraphrase, and --audit reports
+lexical overlap and recall (a perfect 1.00 with high overlap means the set is too easy). Labelling
+only the source document is also too narrow when other documents answer just as well, which is the
+bug the original Q2 had. So the generator rejects questions it can't tie to one document, and --audit
+flags questions whose top hit is a different document.
 
-Generated benchmarks are usually too easy. If a question reuses distinctive
-wording from its source chunk, BM25 matches it trivially and recall looks
-perfect for reasons unrelated to the system. Two defences: the generator is told
-to paraphrase in a technician's own words and avoid rare exact strings, and
---audit measures lexical overlap and reports recall on the generated set. A
-suspiciously perfect 1.00 with high overlap means the set is too easy.
-
-Labelling the source chunk's document as the only expected source also assumes
-no other document answers as well, which is not always true on a corpus with
-overlapping help topics. A wrongly-narrow label penalises correct retrieval,
-which is exactly the bug in the original Q2 entry. So the generator rejects
-questions it cannot make specific to one document, and --audit flags any
-question whose top hit is a different document for review.
-
-Questions split into dev and holdout. Tune on dev only.
+Questions are split into dev and holdout. Only tune on dev.
 """
 
 from __future__ import annotations
@@ -49,11 +36,10 @@ from src.llm_factory import get_llm
 
 OUT_PATH: Path = PROJECT_ROOT / "eval" / "generated_questions.json"
 
-# Chunks shorter than this are navigation stubs or boilerplate fragments and
-# cannot support a real question.
+# shorter chunks are navigation stubs and can't support a real question
 MIN_CHUNK_WORDS = 120
 
-# Fraction held out. Never tune against it.
+# fraction held out, never tune on it
 HOLDOUT_FRACTION = 0.3
 
 GENERATOR_PROMPT = """\
@@ -95,11 +81,7 @@ def _load_chunks() -> list[dict[str, Any]]:
 
 
 def _sample_chunks(chunks: list[dict[str, Any]], n: int, seed: int) -> list[dict[str, Any]]:
-    """One chunk per document, sampled reproducibly.
-
-    Sampling per-document rather than per-chunk stops multi-chunk documents
-    from dominating the set and keeps the benchmark spread across the corpus.
-    """
+    """One chunk per document, sampled with a fixed seed, so long documents don't dominate."""
     usable = [c for c in chunks if len(c["text"].split()) >= MIN_CHUNK_WORDS]
     by_doc: dict[str, dict[str, Any]] = {}
     rng = random.Random(seed)
@@ -158,7 +140,7 @@ def generate(n: int, seed: int) -> int:
                     "question": parsed["question"],
                     "expected_behavior": "answer",
                     "key_facts": parsed.get("key_facts", [])[:3],
-                    # Known by construction: the question was written FROM this doc.
+                    # known because the question was written from this document
                     "expected_sources": [chunk["source_document"]],
                     "source_chunk_id": chunk["id"],
                     "provenance": "generated",
@@ -200,10 +182,7 @@ def generate(n: int, seed: int) -> int:
 
 
 def audit() -> int:
-    """Check the generated set is actually hard enough to be informative.
-
-    Costs nothing: retrieval is deterministic and local.
-    """
+    """Check the generated set is hard enough to tell us anything. Free, since retrieval is local."""
     if not OUT_PATH.exists():
         raise SystemExit(f"No generated set at {OUT_PATH}. Run without --audit first.")
 
@@ -234,18 +213,9 @@ def audit() -> int:
             d = r["source_document"]
             if d not in docs:
                 docs.append(d)
-        # ANY-HIT semantics, deliberately.
-        #
-        # For this generated set, multiple expected_sources are *alternatives*:
-        # the question was written from one document, and label expansion added
-        # others that an adjudicator confirmed also answer it. Retrieving any
-        # one of them is a correct retrieval.
-        #
-        # Note this differs from the curated set in eval/ground_truth.json,
-        # where multiple expected_sources mean several documents are jointly
-        # relevant and recall is the fraction found. Same field name, different
-        # meaning, which is why the two sets are audited separately rather
-        # than concatenated.
+        # any hit counts here. In this set the expected_sources are alternatives (one written
+        # from, others an adjudicator confirmed). In the curated ground_truth.json they are all
+        # needed, so the two sets are audited separately.
         expected = set(q["expected_sources"])
         recalls.append(1.0 if expected & set(docs) else 0.0)
         if docs and docs[0] in expected:
@@ -317,23 +287,13 @@ Respond with ONLY a valid JSON object, no markdown fences:
 
 
 def expand_labels() -> int:
-    """Accept additional correct source documents, verified by adjudication.
+    """Add other documents as correct sources, after an adjudicator checks that they answer the question.
 
-    The problem this solves
-    Each generated question is labelled with the single document it was written
-    from.  On a corpus of 733 overlapping help topics, other documents often
-    answer the same question equally well, so that single-source label marks
-    correct retrieval as wrong and understates recall.  This is the same bug
-    that once made a correct refusal (Q2) look like a retrieval miss.
-
-    Rather than assume the label is wrong OR that retrieval is wrong, this asks
-    a strict adjudicator whether the competing document genuinely answers the
-    question, and only then widens the label.  Every expansion is recorded with
-    its justification so the change is auditable rather than a silent fix that
-    happens to raise the score.
-
-    Only questions whose TOP hit differs from the label are adjudicated, which
-    bounds the cost to the cases that actually affect the metric.
+    A question is labelled with the one document it was written from, but with 733 overlapping help
+    topics another document often answers it as well, so correct retrieval gets marked wrong. The
+    adjudicator decides whether the competing document really answers it, and only then is the label
+    widened. Every expansion is saved with its reason. Only questions whose top hit differs from the
+    label are checked, which keeps the cost down.
     """
     from src.retriever import get_retriever
 

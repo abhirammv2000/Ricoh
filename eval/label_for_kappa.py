@@ -1,31 +1,16 @@
-"""Measure whether the LLM judge agrees with a human.
+"""Does the LLM judge agree with a human?
 
-eval/judge_variance.py showed the judge is precise, meaning it returns the same
-score for the same input. Precision is not accuracy: a judge can be perfectly
-consistent and consistently wrong, and every quality number here inherits that
-error. The only way to find out is to grade some answers by hand and compare.
-
-Raw agreement will not do, because it is inflated by the base rate. When ~90% of
-answers are good, a judge that always says good scores ~90% agreement while
-carrying no information. Cohen's kappa corrects for chance agreement:
-
-    kappa = (p_observed - p_chance) / (1 - p_chance)
-
-    kappa <= 0   no better than chance
-    0.2-0.4      fair
-    0.4-0.6      moderate
-    0.6-0.8      substantial
-    > 0.8        near-perfect
-
-Scores are binarised at a threshold since kappa needs categories, and the
-threshold is written into the output so the number is reproducible.
+judge_variance.py showed the judge is consistent, but consistent isn't the same as right. This
+grades some answers by hand and compares. Raw agreement is inflated when most answers are good, so
+it uses Cohen's kappa, which corrects for chance: kappa = (observed - chance) / (1 - chance).
+Roughly: 0.2 to 0.4 fair, 0.4 to 0.6 moderate, 0.6 to 0.8 substantial, over 0.8 near-perfect.
+Scores are turned into good or bad at a threshold, which is saved with the output.
 
     python -m eval.label_for_kappa --sample 30    # writes a worksheet
-    # ... fill in the "human_*" fields by hand ...
+    # fill in the human_* fields by hand
     python -m eval.label_for_kappa --score        # computes kappa
 
-The worksheet hides the judge's scores while you label, since seeing them first
-would anchor you and inflate agreement.
+The worksheet hides the judge's scores while you label so they don't sway you.
 """
 
 from __future__ import annotations
@@ -41,18 +26,16 @@ from src.config import PROJECT_ROOT
 
 WORKSHEET_PATH: Path = PROJECT_ROOT / "eval" / "human_labels.json"
 
-# A score at or above this counts as "acceptable" for the binary comparison.
-# 0.8 is the point below which an answer has a material defect (a claim not in
-# the evidence, or a key fact missed) rather than a stylistic shortfall.
+# a score at or above this counts as acceptable. Below 0.8 an answer has a real defect (an
+# unsupported claim or a missed key fact), not just a style problem
 BINARY_THRESHOLD = 0.8
 
 
 def _reconstruct_evidence(question: str) -> list[dict[str, Any]]:
-    """Re-retrieve the passages, so groundedness is labellable.
+    """Retrieve the passages again so groundedness can be labelled.
 
-    The metrics file has only the evidence doc names, not the text. Retrieval on
-    the raw question is deterministic, so for a config-A run this reproduces what
-    the judge saw. Not valid if the run used the planner or the index changed.
+    The metrics file only has document names. Retrieval on the raw question is deterministic, so
+    for a plain run this gives what the judge saw (not if the planner was on or the index changed).
     """
     import src.config as cfg
     from src.retriever import get_retriever
@@ -92,11 +75,11 @@ def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
                 "answer": r["answer"],
                 "expected_behavior": r.get("expected_behavior"),
                 "evidence": _reconstruct_evidence(r["question"]),
-                # --- FILL THESE IN: 1 = acceptable, 0 = not acceptable ---
+                # fill these in, 1 for acceptable and 0 for not
                 "human_grounded": None,
                 "human_correct": None,
                 "human_note": "",
-                # Judge scores are withheld until scoring, to avoid anchoring.
+                # judge scores stay hidden until scoring
                 "_judge_scores_hidden": True,
             }
         )
@@ -131,20 +114,15 @@ def _kappa(human: list[int], judge: list[int]) -> dict[str, float]:
     n = len(human)
     observed = sum(1 for h, j in zip(human, judge) if h == j) / n
 
-    # Chance agreement from each rater's marginal rates.
+    # chance agreement from how often each one says yes
     ph1 = sum(human) / n
     pj1 = sum(judge) / n
     chance = ph1 * pj1 + (1 - ph1) * (1 - pj1)
 
     kappa = (observed - chance) / (1 - chance) if chance < 1 else float("nan")
 
-    # How much one flipped item would move kappa.
-    #
-    # When almost every item falls in one category, chance agreement is huge
-    # and the denominator (1 - chance) is tiny, so kappa swings wildly on a
-    # single disagreement. A kappa of 1.0 sitting on 94% chance agreement is
-    # not the same evidence as a kappa of 1.0 sitting on 50%, and reporting
-    # them identically would be the flattering read.
+    # how far one flipped item would move kappa. When nearly everything is one category, chance
+    # agreement is huge and kappa swings on a single disagreement
     if n > 1 and chance < 1:
         one_flip = (observed - 1 / n - chance) / (1 - chance)
         fragility = round(abs(kappa - one_flip), 3)
@@ -238,9 +216,7 @@ def score() -> int:
     return 0
 
 
-# A different model, comparable capability, and NOT the agent under test.
-# Using the agent's own model would reintroduce the self-preference bias the
-# independent judge exists to avoid.
+# a different model from the agent, so it isn't grading its own style
 CROSS_JUDGE_MODEL = "claude-opus-4-8"
 
 _STOP = set(
@@ -253,12 +229,7 @@ _STOP = set(
 
 
 def _stem(w: str) -> str:
-    """Crude suffix stripping.
-
-    Not linguistics, just enough that "use"/"used"/"using" and
-    "name"/"names" stop counting as different words. Without it the matcher
-    reported false defects on answers that plainly stated the fact.
-    """
+    """Rough suffix stripping so "use", "used" and "using" count as one word."""
     for suf in ("ing", "ed", "es", "s"):
         if len(w) > 4 and w.endswith(suf):
             return w[: -len(suf)]
@@ -274,11 +245,8 @@ def _content_words(text: str) -> set[str]:
     }
 
 
-# A key fact counts as present when this share of its content words appear in
-# the answer. Requiring ALL of them (1.0) was the original setting and it
-# produced 17 false defects out of 100, every one an answer that stated the
-# fact in different words. Natural paraphrase reorders and re-inflects, so an
-# exact-set test measures wording, not meaning.
+# a key fact counts as present when this share of its content words are in the answer. Requiring
+# all of them gave 17 false defects out of 100, each a paraphrase of the fact.
 FACT_COVERAGE_THRESHOLD = 0.7
 
 
@@ -290,23 +258,12 @@ def _fact_present(fact: str, answer_words: set[str]) -> bool:
 
 
 def spot_check(metrics_path: Path) -> int:
-    """Deterministic key-fact coverage, with no LLM in the loop.
+    """Check each answer for the words of its key facts, with no LLM involved.
 
-    Why this is worth having alongside the judge
-    Every LLM-based check in this project shares a failure mode: the judge and
-    the agent are both Claude models, so a blind spot they share is invisible
-    to cross-model agreement.  This check has no model in it at all, it asks
-    only whether the answer literally contains the content words of each
-    curated key fact.
-
-    That makes it narrow but unbiased.  It cannot assess faithfulness or
-    reasoning; it can catch a judge awarding full correctness to an answer
-    that never states the fact it was supposed to state.
-
-    Disagreements are the output that matters.  Agreement here is weak
-    evidence (both could be right for different reasons); a judge score of
-    1.00 on an answer containing none of the key facts is a concrete defect
-    in either the judge, the answer, or the key facts themselves.
+    The judge and the agent are both Claude, so a blind spot they share wouldn't show up in
+    agreement between them. This is narrow but has no model in it. It can't judge faithfulness, but it
+    can catch a judge giving full marks to an answer that never states the fact. The disagreements
+    are what to read.
     """
     report = json.loads(io.open(metrics_path, encoding="utf-8").read())
     gt_path = PROJECT_ROOT / "eval" / "generated_questions.json"
@@ -354,16 +311,9 @@ def spot_check(metrics_path: Path) -> int:
 def cross_judge(metrics_path: Path, n: int, seed: int) -> int:
     """Agreement between two different judge models.
 
-    What this does and does not establish
-    It catches a judge that is idiosyncratic, unstable, or reacting to
-    artefacts of one prompt formulation.
-
-    It does NOT establish accuracy.  Both judges are Claude models, so any
-    bias they share, over-crediting confident prose, under-penalising a
-    subtly unsupported claim, produces high agreement between two judges
-    that are both wrong.  A strong kappa here is therefore *weaker* evidence
-    than it looks, and is reported as a consistency check rather than as
-    validation.  Only human labels close that gap.
+    It catches a judge that is erratic or tied to one prompt wording. It doesn't show accuracy,
+    since both are Claude models and can share a bias and agree while both wrong. Treat it as a
+    consistency check. Only human labels settle accuracy.
     """
     from src.eval_harness import _format_evidence_block, _judge
     from src.instrumentation import record_run
@@ -393,7 +343,7 @@ def cross_judge(metrics_path: Path, n: int, seed: int) -> int:
                 final_k=_config.RETRIEVAL_FINAL_K,
             )
             block = _format_evidence_block(ev)
-            # Swap the judge model for this call only.
+            # use the other judge for this call only
             import src.eval_harness as _eh
 
             _eh.JUDGE_MODEL = CROSS_JUDGE_MODEL

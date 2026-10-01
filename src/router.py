@@ -1,13 +1,9 @@
-"""Run the cheap path, escalate to the tool loop only when it refuses.
+"""Run the cheap path, and only use the tool loop when it refuses.
 
-The default path is one retrieval then synthesize. The tool loop (src/tools.py)
-rescues questions where that retrieval comes back thin, but it costs ~1.8x on
-every question, so we only reach for it when the synthesizer says it cannot
-answer from the evidence.
-
-An earlier version escalated on a retrieval confidence signal instead;
-eval/calibrate_router.py shows that signal does not separate the misses from the
-hits on this corpus, so it was dropped. Off by default (USE_ROUTER).
+The default is one retrieval then synthesize. The tool loop (src/tools.py) rescues questions where that
+retrieval is thin but costs about 1.8x, so it only runs when the synthesizer says it can't answer. An
+earlier version escalated on a retrieval confidence score, but calibrate_router.py showed it doesn't
+separate misses from hits here, so it was dropped. Off by default (USE_ROUTER).
 """
 
 from __future__ import annotations
@@ -20,7 +16,7 @@ from src.retriever import get_retriever
 
 
 def confidence_signals(results: list[dict[str, Any]]) -> dict[str, Any]:
-    """Retrieval signals recorded on the trace (not used to branch, see module docstring)."""
+    """Retrieval signals saved on the trace. They aren't used to decide anything."""
     if not results:
         return {"top_rrf": 0.0, "margin": 0.0, "doc_spread": 0, "n": 0}
 
@@ -40,7 +36,7 @@ def confidence_signals(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def route(query: str) -> dict[str, Any]:
-    """Return a partial agent state so the eval harness can score a routed run."""
+    """A partial agent state, so the eval harness can score a routed run."""
     from src.agent import is_refusal, synthesizer_node
     from src.tools import run_tool_loop
 

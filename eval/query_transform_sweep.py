@@ -1,14 +1,10 @@
-"""Does rewriting the question before retrieval help? HyDE and multi-query vs the raw question.
+"""Does rewriting the question before retrieval help? HyDE and multi-query against the raw question.
 
-HyDE: an LLM writes a short passage that would answer the question, and we
-search with that instead of the question. Multi-query: an LLM writes a few
-rewrites and we fuse the results from all of them. Both cost an LLM call per
-question, so they only belong in the pipeline if retrieval improves by more than
-the noise.
-
-Retrieval only, no judge, same 100 questions and same MiniLM index as the
-embedding sweep. The LLM output is cached in eval/query_transform_cache.json, so
-a re-run is free and gives the same numbers.
+HyDE: an LLM writes a short passage that would answer the question and we search with that. Multi-query:
+an LLM writes a few rewrites and we fuse the results. Both add an LLM call per question, so they only
+belong in the pipeline if retrieval improves by more than the noise. Retrieval only, same 100 questions
+and MiniLM index as the embedding sweep. The LLM output is cached in eval/query_transform_cache.json, so
+a rerun is free and gives the same numbers.
 
     python -m eval.query_transform_sweep
 
@@ -65,12 +61,10 @@ def _load_cache() -> dict[str, Any]:
 
 
 def _llm_text(llm, prompt: str) -> str | None:
-    """The reply text, or None when Gemini's safety filter blocked the request.
+    """The reply text, or None if Gemini's safety filter blocked the request.
 
-    A blocked request comes back with finish_reason "content_filter" and a null
-    message, which langchain_openai trips over with an AttributeError. It
-    happens on harmless questions too (id 17, about color mapping tables), so
-    it is treated as "no rewrite for this question" rather than a crash.
+    A blocked request has a null message, which langchain_openai fails on with an AttributeError. It
+    happens on harmless questions too (id 17), so it means "no rewrite for this one", not a crash.
     """
     try:
         return response_text(llm.invoke(prompt))
@@ -79,23 +73,20 @@ def _llm_text(llm, prompt: str) -> str | None:
 
 
 def _generate(questions: list[dict[str, Any]]) -> dict[str, Any]:
-    """Fill the cache for every question that is not in it yet."""
+    """Generate the rewrites for any question that isn't cached yet."""
     cache = _load_cache()
-    # Question ids are ints in the benchmark but JSON object keys are strings,
-    # so the cache is keyed by str(id).
+    # ids are ints but json keys are strings, so the cache is keyed by str(id)
     todo = [q for q in questions if str(q["id"]) not in cache]
     if not todo:
         return cache
-    # Gemini counts its thinking tokens against max_tokens. At 400 the answer is
-    # cut off after a few words (finish_reason "length"), so leave real headroom.
+    # gemini counts its thinking tokens in max_tokens, and at 400 the answer was cut off after a few words
     llm = get_llm(provider=PROVIDER, max_tokens=2000)
     print(f"generating HyDE passages and rewrites for {len(todo)} questions ({PROVIDER})", file=sys.stderr)
     for i, q in enumerate(todo, 1):
         hyde = _llm_text(llm, HYDE_PROMPT.format(question=q["question"]))
         multi = _llm_text(llm, MULTI_PROMPT.format(n=N_REWRITES, question=q["question"]))
         rewrites = [ln.strip() for ln in multi.splitlines() if ln.strip()][:N_REWRITES] if multi else []
-        # A truncated output would quietly weaken the method being measured, so
-        # stop instead of caching it. A blocked call (None) is recorded as such.
+        # a truncated output would quietly weaken the method, so stop instead of caching it
         if hyde is not None and len(hyde.split()) < 15:
             raise RuntimeError(f"question {q['id']}: HyDE passage is only {len(hyde.split())} words")
         if multi is not None and len(rewrites) < N_REWRITES:
@@ -116,8 +107,7 @@ def _configs(retriever: HybridRetriever, question: str, extra: dict[str, Any]) -
     k = RETRIEVAL_TOP_K
     vec_q = retriever._vector_search(question, top_k=k)
     bm_q = retriever._bm25_search(question, top_k=k)
-    # When the LLM call was blocked there is nothing to transform, so the
-    # question itself stands in and that item behaves like the baseline.
+    # if the call was blocked, use the question itself, so that item acts like the baseline
     vec_h = retriever._vector_search(extra["hyde"] or question, top_k=k)
 
     multi_lists: list[list[dict[str, Any]]] = [vec_q, bm_q]

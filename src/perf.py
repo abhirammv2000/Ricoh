@@ -1,12 +1,9 @@
-"""Aggregate performance and cost report, computed from recorded traces.
+"""Cost and performance report across all the recorded traces.
 
-trace_view.py inspects one request at a time. This is the fleet view: read every
-trace and answer the questions a cost dashboard answers. What does a query cost
-on average and at the 95th percentile? Where does the latency go? How many calls
-per query? The numbers come from the same traces the app and the API write, so
-the dashboard and the per-request view can never disagree.
+trace_view.py looks at one request, this looks at all of them: what a query costs on average and at
+p95, where the time goes, and how many calls a query makes. It reads the same traces the app and API
+write.
 
-Usage:
     python -m src.perf
 """
 
@@ -22,7 +19,7 @@ from src.instrumentation import TRACE_PATH
 
 
 def load_traces(path: Path = TRACE_PATH) -> list[dict[str, Any]]:
-    """Read all trace records from the JSONL file, skipping any torn line."""
+    """Every trace record from the jsonl file, skipping half-written lines."""
     if not path.exists():
         return []
     records: list[dict[str, Any]] = []
@@ -39,7 +36,7 @@ def load_traces(path: Path = TRACE_PATH) -> list[dict[str, Any]]:
 
 
 def _percentile(values: list[float], p: float) -> float:
-    """Nearest-rank percentile, so a reported figure is a real measurement."""
+    """Nearest-rank percentile, so the figure is a real measurement."""
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -48,7 +45,7 @@ def _percentile(values: list[float], p: float) -> float:
 
 
 def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Roll a list of trace records up into dashboard metrics."""
+    """Turn the trace records into dashboard numbers."""
     n = len(records)
     if n == 0:
         return {"queries": 0}
@@ -59,8 +56,7 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
     in_tokens = [int(r.get("total_input_tokens", 0)) for r in records]
     out_tokens = [int(r.get("total_output_tokens", 0)) for r in records]
 
-    # Per-stage rollup across every record, so we can see which stage spends the
-    # time and the money rather than only the totals.
+    # per-stage totals, to see which stage uses the time and money
     stages: dict[str, dict[str, float]] = {}
     for r in records:
         for stage, agg in (r.get("by_stage") or {}).items():
@@ -99,13 +95,8 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def format_trace(record: dict[str, Any]) -> dict[str, Any]:
-    """Shape one stored trace for a per-request drill-down.
-
-    trace_view.py prints this on the CLI; the Streamlit dashboard renders the
-    same structure, so the two views stay in agreement. The chunk attribution,
-    which chunk fed the answer at what rank and RRF score, lives in the
-    retrieval span's attributes and is the reason this view exists.
-    """
+    """One stored trace shaped for a drill-down. trace_view.py prints it and the dashboard shows the same
+    thing. The chunk attribution (which chunk, at what rank and score) comes from the retrieval span."""
     spans: list[dict[str, Any]] = []
     for s in record.get("spans", []):
         attrs = s.get("attributes") or {}

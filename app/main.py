@@ -1,27 +1,16 @@
-"""
-app/main.py - Citera Streamlit Glass Box Dashboard.
+"""Streamlit chat app for Citera.
 
-A chat interface that shows not just the agent's answer but the
-evidence behind it: retrieved chunks, per-request cost and latency,
-and which stages actually ran.
-
-Features:
-- Chat-style UI with user/assistant message bubbles
-- Glass Box expander showing: sub-queries, evidence sources,
-  verification status, iteration count
-- Sidebar with system controls, model info, and reset button
-- Clean, dark-themed styling
+Each answer has an expander (the "Glass Box") with the evidence behind it: retrieved chunks, cost and
+latency, and which stages ran. The sidebar has model info and a reset button.
 """
 
-# Telemetry + env MUST run before ANY other imports
+# these two have to run before the other imports
 import os
 import sys
 
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
-# Ensure project root is on sys.path so `src` package is importable
-# Streamlit runs this file directly, so the project root isn't
-# automatically on the path.
+# streamlit runs this file directly, so put the project root on the path to import src
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
@@ -31,7 +20,7 @@ import time
 
 import streamlit as st
 
-# Ensure config.py logging setup runs
+# importing config sets up logging
 from src.config import (  # noqa: F401
     CHROMA_DIR,
     DEFAULT_LLM_PROVIDER,
@@ -55,19 +44,12 @@ from app.guard import allow_query, password_ok, required_password
 
 logger = logging.getLogger(__name__)
 
-# Shown in place of an answer when the agent raises. Kept as a constant so the
-# conversation-history builder can skip these turns instead of feeding a
-# non-answer back into the next question's condensation.
+# shown instead of an answer when the agent fails. A constant so the history builder can skip it
 ERROR_ANSWER = "Sorry, something went wrong while answering. Please try again."
 
 
 def conversation_history(messages: list[dict]) -> list[Turn]:
-    """Pair each answered question in the chat log into a Turn.
-
-    Only completed exchanges count: a user message immediately followed by a
-    real assistant answer. The current (unanswered) user message and any error
-    turn are left out.
-    """
+    """The finished question and answer pairs in the chat, as Turns. Unanswered and error turns are skipped."""
     turns: list[Turn] = []
     for prev, curr in zip(messages, messages[1:]):
         if (
@@ -79,7 +61,7 @@ def conversation_history(messages: list[dict]) -> list[Turn]:
     return turns
 
 
-# 1. PAGE CONFIGURATION
+# page setup
 
 st.set_page_config(
     page_title="Citera",
@@ -89,7 +71,7 @@ st.set_page_config(
 )
 
 
-# 2. CUSTOM CSS
+# css
 
 st.markdown(
     """
@@ -191,10 +173,10 @@ st.markdown(
 )
 
 
-# 3. SESSION STATE INITIALISATION
+# session state
 
 def init_session() -> None:
-    """Bootstrap session state on first load."""
+    """Set up session state on first load."""
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "retriever_ready" not in st.session_state:
@@ -205,9 +187,7 @@ def init_session() -> None:
 init_session()
 
 
-# Optional shared-password gate for the public demo. A no-op when APP_PASSWORD is
-# unset (local development), so the open experience is unchanged. When set, the
-# gate stops here before the index loads or any query is accepted.
+# password gate for the public demo, only active when APP_PASSWORD is set
 if required_password() is not None and not st.session_state.get("authed", False):
     st.markdown("### This demo is password protected")
     pw = st.text_input("Password", type="password")
@@ -220,7 +200,7 @@ if required_password() is not None and not st.session_state.get("authed", False)
     st.stop()
 
 
-# 4. INDEX BOOTSTRAP (runs once)
+# loading the index (once)
 
 @st.cache_resource(show_spinner="Loading retrieval index...")
 def get_retriever() -> HybridRetriever:
@@ -243,27 +223,24 @@ def ensure_index() -> None:
         st.session_state.index_size = retriever.index_size
 
 
-# 6. GLASS BOX RENDERER
+# glass box
 
 def render_glass_box(state: dict, latency: float) -> None:
-    """Render the Glass Box panel showing agent internals."""
+    """The expander with the agent's evidence and metrics."""
 
     with st.expander("Agent Thoughts & Evidence", expanded=False):
 
-        # -- Metrics row --
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Latency", f"{latency:.1f}s")
         with col2:
             st.metric("Retrieval passes", state.get("iterations", "?"))
         with col3:
-            # An empty verification status means the verifier stage is off,
-            # not that verification failed. Say which, rather than render a
-            # blank metric the viewer has to guess about.
+            # an empty status means the verifier is off, not that it failed
             status = state.get("verification_status") or "off"
             st.metric("Verification", status)
 
-        # Live latency, cost, and token usage for this request, from the trace.
+        # latency, cost and tokens for this request, from the trace
         trace = state.get("trace")
         if trace:
             ttft = trace.get("ttft_seconds")
@@ -397,8 +374,7 @@ def render_perf_dashboard() -> None:
             ]
         )
 
-    # Per-request drill-down: which chunks produced one past answer, at what
-    # rank and RRF score. This was CLI-only (src/trace_view.py) until now.
+    # drill into one request: which chunks produced it, at what rank and score
     st.divider()
     st.caption("Drill into one request")
     recent = list(reversed(records))[:30]
@@ -449,7 +425,7 @@ def _render_trace(t: dict) -> None:
                 st.warning(f"cited but not retrieved: {g['fabricated']}")
 
 
-# 7. SIDEBAR
+# sidebar
 
 with st.sidebar:
     st.markdown("## System Controls")
@@ -506,9 +482,8 @@ with st.sidebar:
     st.caption("by Abhiram")
 
 
-# 8. MAIN CHAT INTERFACE
+# chat
 
-# Header
 st.markdown(
     '<div class="main-header">'
     "<h1>Citera</h1>"
@@ -517,10 +492,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Demo-subset disclosure
-# The hosted demo answers from a small subset while the published metrics were
-# measured on the full 733-document corpus. Letting a visitor assume the two
-# are the same would overstate what they are looking at.
+# the hosted demo uses a small subset while the published metrics are on the full 733 documents,
+# so say so
 if DEMO_MODE:
     _n = "a reduced subset"
     try:
@@ -556,11 +529,9 @@ for msg in st.session_state.messages:
             render_glass_box(msg["agent_state"], msg.get("latency", 0))
             render_feedback(msg["agent_state"])
 
-# -- Chat input --
 if user_input := st.chat_input("Ask a Ricoh technical support question..."):
 
-    # Global query rate limit on the public demo, so one visitor cannot run up
-    # the Anthropic bill. A no-op in local development (DEMO_MODE off).
+    # rate limit on the public demo so one visitor can't run up the bill (off locally)
     if not allow_query():
         st.warning(
             "The demo is at its query rate limit right now. Please wait a few "
@@ -569,26 +540,21 @@ if user_input := st.chat_input("Ask a Ricoh technical support question..."):
         )
         st.stop()
 
-    # Same prompt-injection screen the API applies at api/main.py's edge. This
-    # is the public entry point (Docker/Render), so it needs the same cheap
-    # outer layer, not just the architectural grounding defense.
+    # the same prompt injection screen the API uses
     verdict = screen_input(user_input)
     if not verdict.allowed:
         st.warning(f"This question can't be processed: {verdict.reason}")
         st.stop()
 
-    # Conversation so far, built before the new question is appended so it is
-    # not in its own history. A follow-up like "how do I copy that?" is
-    # rewritten to stand on its own before retrieval (src/conversation.py).
+    # history before this question is added, so a follow-up like "how do I copy that?" can be
+    # rewritten to stand alone (src/conversation.py)
     history = conversation_history(st.session_state.messages)
 
-    # Display user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Stream the answer token by token, so output appears as soon as the
-    # synthesizer starts writing rather than after the whole response is ready.
+    # stream the answer as it is written
     with st.chat_message("assistant"):
         t0 = time.perf_counter()
         result = StreamResult()

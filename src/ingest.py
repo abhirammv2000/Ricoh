@@ -1,23 +1,8 @@
-"""
-src/ingest.py - PDF parsing and metadata-preserving chunking pipeline.
+"""Turn the PDFs in data/ into chunks the retriever can index.
 
-Turns the PDFs in data/ into chunks the retriever can index. It:
-
-1. Discovers all PDFs in ``data/``.
-2. Extracts text page-by-page via PyMuPDF, keeping each page's
-   ``source_document`` (filename) and ``page_number``.
-3. Splits page text into sliding-window chunks (~500 words, 50-word
-   overlap) that never lose their page-number provenance.
-4. Returns a flat list of chunk dicts ready for ChromaDB + BM25
-   insertion into the index.
-
-Design decisions
-- We use PyMuPDF (``import fitz``) because it gives us precise
-  page-number control and handles scanned-text PDFs well.
-- "Token" is approximated by whitespace-split words - simple,
-  deterministic, zero extra dependencies.
-- Each chunk records the page(s) it originated from so the
-  every answer can cite an exact document and page.
+Text is pulled page by page with PyMuPDF and split into overlapping word windows (about 500 words
+with 50 overlap). A chunk never crosses a page, so every chunk has one page number to cite. Size is
+counted in words rather than tokens, so no tokenizer is needed.
 """
 
 from __future__ import annotations
@@ -27,7 +12,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import fitz  # PyMuPDF - page-level PDF text extraction
+import fitz  # PyMuPDF
 
 from src.config import (
     CHUNK_OVERLAP,
@@ -37,57 +22,31 @@ from src.config import (
 )
 from src.vision_ingest import get_cached_description
 
-# Logging (configured centrally in config.py)
 logger = logging.getLogger(__name__)
 
 
-# 1. PDF TEXT EXTRACTION
-
 def extract_pages(pdf_path: str | Path) -> list[dict[str, Any]]:
-    """Extract text from every page of a single PDF.
-
-    Args:
-        pdf_path: Absolute or relative path to a ``.pdf`` file.
-
-    Returns:
-        A list of dicts, one per page::
-
-            {
-                "text":            <str>,   # raw page text
-                "page_number":     <int>,   # 1-indexed
-                "source_document": <str>,   # filename (stem + ext)
-            }
-
-    Why page-level extraction?
-        Answers have to cite an exact document and page.  By
-        capturing the page number at extraction time we guarantee
-        downstream chunks never lose this provenance.
-    """
+    """Text of every page of one PDF, as dicts with text, page_number (starting at 1) and source_document."""
     pdf_path = Path(pdf_path)
     doc = fitz.open(pdf_path)
-    source_name = pdf_path.name  # e.g. "Ricoh_IM_C3500_Manual.pdf"
+    source_name = pdf_path.name
 
     pages: list[dict[str, Any]] = []
 
     for page_idx in range(len(doc)):
         page = doc[page_idx]
         page_number = page_idx + 1
-        text = page.get_text("text")  # plain-text extraction
+        text = page.get_text("text")
         text = text.strip() if text else ""
 
-        # Screenshots, diagrams, and tables embedded in a page are invisible
-        # to plain-text extraction (see src/vision_ingest.py). When a vision
-        # description was pre-generated for this page, append it as its own
-        # labeled section so retrieval can match on it too - never silently
-        # merged into the prose, so a citation can still point at "page N"
-        # without implying the diagram content came from the text layer.
+        # images and diagrams don't show up in the text layer (see vision_ingest.py). If a
+        # description was generated for this page, add it as its own labelled section.
         vision_description = get_cached_description(source_name, page_number)
         if vision_description:
             visual_section = f"\n\n[Embedded image/diagram content on this page]\n{vision_description}"
             text = (text + visual_section).strip() if text else visual_section.strip()
 
-        # Skip pages with no text AND no vision description - still nothing
-        # useful to index.
+        # nothing to index on this page
         if not text:
             logger.debug(
                 "Skipping empty page %d in %s", page_number, source_name
@@ -97,7 +56,7 @@ def extract_pages(pdf_path: str | Path) -> list[dict[str, Any]]:
         pages.append(
             {
                 "text": text,
-                "page_number": page_number,        # 1-indexed for humans
+                "page_number": page_number,
                 "source_document": source_name,
             }
         )
@@ -109,14 +68,8 @@ def extract_pages(pdf_path: str | Path) -> list[dict[str, Any]]:
     return pages
 
 
-# 2. SLIDING-WINDOW CHUNKER  (metadata-safe)
-
 def _generate_chunk_id(source: str, page: int | str, index: int) -> str:
-    """Deterministic chunk ID = sha256(source|page|index)[:16].
-
-    A short hash avoids collisions while staying human-readable
-    in ChromaDB logs.
-    """
+    """Chunk id: the first 16 hex characters of sha256 of source, page and index."""
     raw = f"{source}|{page}|{index}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
@@ -126,41 +79,19 @@ def chunk_pages(
     chunk_size: int = CHUNK_SIZE,
     chunk_overlap: int = CHUNK_OVERLAP,
 ) -> list[dict[str, Any]]:
-    """Split page texts into overlapping word-level chunks.
+    """Split pages into overlapping word chunks that keep their page's source_document and page_number.
 
-    Each chunk inherits the ``source_document`` and ``page_number``
-    from its parent page.
-
-    Args:
-        pages:         Output of :func:`extract_pages`.
-        chunk_size:    Max words per chunk.
-        chunk_overlap: Words of overlap between consecutive chunks.
-
-    Returns:
-        Flat list of chunk dicts::
-
-            {
-                "id":              <str>,   # deterministic hash
-                "text":            <str>,   # chunk content
-                "page_number":     <int>,   # originating page
-                "source_document": <str>,   # originating PDF filename
-                "chunk_index":     <int>,   # position within that page
-            }
-
-    Why NOT cross page boundaries?
-        Mixing text from different pages makes page-number citation
-        ambiguous.  We chunk within each page so every chunk maps
-        to exactly ONE page number - clean citations, zero ambiguity.
+    Chunks never cross a page boundary, so each one maps to a single page for citations.
     """
     chunks: list[dict[str, Any]] = []
-    global_idx = 0  # running counter for unique IDs across all pages
+    global_idx = 0  # keeps ids unique across pages
 
     for page in pages:
         words = page["text"].split()
         source = page["source_document"]
         page_num = page["page_number"]
 
-        # If the page has fewer words than one chunk, emit as-is
+        # a short page is one chunk
         if len(words) <= chunk_size:
             chunks.append(
                 {
@@ -174,7 +105,7 @@ def chunk_pages(
             global_idx += 1
             continue
 
-        # Sliding window with `chunk_overlap` word overlap
+        # otherwise slide a window with chunk_overlap words shared
         start = 0
         while start < len(words):
             end = start + chunk_size
@@ -191,10 +122,9 @@ def chunk_pages(
             )
             global_idx += 1
 
-            # Advance by (chunk_size - overlap) words
             start += chunk_size - chunk_overlap
 
-            # Avoid creating a tiny trailing chunk (< overlap size)
+            # don't leave a tiny last chunk
             remaining = len(words) - start
             if 0 < remaining <= chunk_overlap:
                 break
@@ -209,17 +139,8 @@ def chunk_pages(
     return chunks
 
 
-# 3. ORCHESTRATOR - ingest all PDFs in data/
-
 def ingest_all(data_dir: str | Path = DATA_DIR) -> list[dict[str, Any]]:
-    """Discover PDFs in *data_dir*, extract + chunk them all.
-
-    Args:
-        data_dir: Directory containing raw PDF files.
-
-    Returns:
-        Flat list of chunk dicts (same schema as :func:`chunk_pages`).
-    """
+    """Extract and chunk every PDF in data_dir."""
     data_dir = Path(data_dir)
     if not data_dir.exists():
         logger.warning("Data directory '%s' does not exist.", data_dir)
@@ -250,15 +171,11 @@ def ingest_all(data_dir: str | Path = DATA_DIR) -> list[dict[str, Any]]:
     return all_chunks
 
 
-# 4. __main__ - quick smoke test with a generated sample PDF
+# quick manual check with a generated sample pdf
 
 def _create_sample_pdf(path: Path) -> None:
-    """Generate a tiny multi-page PDF for testing the pipeline.
-
-    We create the PDF programmatically via PyMuPDF so there is
-    zero dependency on external files.
-    """
-    doc = fitz.open()  # new empty PDF
+    """Make a small three page PDF for trying the pipeline."""
+    doc = fitz.open()
 
     sample_texts = [
         (
@@ -311,8 +228,7 @@ def _create_sample_pdf(path: Path) -> None:
     ]
 
     for text in sample_texts:
-        page = doc.new_page(width=595, height=842)  # A4 dimensions
-        # Insert text block with automatic line wrapping
+        page = doc.new_page(width=595, height=842)  # A4
         text_rect = fitz.Rect(50, 50, 545, 792)
         page.insert_textbox(
             text_rect,
@@ -334,18 +250,15 @@ if __name__ == "__main__":
     print("  Citera ingestion smoke test")
     print("=" * 70)
 
-    # Create a sample PDF in data/ for testing
     sample_path = DATA_DIR / "_sample_ricoh_manual.pdf"
     _create_sample_pdf(sample_path)
 
-    # Run the full ingestion pipeline
     chunks = ingest_all(DATA_DIR)
 
     if not chunks:
         print("\nNo chunks produced - something went wrong.")
         sys.exit(1)
 
-    # Summary statistics
     print(f"\nIngestion successful!")
     print(f"   Total chunks : {len(chunks)}")
     print(f"   Source files  : {set(c['source_document'] for c in chunks)}")
@@ -356,13 +269,11 @@ if __name__ == "__main__":
         page_counts[key] = page_counts.get(key, 0) + 1
     print(f"   Chunks/page   : {page_counts}")
 
-    # Print first chunk as a JSON sample
     print("\nSample chunk (first)")
     sample = {k: v for k, v in chunks[0].items()}
-    sample["text"] = sample["text"][:200] + "..."  # truncate for readability
+    sample["text"] = sample["text"][:200] + "..."
     print(json.dumps(sample, indent=2))
 
-    # Clean up sample PDF (optional - comment out to keep it)
     sample_path.unlink(missing_ok=True)
     print(f"\nCleaned up sample PDF.")
     print("=" * 70)

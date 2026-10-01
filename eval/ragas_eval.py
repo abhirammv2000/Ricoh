@@ -1,16 +1,12 @@
-"""Cross-check our LLM judge's groundedness against RAGAS faithfulness.
+"""Cross-check our judge's groundedness against RAGAS faithfulness.
 
-This project's whole claim is honest measurement, and the groundedness number
-rests on a single hand-rolled judge. eval/label_for_kappa.py checks it against a
-human and against a second Claude model; this adds a third angle: RAGAS, a
-widely used third-party RAG-eval library, computing faithfulness (its analog of
-groundedness) with its own prompts and its own decomposition of the answer into
-claims.
+The groundedness number rests on one judge I wrote. label_for_kappa.py checks it against a human and a
+second Claude model, and this adds RAGAS, a third-party library that computes faithfulness with its
+own prompts and its own split of the answer into claims.
 
-Runs in a SEPARATE virtualenv. RAGAS 0.4.x pins langchain/langgraph to 1.x,
-which collides with this project's langgraph 0.2.74, so the two cannot share an
-env. This script therefore imports no ``src`` module: it reads the JSONL that
-eval/ragas_export.py wrote from the project env, and writes results back.
+It runs in a separate virtualenv because RAGAS 0.4.x needs langchain and langgraph 1.x, which clash
+with this project's langgraph 0.2.74. So it imports nothing from src: it reads the JSONL that
+ragas_export.py wrote and writes results back.
 
     # in the project env:
     python -m eval.ragas_export --n 12
@@ -20,9 +16,8 @@ eval/ragas_export.py wrote from the project env, and writes results back.
     .venv-ragas/Scripts/pip install "ragas==0.4.3" langchain-anthropic
     ANTHROPIC_API_KEY=... .venv-ragas/Scripts/python eval/ragas_eval.py
 
-Faithfulness needs only an LLM, no embeddings. It runs on Sonnet (cheap; this is
-a spot check, not the headline judge), and the per-question comparison against
-our Opus judge is written to eval/ragas_results.{json,md}.
+Faithfulness only needs an LLM. It runs on Sonnet (cheap, it's a spot check), and the per-question
+comparison with our Opus judge goes to eval/ragas_results.{json,md}.
 """
 
 from __future__ import annotations
@@ -37,17 +32,15 @@ INPUT_PATH = PROJECT_ROOT / "eval" / "ragas_input.jsonl"
 RESULT_JSON = PROJECT_ROOT / "eval" / "ragas_results.json"
 RESULT_MD = PROJECT_ROOT / "eval" / "ragas_results.md"
 
-# A score at or above this is "acceptable"; matches label_for_kappa.py so the
-# two calibration checks binarise the same way.
+# a score at or above this is acceptable, same as label_for_kappa.py
 BINARY_THRESHOLD = 0.8
 
-# Sonnet, not the Opus judge from the main harness. This is a consistency probe,
-# and running RAGAS on a different model than our judge is the point.
+# Sonnet, not the Opus judge, since the point is a different model from our judge
 RAGAS_MODEL = os.getenv("RAGAS_MODEL", "claude-sonnet-4-6")
 
 
 def _kappa(a: list[int], b: list[int]) -> dict[str, float]:
-    """Cohen's kappa for two binary label lists. Same formula as label_for_kappa."""
+    """Cohen's kappa for two lists of 0 and 1, same formula as label_for_kappa."""
     n = len(a)
     observed = sum(1 for x, y in zip(a, b) if x == y) / n
     pa = sum(a) / n
@@ -85,7 +78,7 @@ def _load_rows() -> list[dict]:
 
 
 def _run_ragas(rows: list[dict]) -> list[float]:
-    """Return RAGAS faithfulness per row, in the same order (NaN if unscorable)."""
+    """RAGAS faithfulness for each row in order, NaN if it can't be scored."""
     from langchain_anthropic import ChatAnthropic
     from ragas import EvaluationDataset, evaluate
     from ragas.dataset_schema import SingleTurnSample
@@ -241,7 +234,7 @@ def _write_md(r: dict) -> None:
 
 
 def rewrite_md() -> int:
-    """Regenerate the .md from an existing results .json, no API calls."""
+    """Rebuild the .md from an existing results .json, without API calls."""
     if not RESULT_JSON.exists():
         raise SystemExit(f"No {RESULT_JSON} to rewrite from.")
     _write_md(json.loads(RESULT_JSON.read_text(encoding="utf-8")))

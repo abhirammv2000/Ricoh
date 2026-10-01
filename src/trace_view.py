@@ -1,12 +1,8 @@
-"""Inspect stored request traces.
+"""Look at stored request traces.
 
-Observability is only useful if you can actually answer a question with it.
-This is the read side: given a request that behaved oddly, reconstruct what
-happened, which chunks were retrieved, in what order, what each stage cost,
-and where the time went.
-
-Traces are written by record_run() to traces/traces.jsonl, one JSON object per
-line appended as it finishes, so nothing else needs to be running to read them.
+Given a request that behaved oddly, this shows which chunks were retrieved and in what order, what each
+stage cost, and where the time went. record_run() appends one json line per request to
+traces/traces.jsonl, so nothing else has to be running.
 
 Usage:
     python -m src.trace_view                    # summary of recent traces

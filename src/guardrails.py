@@ -1,18 +1,10 @@
-"""Input screening at the edge, before a query reaches the agent.
+"""Screen a question before it reaches the agent.
 
-Why this exists, and what it is not. The primary defense against prompt
-injection in this system is architectural, not a blocklist: the synthesizer is
-instructed to answer only from retrieved evidence and to emit a fixed refusal
-marker otherwise, so a query that tries to override the instructions retrieves
-no supporting evidence from the Ricoh corpus and is refused on those grounds.
-
-This module is the cheap outer layer of a defense in depth. It rejects a small
-set of unambiguous override and jailbreak attempts at the API edge, before they
-cost an LLM call. It is deliberately high precision: every pattern here is one a
-genuine printer support question would essentially never contain, because a
-guardrail that fires on normal questions is worse than no guardrail. It does not
-claim to catch every injection. It catches the obvious ones for free and leaves
-the rest to the grounding.
+The real defence against prompt injection is the grounding: the synthesizer only answers from
+retrieved evidence, so a question that tries to override it finds no evidence and is refused. This
+is a cheap outer layer. It rejects a few obvious override and jailbreak phrasings before they cost an
+LLM call, and each pattern is one a real support question would almost never contain, since a
+guardrail that blocks normal questions is worse than none. It doesn't catch everything.
 """
 
 from __future__ import annotations
@@ -20,12 +12,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# High-precision prompt-injection and jailbreak signals. Each pattern is
-# anchored on phrasing that overrides or exfiltrates instructions, never on a
-# lone word like "system" that appears in legitimate questions such as "how do I
-# open the system settings menu". A false positive here silently breaks a real
-# support question, so the bar for adding a pattern is that a normal user would
-# not phrase a question this way.
+# patterns for jailbreak and override phrasing. They match the phrasing, never a single word like
+# "system" (as in "open the system settings menu"), since a false positive blocks a real question
 _INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "ignore the previous instructions", "disregard all prior prompts"
     re.compile(
@@ -34,9 +22,8 @@ _INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
         r"(?:instruction|prompt|rule|direction|message)s?",
         re.I,
     ),
-    # "forget everything you were told", "forget your instructions", "forget the
-    # above". Anchored on an imperative aimed at the assistant's own context, so
-    # it does not fire on a user saying "I forget what the model number is".
+    # "forget everything you were told", "forget your instructions". Aimed at the assistant's
+    # context, so "I forget what the model number is" doesn't match
     re.compile(
         r"forget\s+(?:all\s+|everything\s+)?"
         r"(?:(?:that\s+)?you(?:'ve|'re| have| were| are)?\s+(?:been\s+)?(?:told|learned|know|instructed)"
@@ -66,24 +53,14 @@ _INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
 
 @dataclass(frozen=True)
 class GuardrailResult:
-    """Outcome of screening one input.
-
-    ``reason`` is intentionally generic. It is meant for the caller and for
-    logs, and it does not echo the offending text or name the pattern that
-    matched, so the screen does not become a description of how to get past it.
-    """
+    """The result of screening one input. reason is generic on purpose, it doesn't name the pattern that matched."""
 
     allowed: bool
     reason: str = ""
 
 
 def screen_input(query: str) -> GuardrailResult:
-    """Screen a raw user query before it reaches the agent.
-
-    Returns an allowed result for anything that looks like a genuine question,
-    and a rejected result for empty input or a known override or jailbreak
-    pattern. This is a fast, side-effect-free check: no LLM call, no network.
-    """
+    """Allow a normal question, reject empty input or a known jailbreak pattern. No LLM or network call."""
     text = query.strip()
     if not text:
         return GuardrailResult(allowed=False, reason="empty query")

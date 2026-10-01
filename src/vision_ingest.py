@@ -1,25 +1,11 @@
-"""
-src/vision_ingest.py - Vision-based description of image/diagram pages.
+"""Describe the screenshots and diagrams in the PDFs, so retrieval can find them.
 
-extract_pages() in ingest.py does plain text extraction, so a screenshot, UI
-dialog, or table embedded in a page is invisible to retrieval: whatever
-PyMuPDF's text layer happened to capture around it, nothing of what the image
-itself shows. A local scan of the 733-document corpus first flagged 116 pages
-with *any* embedded image object, but 77% of those images (146/190) turned
-out to be decorative icons under 50px, tiny bullet/toggle/note glyphs a
-5-page pilot confirmed produce useless descriptions ("a green toggle switch
-icon"). Filtering to images with a long edge >= IMAGE_SIZE_THRESHOLD_PX
-narrows this to 31 pages across 28 documents, all screenshots, diagrams, or
-tables large enough to plausibly carry information the text layer missed.
-
-This module renders each such page to an image and asks a vision-capable
-model to describe what it shows, in the terms a technician reading the
-screenshot would use (dialog titles, field/button labels, table values, menu
-paths, diagram steps), then that description gets appended to the page's
-extracted text before chunking. Results are cached to disk by
-(document, page) so re-running ingestion never re-pays for a page already
-described, the same discipline finetune/scripts/generate_training_data.py
-uses for its own cache/manifest.
+Plain text extraction misses what an image shows. A scan of the 733 documents found 116 pages with
+any image, but 77% of those images were tiny icons under 50px, which gave useless descriptions. Only
+images with a long edge of at least IMAGE_SIZE_THRESHOLD_PX are used, which leaves 31 pages in 28
+documents. Each page is rendered and a vision model describes it the way a technician would
+(dialog titles, labels, table values, menu paths). The description is added to the page text before
+chunking, and cached by (document, page) so a rerun doesn't pay for it again.
 """
 
 from __future__ import annotations
@@ -37,27 +23,16 @@ from src.llm_factory import get_llm, response_text
 
 logger = logging.getLogger(__name__)
 
-# Not under data/: that whole directory is gitignored (the 733 source PDFs
-# are ~223 MB and are RICOH's documentation, not ours to republish - see
-# src/build_demo_index.py), which would silently drop this small, valuable
-# cache too. eval/ is where this project already commits small generated
-# artifacts needed to reproduce a run (ground_truth.json, generated
-# questions), so the vision cache lives there rather than being lost.
+# kept in eval/, not data/, because data/ is gitignored (the PDFs are Ricoh's) and this small
+# cache should be committed
 CACHE_PATH: Path = PROJECT_ROOT / "eval" / "vision_cache.json"
 VISION_MODEL: str = "claude-sonnet-5"
 
-# Long-edge pixel threshold below which an embedded image is treated as
-# decorative (bullet points, toggle icons, note-box glyphs) rather than
-# content-bearing. Measured, not guessed: every image under 50px in the
-# corpus was decorative in a manual check; 150px gives headroom above that
-# without pulling the small-but-real diagrams (the smallest genuine
-# screenshot found was ~350px) back out.
+# images with a longer edge under this are treated as decorative. Every image under 50px was an
+# icon when checked by hand, and the smallest real screenshot was about 350px
 IMAGE_SIZE_THRESHOLD_PX: int = 150
 
-# Render at 2x (~144 DPI). Sharp enough to read small UI labels; a typical
-# letter/A4 page at this zoom stays well under the high-resolution tier's
-# 2576px long-edge cap, so it costs one predictable token count rather than
-# being downscaled unpredictably.
+# render at 2x (about 144 DPI), sharp enough for small labels and under the long-edge cap
 RENDER_ZOOM: float = 2.0
 
 NO_VISUAL_CONTENT_MARKER = "NO_VISUAL_CONTENT"
@@ -77,14 +52,10 @@ _DESCRIBE_PROMPT = (
 )
 
 
-# 1. FIND CANDIDATE PAGES  (free, local, no API calls)
+# finding pages with real images (local, no API calls)
 
 def find_image_pages(data_dir: Path = DATA_DIR) -> list[dict[str, Any]]:
-    """Every page containing at least one embedded image whose long edge is
-    >= IMAGE_SIZE_THRESHOLD_PX, i.e. plausibly a screenshot, diagram, or
-    table rather than a decorative icon. 31 pages across 28 documents on the
-    current corpus.
-    """
+    """Pages with at least one image over IMAGE_SIZE_THRESHOLD_PX (31 pages in 28 documents right now)."""
     pages: list[dict[str, Any]] = []
     for pdf_path in sorted(data_dir.glob("*.pdf")):
         doc = fitz.open(pdf_path)
@@ -111,7 +82,7 @@ def find_image_pages(data_dir: Path = DATA_DIR) -> list[dict[str, Any]]:
     return pages
 
 
-# 2. CACHE  (avoid re-paying for a page already described)
+# cache
 
 def _load_cache() -> dict[str, str]:
     if not CACHE_PATH.exists():
@@ -128,7 +99,7 @@ def _cache_key(source_document: str, page_number: int) -> str:
     return f"{source_document}|{page_number}"
 
 
-# 3. RENDER + DESCRIBE
+# render and describe
 
 def _render_page_png(pdf_path: Path, page_number: int, zoom: float = RENDER_ZOOM) -> bytes:
     """Render one 1-indexed page to PNG bytes."""
@@ -144,10 +115,7 @@ def _render_page_png(pdf_path: Path, page_number: int, zoom: float = RENDER_ZOOM
 def describe_page_image(
     pdf_path: Path, page_number: int, llm=None
 ) -> str | None:
-    """Ask the vision model what the embedded image content on this page
-    shows. Returns None for a page with no meaningful visual content (the
-    model said so explicitly), never an empty string masquerading as one.
-    """
+    """Ask the vision model what the images on this page show, or None if it says there's nothing there."""
     llm = llm or get_llm(provider="anthropic", model=VISION_MODEL, max_tokens=1024)
 
     png_bytes = _render_page_png(pdf_path, page_number)
@@ -173,20 +141,15 @@ def describe_page_image(
     return description
 
 
-# 4. ORCHESTRATOR
+# running it over everything
 
 def describe_all(
     data_dir: Path = DATA_DIR, limit: int | None = None
 ) -> dict[str, Any]:
-    """Describe every candidate page not already in the cache.
+    """Describe every candidate page that isn't cached yet.
 
-    Args:
-        limit: process at most this many NEW (uncached) pages. Used for the
-               pilot run before committing to the full 116-page batch.
-
-    Returns:
-        {"described": int, "no_visual_content": int, "skipped_cached": int,
-         "failed": list[str]}
+    limit stops after that many new pages, for a pilot run. Returns counts of described,
+    no_visual_content and skipped_cached pages, plus the list of failures.
     """
     pages = find_image_pages(data_dir)
     cache = _load_cache()
@@ -224,27 +187,19 @@ def describe_all(
             stats["described"] += 1
         processed += 1
 
-        # Save incrementally so a crash mid-batch (as happened during the
-        # finetune data-gen run) does not lose already-paid-for work.
+        # save as we go so a crash doesn't lose pages already paid for
         _save_cache(cache)
 
     return stats
 
 
-# 5. INGEST-TIME LOOKUP  (consumed by ingest.py)
-#
-# A full ingest visits ~1000 pages; re-reading and re-parsing the cache file
-# on every single page for what is at most a few dozen hits is wasteful, so
-# it is loaded once per process and reused. The cache is written offline by
-# describe_all(), never concurrently with an ingest run, so there is no
-# staleness a process restart doesn't already resolve.
+# lookup used by ingest.py. The cache is loaded once per process, since a full ingest visits
+# about 1000 pages and only a few dozen have a hit
 _in_memory_cache: dict[str, str] | None = None
 
 
 def get_cached_description(source_document: str, page_number: int) -> str | None:
-    """Return the cached vision description for a page, or None if there is
-    none (not a candidate page, not yet processed, or genuinely no visual
-    content)."""
+    """The cached description for a page, or None if it has none."""
     global _in_memory_cache
     if _in_memory_cache is None:
         _in_memory_cache = _load_cache()

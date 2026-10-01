@@ -1,25 +1,9 @@
-"""Per-stage cost, token and latency accounting.
+"""Per-stage cost, token and latency tracking.
 
-"It takes about 19 seconds" does not say where the time goes or what a query
-costs. This records one span per LLM call (stage, model, tokens in and out,
-cache hits, latency, derived cost) and aggregates them per question, so
-optimisation claims elsewhere can cite numbers.
-
-A few decisions:
-
-Token counts are ground truth and cost is derived. We record what the API
-reported in usage_metadata and multiply by a price table. Prices drift, so the
-table is a dated snapshot treated as configuration; if it goes stale only the
-dollar figure needs recomputing.
-
-Spans live in a ContextVar rather than a module-level global, so concurrent runs
-stay isolated without threading a recorder through every signature.
-
-A call that raises still emits a span with error set, so a crash loop shows up
-as cost rather than as a gap.
-
-Missing usage metadata records zero tokens rather than raising. An accounting
-bug should not take down the pipeline it measures.
+Records one span per LLM call (stage, model, tokens, cache hits, latency, cost) and adds them up
+per question. Token counts come from what the API reports and cost is worked out from a price table.
+Spans sit in a ContextVar so concurrent runs don't mix. A call that raises still records a span,
+and missing usage data counts as zero tokens instead of raising.
 """
 
 from __future__ import annotations
@@ -36,22 +20,13 @@ from typing import Any
 from src.config import PROJECT_ROOT
 from src.llm_factory import response_text
 
-# Traces are append-only JSONL: cheap to write, easy to grep, and needing no
-# service to run the repo. A hosted backend like Langfuse or Phoenix would give
-# a UI, but it would also make reproducing this project depend on someone else's
-# account, so local files are the default and exporting is left as an option.
+# traces are appended to a jsonl file, so nothing needs a hosted service to run the repo
 TRACE_PATH: Path = PROJECT_ROOT / "traces" / "traces.jsonl"
 
 
-# Price table, USD per million tokens. Snapshot date: 2026-08-01.
-#
-# This is a plain dict rather than a live lookup on purpose: an eval run has to
-# be reproducible, and a price that changes underneath a stored result would
-# make two runs incomparable. Update it by hand and note the date.
-#
-# cache_read is billed at about 0.1x input and cache_creation at about 1.25x
-# input for the default five-minute TTL. We model both so that adding prompt
-# caching later shows up as a cost reduction rather than as untracked spend.
+# prices in USD per million tokens, as of 2026-08-01. It's a fixed table so two eval runs stay
+# comparable, update it by hand. Cache reads cost about 0.1x the input price and cache writes
+# about 1.25x.
 @dataclass(frozen=True)
 class ModelPrice:
     input_per_mtok: float
@@ -75,8 +50,8 @@ PRICING: dict[str, ModelPrice] = {
     "claude-sonnet-5": ModelPrice(3.0, 15.0),
     "claude-sonnet-4-6": ModelPrice(3.0, 15.0),
     "claude-haiku-4-5": ModelPrice(1.0, 5.0),
-    # Non-Anthropic models, used only by the cross-provider bakeoff. Prefix
-    # match in _price() resolves "gpt-4o-mini" before "gpt-4o" (longer key wins).
+    # non-Anthropic models, only for the provider bakeoff. _price() tries the longest key
+    # first, so "gpt-4o-mini" wins over "gpt-4o"
     "gpt-4o-mini": ModelPrice(0.15, 0.60),
     "gpt-4o": ModelPrice(2.50, 10.0),
     "gemini-3.6-flash": ModelPrice(0.10, 0.40),
@@ -88,12 +63,7 @@ PRICING_SNAPSHOT_DATE = "2026-08-01"
 
 @dataclass
 class Span:
-    """One unit of work inside a request, either an LLM call or a retrieval.
-
-    Retrieval spans carry zero tokens and zero cost but real latency, which is
-    the point. Without them the trace shows LLM time only and silently
-    attributes retrieval latency to nothing.
-    """
+    """One step inside a request, either an LLM call or a retrieval (retrieval has latency but no tokens)."""
 
     stage: str
     model: str
@@ -105,35 +75,27 @@ class Span:
     latency_seconds: float = 0.0
     cost_usd: float = 0.0
     error: str | None = None
-    # Free-form per-stage detail. For retrieval this carries the chunk IDs and
-    # documents that fed the answer, so you can ask of any answer which sources
-    # produced it.
+    # extra detail per stage. For retrieval it holds the chunk ids and documents behind the answer
     attributes: dict[str, Any] = field(default_factory=dict)
     started_at: str = ""
 
 
 @dataclass
 class RunRecord:
-    """All spans for a single request, under one trace id."""
+    """All the spans for one request."""
 
     spans: list[Span] = field(default_factory=list)
     trace_id: str = ""
     query: str = ""
     started_at: str = ""
 
-    # ---- aggregates -------------------------------------------------
     @property
     def total_cost_usd(self) -> float:
         return round(sum(s.cost_usd for s in self.spans), 6)
 
     @property
     def llm_spans(self) -> list[Span]:
-        """LLM spans only.
-
-        Retrieval spans share the list but have to be excluded from any
-        LLM-specific count. Including them silently inflated llm_calls from 1
-        to 2 the moment retrieval started being traced.
-        """
+        """Just the LLM spans. Retrieval spans have to stay out of LLM counts."""
         return [s for s in self.spans if s.span_type == "llm"]
 
     @property
@@ -142,7 +104,7 @@ class RunRecord:
 
     @property
     def total_traced_seconds(self) -> float:
-        """All traced work, LLM and retrieval alike."""
+        """LLM and retrieval time together."""
         return round(sum(s.latency_seconds for s in self.spans), 3)
 
     @property
@@ -158,11 +120,7 @@ class RunRecord:
         return sum(s.output_tokens for s in self.llm_spans)
 
     def by_stage(self) -> dict[str, dict[str, Any]]:
-        """Per-stage rollup, which is what makes the numbers actionable.
-
-        A single total tells you the system is slow. The rollup tells you which
-        node to attack and what the ceiling on that fix is.
-        """
+        """Calls, time, cost and tokens per stage."""
         out: dict[str, dict[str, Any]] = {}
         for s in self.spans:
             agg = out.setdefault(
@@ -196,26 +154,21 @@ class RunRecord:
         }
 
 
-# Isolated per execution context so concurrent runs cannot interleave spans.
+# one per execution context, so concurrent runs don't mix their spans
 _CURRENT: contextvars.ContextVar[RunRecord | None] = contextvars.ContextVar(
     "citera_run_record", default=None
 )
 
 
 class record_run:
-    """Context manager that collects every instrumented call inside it.
-
-    Usage:
+    """Collects every instrumented call made inside the with block.
 
         with record_run(query="...") as rec:
-            ...                     # agent executes
+            ...
         rec.total_cost_usd
 
-    When persist is true the finished trace is appended to traces/traces.jsonl.
-    Persisting is what turns instrumentation into observability: a number you
-    printed once is gone, but a stored trace lets you answer why that request
-    behaved the way it did after the fact, which is the question production
-    debugging actually asks. Inspect with python -m src.trace_view.
+    With persist on, the finished trace is appended to traces/traces.jsonl (look at it with
+    python -m src.trace_view).
     """
 
     def __init__(self, query: str = "", persist: bool = True) -> None:
@@ -240,18 +193,13 @@ class record_run:
                 with open(TRACE_PATH, "a", encoding="utf-8") as f:
                     f.write(json.dumps(self.record.to_dict(), ensure_ascii=False) + "\n")
             except OSError:
-                # Losing a trace must never take down the request it traces.
+                # losing a trace shouldn't break the request
                 pass
         return None
 
 
 class span:
-    """Record a non-LLM unit of work (currently retrieval).
-
-    Without this a trace accounts only for LLM time and silently drops
-    everything else, which makes the latency breakdown wrong in a way you
-    cannot see, because the percentages still add up to 100%.
-    """
+    """Record a step that isn't an LLM call (right now, retrieval), so its time shows up in the trace."""
 
     def __init__(self, stage: str, **attributes: Any) -> None:
         self.stage = stage
@@ -264,7 +212,7 @@ class span:
         return self
 
     def set(self, **attributes: Any) -> None:
-        """Attach detail discovered during the span (e.g. what was retrieved)."""
+        """Add detail found during the span, like what was retrieved."""
         self.attributes.update(attributes)
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
@@ -288,8 +236,7 @@ class span:
 def _price(model: str) -> ModelPrice | None:
     if model in PRICING:
         return PRICING[model]
-    # Tolerate date-suffixed ids (e.g. claude-haiku-4-5-20251001) by longest
-    # known-prefix match, so an unfamiliar snapshot id still costs correctly.
+    # handle ids with a date suffix (claude-haiku-4-5-20251001) by the longest matching prefix
     for known in sorted(PRICING, key=len, reverse=True):
         if model.startswith(known):
             return PRICING[known]
@@ -299,12 +246,11 @@ def _price(model: str) -> ModelPrice | None:
 def _cost(model: str, usage: dict[str, Any]) -> float:
     p = _price(model)
     if p is None:
-        return 0.0  # unknown model: report tokens, decline to invent a price
+        return 0.0  # unknown model, keep the tokens but don't guess a price
     details = usage.get("input_token_details") or {}
     cache_read = int(details.get("cache_read", 0) or 0)
     cache_write = int(details.get("cache_creation", 0) or 0)
-    # LangChain reports input_tokens as the UNCACHED portion, so cached
-    # tokens are billed separately rather than double-counted here.
+    # langchain's input_tokens leaves out the cached part, so it isn't counted twice
     plain_in = int(usage.get("input_tokens", 0) or 0)
     out = int(usage.get("output_tokens", 0) or 0)
     return (
@@ -316,15 +262,10 @@ def _cost(model: str, usage: dict[str, Any]) -> float:
 
 
 def invoke_messages(llm: Any, messages: Any, stage: str) -> Any:
-    """Invoke an LLM on a message list and return the raw response.
+    """Call an LLM with a message list and return the raw response, recording a span.
 
-    invoke() returns text, which is all a single-shot stage needs. A tool loop
-    needs the response object itself (the tool_calls live there) and has to send
-    a growing message list rather than one prompt string, so it cannot use
-    invoke(). Sharing the span-recording logic here rather than letting the loop
-    call llm.invoke() directly is the point: an untraced code path would spend
-    real money that never reaches the cost dashboard, and the dashboard being
-    complete is the only reason to trust it.
+    The tool loop needs the response object (the tool_calls are on it) and sends a growing list of
+    messages, so it can't use invoke(). Going through here keeps its calls in the cost numbers.
     """
     rec = _CURRENT.get()
     model = getattr(llm, "model", None) or getattr(llm, "model_name", "unknown")
@@ -365,12 +306,7 @@ def invoke_messages(llm: Any, messages: Any, stage: str) -> Any:
 
 
 def invoke(llm: Any, prompt: str, stage: str) -> str:
-    """Invoke an LLM, record a span, and return its text.
-
-    Drop-in replacement for response_text(llm.invoke(prompt)). When no
-    record_run() is active this is exactly that call plus a timer, so using
-    this outside the harness changes nothing.
-    """
+    """Call an LLM, record a span and return the text. Same as response_text(llm.invoke(prompt)) when nothing is recording."""
     rec = _CURRENT.get()
     model = getattr(llm, "model", None) or getattr(llm, "model_name", "unknown")
 
@@ -410,19 +346,7 @@ def invoke(llm: Any, prompt: str, stage: str) -> str:
 
 
 async def ainvoke(llm: Any, prompt: str, stage: str) -> str:
-    """Async twin of invoke(): same span, `await llm.ainvoke(prompt)` instead.
-
-    Only meaningful when llm.ainvoke() is a real non-blocking call rather than
-    a sync call wrapped in a thread (verified for ChatAnthropic: it calls
-    anthropic.AsyncClient.messages.create under _agenerate). Calling this on a
-    model whose ainvoke() falls back to a thread offers no latency benefit over
-    invoke(), it just moves where the blocking happens.
-
-    _CURRENT is a plain ContextVar, not a thread-local: a single asyncio Task
-    keeps one Context for its whole lifetime, so a value set with record_run()
-    before this call is awaited is still visible here and after, with no
-    special handling needed, unlike crossing a real thread boundary.
-    """
+    """Async version of invoke(), same span. It only helps if the model's ainvoke is truly async (ChatAnthropic's is)."""
     rec = _CURRENT.get()
     model = getattr(llm, "model", None) or getattr(llm, "model_name", "unknown")
 
