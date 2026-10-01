@@ -1,0 +1,136 @@
+{
+ "blocked_question_ids": {
+  "hyde": [
+   "17",
+   "22"
+  ],
+  "multi_query": [
+   "16",
+   "22",
+   "41",
+   "45"
+  ]
+ },
+ "rows": [
+  {
+   "config": "baseline (raw question)",
+   "n": {
+    "dev": 70,
+    "holdout": 30
+   },
+   "dev": {
+    "recall@1": 0.7429,
+    "recall@3": 0.8714,
+    "recall@5": 0.9429,
+    "mrr": 0.825,
+    "ndcg@5": 0.8547
+   },
+   "holdout": {
+    "recall@1": 0.8667,
+    "recall@3": 0.9333,
+    "recall@5": 0.9333,
+    "mrr": 0.9,
+    "ndcg@5": 0.9087
+   },
+   "all": {
+    "recall@1": 0.78,
+    "recall@3": 0.89,
+    "recall@5": 0.94,
+    "mrr": 0.8475,
+    "ndcg@5": 0.8709
+   },
+   "recall5_wins_vs_baseline": 0,
+   "recall5_losses_vs_baseline": 0
+  },
+  {
+   "config": "HyDE, passage replaces question for vector search",
+   "n": {
+    "dev": 70,
+    "holdout": 30
+   },
+   "dev": {
+    "recall@1": 0.6429,
+    "recall@3": 0.8714,
+    "recall@5": 0.9571,
+    "mrr": 0.7588,
+    "ndcg@5": 0.8084
+   },
+   "holdout": {
+    "recall@1": 0.6667,
+    "recall@3": 0.9,
+    "recall@5": 0.9333,
+    "mrr": 0.7789,
+    "ndcg@5": 0.8181
+   },
+   "all": {
+    "recall@1": 0.65,
+    "recall@3": 0.88,
+    "recall@5": 0.95,
+    "mrr": 0.7648,
+    "ndcg@5": 0.8113
+   },
+   "recall5_wins_vs_baseline": 2,
+   "recall5_losses_vs_baseline": 1
+  },
+  {
+   "config": "HyDE added as a third list",
+   "n": {
+    "dev": 70,
+    "holdout": 30
+   },
+   "dev": {
+    "recall@1": 0.7,
+    "recall@3": 0.9143,
+    "recall@5": 0.9286,
+    "mrr": 0.8005,
+    "ndcg@5": 0.8332
+   },
+   "holdout": {
+    "recall@1": 0.8,
+    "recall@3": 0.8667,
+    "recall@5": 0.9,
+    "mrr": 0.8417,
+    "ndcg@5": 0.8564
+   },
+   "all": {
+    "recall@1": 0.73,
+    "recall@3": 0.9,
+    "recall@5": 0.92,
+    "mrr": 0.8128,
+    "ndcg@5": 0.8402
+   },
+   "recall5_wins_vs_baseline": 1,
+   "recall5_losses_vs_baseline": 3
+  },
+  {
+   "config": "multi-query (3 rewrites + original)",
+   "n": {
+    "dev": 70,
+    "holdout": 30
+   },
+   "dev": {
+    "recall@1": 0.7,
+    "recall@3": 0.9,
+    "recall@5": 0.9286,
+    "mrr": 0.7952,
+    "ndcg@5": 0.8291
+   },
+   "holdout": {
+    "recall@1": 0.8333,
+    "recall@3": 0.9333,
+    "recall@5": 0.9333,
+    "mrr": 0.8833,
+    "ndcg@5": 0.8964
+   },
+   "all": {
+    "recall@1": 0.74,
+    "recall@3": 0.91,
+    "recall@5": 0.93,
+    "mrr": 0.8217,
+    "ndcg@5": 0.8493
+   },
+   "recall5_wins_vs_baseline": 2,
+   "recall5_losses_vs_baseline": 3
+  }
+ ]
+}

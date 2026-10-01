@@ -43,6 +43,7 @@ Ricoh/
 │   ├── run_paid_batch.sh        # The judged runs that need Anthropic credits
 │   ├── sweep_embeddings.py      # Retrieval-only embedding-model comparison
 │   ├── reranker_sweep.py        # Retrieval-only reranker-model comparison
+│   ├── query_transform_sweep.py # Retrieval-only HyDE and multi-query comparison
 │   ├── azure_search_eval.py     # Azure AI Search vs the local retriever, retrieval only
 │   ├── calibrate_router.py      # Whether a retrieval signal can drive the router
 │   ├── label_for_kappa.py       # Judge-vs-human agreement worksheet + scoring

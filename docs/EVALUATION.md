@@ -400,6 +400,25 @@ So the reranker is the clearest lever for the handful of hard questions if a lat
 
 Contextual Retrieval and semantic chunking were deliberately **not** implemented: both target long multi-page documents and would cost real ingest-time API calls for little gain on a single-page corpus.
 
+### Rewriting the question before retrieval: HyDE and multi-query
+
+The benchmark questions are phrased the way a person asks, and the manuals read the way a manual reads. Two common ways to close that gap are HyDE (an LLM writes a short passage that would answer the question, and we search with the passage instead) and multi-query (an LLM writes a few rewrites and we fuse the results from all of them). Both add an LLM call to every query, so I wanted to know if either is worth it.
+
+`eval/query_transform_sweep.py` measures them on the same 100 questions, the same MiniLM index and the same hybrid retrieval as the embedding sweep. It is retrieval only, with no judge. The rewrites come from Gemini flash and are cached in `eval/query_transform_cache.json`, so a re-run is free and gives the same numbers. The raw-question baseline in the script reproduces the embedding sweep's MiniLM row exactly (dev recall@5 0.943, holdout 0.933).
+
+All 100 questions, `top_k=10`, no reranker:
+
+| method | recall@1 | recall@3 | recall@5 | MRR | questions better / worse at recall@5 |
+|---|---|---|---|---|---|
+| raw question (current) | 0.78 | 0.89 | 0.94 | 0.85 | n/a |
+| HyDE passage replaces the question for the vector search | 0.65 | 0.88 | 0.95 | 0.77 | 2 / 1 |
+| HyDE passage added as a third list | 0.73 | 0.90 | 0.92 | 0.81 | 1 / 3 |
+| multi-query (3 rewrites plus the original) | 0.74 | 0.91 | 0.93 | 0.82 | 2 / 3 |
+
+Neither is worth it here. Replacing the question with a HyDE passage is the only variant that raises recall@5, by one question net, and it pays for that at the top of the list: recall@1 falls from 0.78 to 0.65, and on holdout from 0.87 to 0.67. Adding the passage as a third list loses two more questions than it fixes, and multi-query loses one. Differences of one to three questions out of 100 are inside the noise, so the honest reading is no gain, a few points of lost precision at rank 1, and an extra LLM call on every query. The pipeline stays as it is.
+
+Three limits on that. The questions were generated from the manual pages, so they probably already share a lot of the manuals' wording, which is the gap these methods are meant to close. Questions typed by real users could behave differently, and this set cannot show that. Gemini's safety filter also blocked a few harmless requests and returned nothing (HyDE on questions 17 and 22, multi-query on 16, 22, 41 and 45); those questions fell back to the raw question. And this is retrieval only with no reranker, so I did not test whether either method helps a pipeline that has one, or what it does to judged answer quality. The 200 calls cost well under $0.10, going by the per-query cost measured in the bakeoff below.
+
 ### Azure AI Search as a second backend
 
 I added an optional Azure AI Search backend (`src/azure_retriever.py`) that indexes the same 1,322 chunks, so the two retrievers can be compared on the same input. It supports keyword (BM25), vector, hybrid, and hybrid plus Azure's semantic ranker. The embeddings are the same MiniLM vectors ChromaDB stores, so only the search engine changes. It runs on the Free tier, which costs nothing. The semantic ranker is metered, so the eval only uses it when you pass `--semantic`, and on the free plan going over the monthly allowance gives an error instead of a charge.
