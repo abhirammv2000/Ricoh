@@ -47,6 +47,7 @@ question -> (rewrite if it is a follow-up) -> retrieve -> synthesize -> cited an
 - **Ingest:** PyMuPDF reads the PDFs and keeps document and page. Text is cut into 500-word chunks with 50 words of overlap. 31 pages with screenshots also get a short description from a vision model.
 - **Retrieve:** vector search (ChromaDB and MiniLM) and keyword search (BM25), merged with Reciprocal Rank Fusion. Keyword search catches exact error codes like `SC542`. An optional cross-encoder reranker is available.
 - **Answer:** a LangGraph pipeline calls Claude, which must cite `[Document, Page]` for every claim. It answers in the language of the question.
+- **MCP:** `python -m src.mcp_server` serves `search_docs` and `index_info` read-only over stdio, so Claude Desktop or any MCP client can search the documentation with page citations. It never calls a language model. I checked it through a real MCP client over stdio against the real index (1,322 passages).
 - **UI:** a Streamlit dashboard that shows every step, the cost and the chunks used. Each request is traced to a JSONL file.
 
 ## Quick start

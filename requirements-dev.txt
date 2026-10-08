@@ -4,4 +4,7 @@
 -r requirements.txt
 -r requirements-providers.txt
 
+# the MCP server and its tests (src/mcp_server.py)
+mcp>=2.0
+
 pytest==8.3.4
