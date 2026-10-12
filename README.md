@@ -31,11 +31,15 @@ The ablation, on the 70 dev questions:
 - The verifier adds nothing, so it stays off.
 - The planner raises evidence recall from 0.94 to 1.00 on the dev questions. On the 30 held-out questions A and B both score 0.93, so the gain doesn't carry over. It also costs 1.7x per query, so it stays behind `USE_PLANNER`.
 - An earlier 10-question set gave flattering numbers. Growing it to 100 moved groundedness from 0.98 to 0.96.
-- A cross-provider test found `gemini-3.6-flash` keeps answer quality at 1/50th the cost per query, while `gpt-4o-mini` loses 0.21 correctness.
-- A QLoRA fine-tune of Llama 3.1 8B on one GPU matched Sonnet's correctness within the noise, but groundedness is still worse.
+- A cross-provider test on 20 questions found `gemini-3.6-flash` close to Sonnet on quality (0.95 against 0.99 correctness) at 1/50th the cost per query, while `gpt-4o-mini` loses 0.21 correctness.
+- On the same 20 questions, a QLoRA fine-tune of Llama 3.1 8B on one GPU scored 0.94 correctness against Sonnet's 0.99. The judge's noise is about 0.10, so that gap is inside it and I cannot say they differ. Groundedness is lower (0.91 against 0.98) and latency is 25 s against 10 s.
 - An optional Azure AI Search backend matches the local reranker on recall@5 and is much faster.
 
 Everything is written up in [docs/EVALUATION.md](docs/EVALUATION.md), including the corrections I made to my own earlier results.
+
+## About the data
+
+The 733 PDFs are RICOH ProcessDirector's public help documents. They are not in this repository (`data/` is gitignored). Two things in the repository are derived from them: `demo_index/`, a small slice of text chunks that lets CI and the demo run, and `finetune/data/`, the examples used for the fine-tune, which include retrieved passages. That text belongs to Ricoh and is used here for a student project.
 
 ## How it works
 
