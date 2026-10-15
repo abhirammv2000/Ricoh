@@ -10,6 +10,8 @@ jobs:
   test:
     name: Lint & test (Python 3.11)
     runs-on: ubuntu-latest
+    # the suite starts real API processes (tests/test_api_e2e.py), which load the embedding model
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -30,8 +32,10 @@ jobs:
         run: python -m compileall src app tests
 
       - name: Run test suite
-        # No ANTHROPIC_API_KEY is set: the suite mocks the LLM and only
-        # exercises offline logic, so it must pass without any secret.
+        # No ANTHROPIC_API_KEY is set, and tests/conftest.py points the model client at a closed local port, so a
+        # test that forgets to mock the model fails instead of spending money. The suite includes the failure
+        # drills against real API processes and a fake model provider, and the multi-process trace-file test,
+        # which only runs on Linux (Windows does not make appends atomic across processes).
         run: pytest
 
   retrieval-gate:
@@ -58,3 +62,91 @@ jobs:
         # key, ChromaDB's bundled MiniLM) and fails if recall@k on the seed
         # questions drops below eval/ci_baseline.json.
         run: python -m eval.ci_gate
+
+  ops-checks:
+    name: Alert rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check the Prometheus alert rules
+        # promtool is Prometheus's own checker. tests/test_ops_alerts.py separately checks that every metric the
+        # rules name is one the service exports, which promtool cannot know.
+        run: |
+          docker run --rm -v "$PWD/ops:/ops" --entrypoint promtool prom/prometheus:v2.55.1 check rules /ops/alerts.yml
+
+  container:
+    name: API image and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install what the fake model provider and the smoke test need
+        run: pip install fastapi==0.141.1 "uvicorn[standard]==0.52.1" httpx
+
+      - name: Build the API image
+        # from requirements-api.txt, so a missing dependency shows up here as a container that does not start
+        run: docker build -f Dockerfile.api -t citera-api:ci .
+
+      - name: The image runs as a non-root user and holds no secrets
+        run: |
+          user="$(docker run --rm --entrypoint id citera-api:ci -u)"
+          echo "runs as uid $user"
+          test "$user" != "0"
+          if docker run --rm --entrypoint sh citera-api:ci -c 'ls -a /app | grep -x ".env"'; then echo ".env is in the image"; exit 1; fi
+          docker image ls citera-api:ci --format 'image size: {{.Size}}'
+
+      - name: Refuses to start with no API keys
+        run: |
+          if docker run --rm -e ANTHROPIC_API_KEY=sk-fake citera-api:ci > refuse.log 2>&1; then echo "it started with no keys"; exit 1; fi
+          grep -q "API_KEYS is not set" refuse.log
+
+      - name: Start the fake model provider and the container
+        run: |
+          python -m tests.fake_anthropic --host 0.0.0.0 --port 9100 --latency 0.05 &
+          # host networking, so the container reaches the fake on 127.0.0.1 (works on a Linux runner). The default limit
+          # is 1 request a second per key, which would throttle the smoke test's own load, so it is raised here
+          docker run -d --name citera --network host \
+            -e ANTHROPIC_API_KEY=sk-fake -e ANTHROPIC_BASE_URL=http://127.0.0.1:9100 \
+            -e API_KEYS=ci:ci-secret-0123456789 \
+            -e RATE_LIMIT_RPS=1000 -e RATE_LIMIT_BURST=1000 \
+            citera-api:ci
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/ready > /dev/null; then echo "ready after $((i*2)) s"; break; fi
+            if [ "$i" = 60 ]; then echo "never became ready"; docker logs citera | tail -50; exit 1; fi
+            sleep 2
+          done
+
+      - name: Smoke test, load test and provider outage drill
+        run: python -m eval.container_smoke --url http://127.0.0.1:8000 --api-key ci-secret-0123456789 --fake-url http://127.0.0.1:9100
+
+      - name: The logs are JSON, carry request ids and hold no question text
+        run: |
+          docker logs citera > container.log 2>&1
+          python - <<'PY'
+          import json
+          lines = [l for l in open("container.log", encoding="utf-8") if l.startswith("{")]
+          assert lines, "no JSON log lines"
+          entries = [json.loads(l) for l in lines]
+          assert any("request_id" in e for e in entries), "no log line has a request id"
+          text = open("container.log", encoding="utf-8").read()
+          assert "configure the network settings" not in text, "a question reached the logs"
+          print(len(entries), "JSON log lines")
+          PY
+
+      - name: Container logs
+        if: failure()
+        run: docker logs citera | tail -100
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f citera || true

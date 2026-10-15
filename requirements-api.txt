@@ -1,0 +1,15 @@
+# What the HTTP API needs, and nothing else. It leaves out streamlit (the demo UI) and PyMuPDF (reading PDFs, which
+# only ingestion does), so the container has less in it to keep patched. The versions are the same as in
+# requirements.txt, and CI builds the API image from this file and runs it, which is what shows it is enough.
+
+chromadb==0.6.3
+rank_bm25==0.2.2
+langgraph==0.2.74
+langchain-core>=0.3.34
+langchain-anthropic==0.3.12
+python-dotenv==1.0.1
+numpy==2.2.2
+
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+prometheus-client==0.26.0
