@@ -18,6 +18,7 @@ What it does when things go wrong, in one place:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import math
@@ -32,8 +33,9 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from api.errors import OVERLOADED, TIMEOUT, ApiError, PublicError, classify_error
+from api.errors import NOT_READY, OVERLOADED, TIMEOUT, ApiError, PublicError, classify_error
 from api.limits import ConcurrencyGate, Lease
+from api.readiness import Readiness, compute_readiness, needs_recheck
 from api.settings import Settings
 from src.agent import (
     StreamResult,
@@ -46,7 +48,12 @@ from src.agent import (
 )
 from src.guardrails import screen_input
 from src.instrumentation import record_run
-from src.llm_factory import _DEFAULT_MAX_RETRIES, _DEFAULT_TIMEOUT_SECONDS
+from src.llm_factory import (
+    _DEFAULT_MAX_RETRIES,
+    _DEFAULT_TIMEOUT_SECONDS,
+    import_provider_sdk,
+    warm_up_client,
+)
 from src.ratelimit import TokenBucketLimiter
 
 log = logging.getLogger("citera.api")
@@ -139,8 +146,31 @@ def _error_response(error: PublicError, request_id: str) -> JSONResponse:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
-    app = FastAPI(title="Citera RAG API", version="1.0.0")
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # check the index and load the models before the first question, not during it. The first request
+        # used to take 2.7 s against 0.4 s for the rest, because it loaded the embedding model
+        readiness = await refresh_readiness(force=True)
+        if readiness.ready:
+            await asyncio.to_thread(_warm_up)
+            try:
+                # the SDK import is slow and blocking, so it goes in a thread. The client has to be built in
+                # this loop, which is the one that serves requests
+                await asyncio.to_thread(import_provider_sdk)
+                warm_up_client()
+            except Exception:
+                log.exception("warming up the model client failed. The first question will pay for it")
+            log.info(
+                "ready: index_version=%s chunks=%d embedding_model=%s",
+                readiness.index_version, readiness.chunks, readiness.embedding_model,
+            )
+        yield
+
+    app = FastAPI(title="Citera RAG API", version="1.0.0", lifespan=lifespan)
     app.state.settings = settings
+    app.state.readiness = None
+    app.state.readiness_lock = asyncio.Lock()
     worst_case = _DEFAULT_TIMEOUT_SECONDS * (_DEFAULT_MAX_RETRIES + 1)
     if settings.request_timeout_seconds < worst_case:
         # not an error: a provider that fails fast is retried inside the deadline. A provider that is slow
@@ -163,6 +193,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         log.exception("unhandled error, request_id=%s", _request_id(request))
         return _error_response(classify_error(exc), _request_id(request))
 
+    async def refresh_readiness(force: bool = False) -> Readiness:
+        """The cached readiness, recomputed when there is none, when forced, or when a failure is old enough."""
+        if not force and not needs_recheck(app.state.readiness):
+            return app.state.readiness
+        async with app.state.readiness_lock:
+            if not force and not needs_recheck(app.state.readiness):
+                return app.state.readiness
+            readiness = await asyncio.to_thread(compute_readiness, settings.require_index_manifest)
+            app.state.readiness = readiness
+            if not readiness.ready:
+                log.error("not ready: %s", "; ".join(readiness.problems))
+            return readiness
+
+    async def require_ready() -> None:
+        """Refuse a question while the index is not fit to answer from, instead of calling the model with no
+        evidence and returning a confident refusal."""
+        if not (await refresh_readiness()).ready:
+            raise ApiError(NOT_READY)
+
     async def take_slot(request: Request) -> Lease:
         """A slot to run one question, or a 503 if the service is full."""
         lease = await app.state.gate.acquire(settings.queue_timeout_seconds)
@@ -173,7 +222,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict:
+        """Is the process alive. It does not look at the index, so a bad index cannot make an orchestrator
+        restart the process in a loop."""
         return {"status": "ok"}
+
+    @app.get("/ready")
+    async def ready() -> JSONResponse:
+        """Can this instance give a correct answer. 503 with the reasons when it cannot."""
+        readiness = await refresh_readiness()
+        if readiness.ready:
+            return JSONResponse(
+                {
+                    "status": "ready",
+                    "index_version": readiness.index_version,
+                    "chunks": readiness.chunks,
+                    "embedding_model": readiness.embedding_model,
+                }
+            )
+        return JSONResponse(
+            {"status": "not_ready", "problems": readiness.problems},
+            status_code=503,
+            headers={"Retry-After": str(NOT_READY.retry_after)},
+        )
 
     @app.post("/query", response_model=QueryResponse, dependencies=[Depends(rate_limit)])
     async def query(request: Request, req: QueryRequest) -> QueryResponse:
@@ -185,6 +255,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         runs on until the provider call gives up, which the client timeout bounds).
         """
         _screen(req.query)
+        await require_ready()
         lease = await take_slot(request)
         started = time.perf_counter()
         try:
@@ -259,6 +330,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         stop and closes the agent's generator, which closes the provider connection.
         """
         _screen(req.query)
+        await require_ready()
         lease = await take_slot(request)
         request_id = _request_id(request)
         if async_pipeline_supported():
@@ -336,6 +408,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return _LeasedStreamingResponse(events(), lease, media_type="text/event-stream")
 
     return app
+
+
+def _warm_up() -> None:
+    """Load the embedding model and touch the index with one real retrieval."""
+    from src.agent import get_retriever
+
+    get_retriever().retrieve("warm up", top_k=1, final_k=1)
 
 
 def _sse(payload: dict) -> str:
