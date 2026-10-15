@@ -56,6 +56,8 @@ class Settings:
     # serve only from an index that has a manifest and passes its checks. Turn off only for an index built
     # before manifests existed that you cannot rebuild
     require_index_manifest: bool = True
+    # when the model provider is down or too slow, answer with the passages retrieval found instead of an error
+    fallback_to_retrieval: bool = True
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -76,4 +78,5 @@ class Settings:
                 _number(env, "RATE_LIMIT_BURST", defaults.rate_limit_burst, minimum=1, integer=True)
             ),
             require_index_manifest=_flag(env, "REQUIRE_INDEX_MANIFEST", defaults.require_index_manifest),
+            fallback_to_retrieval=_flag(env, "FALLBACK_TO_RETRIEVAL", defaults.fallback_to_retrieval),
         )

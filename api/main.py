@@ -29,28 +29,33 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from api.errors import NOT_READY, OVERLOADED, TIMEOUT, ApiError, PublicError, classify_error
 from api.limits import ConcurrencyGate, Lease
+from api.metrics import Metrics, MetricsMiddleware
 from api.readiness import Readiness, compute_readiness, needs_recheck
 from api.settings import Settings
 from src.agent import (
+    PROMPT_VERSION,
     StreamResult,
     UnsupportedAsyncConfig,
     arun_agent,
     astream_agent,
     async_pipeline_supported,
+    is_refusal,
     run_agent,
     stream_agent,
 )
+from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K, USE_PLANNER, USE_ROUTER, USE_TOOL_LOOP, USE_VERIFIER
 from src.guardrails import screen_input
 from src.instrumentation import record_run
 from src.llm_factory import (
     _DEFAULT_MAX_RETRIES,
     _DEFAULT_TIMEOUT_SECONDS,
+    default_model_label,
     import_provider_sdk,
     warm_up_client,
 )
@@ -120,11 +125,32 @@ class QueryRequest(BaseModel):
     query: str = Field(min_length=1, max_length=MAX_QUERY_CHARS)
 
 
+class Source(BaseModel):
+    document: str
+    page: int | str
+    excerpt: str
+    score: float
+
+
 class QueryResponse(BaseModel):
     answer: str
     cost_usd: float
     llm_calls: int
     latency_seconds: float
+    # only present when the model could not be reached and the answer is the retrieved passages. They are
+    # left out of a normal response, so existing callers see exactly what they saw before
+    degraded: bool | None = None
+    sources: list[Source] | None = None
+
+
+# the failures that retrieval can cover for. The other errors (a full service, a bad request, our own bad
+# credentials) would not be fixed by showing passages
+_DEGRADABLE_CODES = frozenset({"model_unavailable", "timeout"})
+
+DEGRADED_ANSWER = (
+    "I could not write an answer just now because the language model is not available. "
+    "These are the passages most relevant to your question."
+)
 
 
 def _screen(query: str) -> None:
@@ -181,17 +207,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.request_timeout_seconds, _DEFAULT_TIMEOUT_SECONDS, _DEFAULT_MAX_RETRIES + 1, worst_case,
         )
     app.state.gate = ConcurrencyGate(settings.max_concurrent_queries)
+    metrics = Metrics()
+    app.state.metrics = metrics
+    metrics.set_build(default_model_label(), PROMPT_VERSION)
+    metrics.in_flight.set_function(lambda: app.state.gate.in_flight)
+    app.add_middleware(MetricsMiddleware, metrics=metrics)
     app.add_middleware(RequestIdMiddleware)
 
     @app.exception_handler(ApiError)
     async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
+        metrics.observe_error(exc.error.code)
         return _error_response(exc.error, _request_id(request))
 
     @app.exception_handler(Exception)
     async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
         # the last stop for anything not handled below. The caller gets a generic 500 with the request id
         log.exception("unhandled error, request_id=%s", _request_id(request))
-        return _error_response(classify_error(exc), _request_id(request))
+        public = classify_error(exc)
+        metrics.observe_error(public.code)
+        return _error_response(public, _request_id(request))
 
     async def refresh_readiness(force: bool = False) -> Readiness:
         """The cached readiness, recomputed when there is none, when forced, or when a failure is old enough."""
@@ -202,6 +236,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return app.state.readiness
             readiness = await asyncio.to_thread(compute_readiness, settings.require_index_manifest)
             app.state.readiness = readiness
+            metrics.set_readiness(readiness.ready, readiness.index_version, readiness.embedding_model)
             if not readiness.ready:
                 log.error("not ready: %s", "; ".join(readiness.problems))
             return readiness
@@ -211,6 +246,41 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         evidence and returning a confident refusal."""
         if not (await refresh_readiness()).ready:
             raise ApiError(NOT_READY)
+
+    def run_meta() -> dict[str, str]:
+        """What produced this answer, for the trace: the index, the model, the prompt and the pipeline."""
+        flags = [n for n, on in (("planner", USE_PLANNER), ("verifier", USE_VERIFIER), ("tool_loop", USE_TOOL_LOOP),
+                                 ("router", USE_ROUTER)) if on]
+        readiness = app.state.readiness
+        return {
+            "index_version": readiness.index_version if readiness else "unknown",
+            "model": default_model_label(),
+            "prompt_version": PROMPT_VERSION,
+            "pipeline": "+".join(["retrieve", "synthesize"] + flags),
+        }
+
+    async def degraded_sources(query: str) -> list[dict[str, Any]]:
+        """The passages retrieval finds for a question, for when the model cannot be reached. Retrieval does
+        not depend on the model, so it still works. Empty if it fails or finds nothing."""
+        try:
+            from src.agent import get_retriever
+
+            found = await asyncio.wait_for(
+                asyncio.to_thread(get_retriever().retrieve, query, top_k=RETRIEVAL_TOP_K, final_k=RETRIEVAL_FINAL_K),
+                timeout=5.0,
+            )
+        except Exception:
+            log.exception("the retrieval fallback failed")
+            return []
+        return [
+            {
+                "document": d.get("source_document", "unknown"),
+                "page": d.get("page_number", "?"),
+                "excerpt": " ".join(d.get("text", "").split())[:300],
+                "score": round(float(d.get("rrf_score", 0.0)), 5),
+            }
+            for d in found
+        ]
 
     async def take_slot(request: Request) -> Lease:
         """A slot to run one question, or a 503 if the service is full."""
@@ -245,8 +315,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             headers={"Retry-After": str(NOT_READY.retry_after)},
         )
 
-    @app.post("/query", response_model=QueryResponse, dependencies=[Depends(rate_limit)])
-    async def query(request: Request, req: QueryRequest) -> QueryResponse:
+    @app.get("/metrics")
+    def metrics_endpoint() -> Response:
+        """Prometheus metrics. See api/metrics.py for what each one means."""
+        body, content_type = metrics.render()
+        return Response(body, media_type=content_type)
+
+    @app.post("/query", response_model=QueryResponse, response_model_exclude_none=True, dependencies=[Depends(rate_limit)])
+    async def query(request: Request, req: QueryRequest, response: Response) -> QueryResponse:
         """Answer one question and return the answer with its cost and latency.
 
         It is traced like a UI request (traces/traces.jsonl). It uses the async arun_agent, which only
@@ -260,6 +336,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         started = time.perf_counter()
         try:
             with record_run(query=req.query) as rec:
+                rec.meta.update(run_meta())
                 try:
                     async with asyncio.timeout(settings.request_timeout_seconds):
                         try:
@@ -272,7 +349,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         "query failed, request_id=%s code=%s error=%s: %s",
                         _request_id(request), public.code, type(exc).__name__, exc,
                     )
+                    if settings.fallback_to_retrieval and public.code in _DEGRADABLE_CODES:
+                        sources = await degraded_sources(req.query)
+                        if sources:
+                            # still a success for the caller: they get the evidence, and are told it is degraded.
+                            # No error is raised, so the outage is counted here (a raised error is counted by its handler)
+                            metrics.observe_error(public.code)
+                            response.headers["X-Citera-Degraded"] = public.code
+                            metrics.observe_run(rec, "degraded")
+                            return QueryResponse(
+                                answer=DEGRADED_ANSWER,
+                                cost_usd=rec.total_cost_usd,
+                                llm_calls=rec.llm_calls,
+                                latency_seconds=round(time.perf_counter() - started, 3),
+                                degraded=True,
+                                sources=sources,
+                            )
+                    metrics.observe_run(rec, "error")
                     raise ApiError(public) from exc
+                metrics.observe_run(rec, "refused" if is_refusal(answer) else "answered")
         finally:
             lease.release()
         return QueryResponse(
@@ -286,32 +381,46 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """The stream for the default pipeline. It runs in the task that serves the response, so when the
         client goes away that task is cancelled, the cancel reaches the provider's HTTP stream, and the
         provider stops generating."""
-        outcome = "client_gone"  # stays this if the response is cancelled while a yield is waiting
+        outcome = "abandoned"  # stays this if the response is cancelled because the client left
         result = StreamResult()
+        parts: list[str] = []
         try:
             with record_run(query=query) as rec:
+                rec.meta.update(run_meta())
                 try:
-                    async with asyncio.timeout(settings.request_timeout_seconds):
-                        async for text in astream_agent(query, result):
-                            yield _sse({"token": text})
-                except Exception as exc:
-                    public = classify_error(exc)
-                    outcome = "timeout" if public.code == "timeout" else "error"
-                    log.error(
-                        "stream failed, request_id=%s code=%s error=%s: %s",
-                        request_id, public.code, type(exc).__name__, exc,
+                    try:
+                        async with asyncio.timeout(settings.request_timeout_seconds):
+                            async for text in astream_agent(query, result):
+                                parts.append(text)
+                                yield _sse({"token": text})
+                    except Exception as exc:
+                        public = classify_error(exc)
+                        log.error(
+                            "stream failed, request_id=%s code=%s error=%s: %s",
+                            request_id, public.code, type(exc).__name__, exc,
+                        )
+                        metrics.observe_error(public.code)
+                        payload = {"error": public.message, "code": public.code, "request_id": request_id}
+                        sources = []
+                        if settings.fallback_to_retrieval and public.code in _DEGRADABLE_CODES:
+                            sources = await degraded_sources(query)
+                        if sources:
+                            payload.update(degraded=True, sources=sources)
+                        outcome = "degraded" if sources else "error"
+                        yield _sse(payload)
+                        return
+                    outcome = "refused" if is_refusal("".join(parts)) else "answered"
+                    yield _sse(
+                        {
+                            "done": True,
+                            "ttft_seconds": result.ttft_seconds,
+                            "cost_usd": rec.total_cost_usd,
+                            "llm_calls": rec.llm_calls,
+                        }
                     )
-                    yield _sse({"error": public.message, "code": public.code, "request_id": request_id})
-                    return
-            outcome = "done"
-            yield _sse(
-                {
-                    "done": True,
-                    "ttft_seconds": result.ttft_seconds,
-                    "cost_usd": rec.total_cost_usd,
-                    "llm_calls": rec.llm_calls,
-                }
-            )
+                finally:
+                    metrics.observe_run(rec, outcome)
+                    metrics.observe_ttft(result.ttft_seconds)
         finally:
             lease.release()
             log.info("stream finished, request_id=%s outcome=%s", request_id, outcome)
@@ -342,30 +451,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         stop = threading.Event()
         result = StreamResult()
         summary: dict[str, Any] = {}
+        parts: list[str] = []
 
         def emit(kind: str, value: Any) -> None:
             loop.call_soon_threadsafe(channel.put_nowait, (kind, value))
 
         def produce() -> None:
+            outcome = "abandoned"
             try:
                 with record_run(query=req.query) as rec:
+                    rec.meta.update(run_meta())
                     chunks = stream_agent(req.query, result)
                     try:
                         for chunk in chunks:
                             if stop.is_set():
                                 log.info("stream worker stopping early, request_id=%s", request_id)
                                 break
+                            parts.append(chunk)
                             emit("token", chunk)
+                        else:
+                            outcome = "refused" if is_refusal("".join(parts)) else "answered"
                     finally:
                         chunks.close()
                     summary["cost_usd"] = rec.total_cost_usd
                     summary["llm_calls"] = rec.llm_calls
+                    metrics.observe_run(rec, outcome)
+                    metrics.observe_ttft(result.ttft_seconds)
             except Exception as exc:  # surface the failure instead of hanging
                 public = classify_error(exc)
                 log.error(
                     "stream failed, request_id=%s code=%s error=%s: %s",
                     request_id, public.code, type(exc).__name__, exc,
                 )
+                metrics.observe_error(public.code)
                 emit("error", public)
             finally:
                 emit("done", None)

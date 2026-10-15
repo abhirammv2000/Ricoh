@@ -8,6 +8,7 @@ verdict sends the graph back to the planner once. The prompts are module-level c
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import re
 import time
@@ -125,6 +126,11 @@ Evidence:
 
 Answer:
 """
+
+
+# a short id for the synthesizer prompt, so a trace says which wording produced an answer. It changes when the
+# prompt text does, and in no other case
+PROMPT_VERSION: str = hashlib.sha256(SYNTHESIZER_PROMPT.encode()).hexdigest()[:8]
 
 
 # the synthesizer says this (rule 4 of its prompt) when it can't answer. The harness and the

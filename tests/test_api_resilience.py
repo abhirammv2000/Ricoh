@@ -29,6 +29,9 @@ from src.ratelimit import TokenBucketLimiter
 
 SECRET = "sk-ant-api03-SECRET-DO-NOT-LEAK"
 
+# these tests are about how failures are reported, so the retrieval fallback (tested in test_api_degraded.py) is off
+STRICT = Settings(fallback_to_retrieval=False)
+
 
 @pytest.fixture(autouse=True)
 def index_is_ready(monkeypatch):
@@ -115,7 +118,7 @@ def test_provider_overload_returns_503_with_retry_after_and_no_provider_text(mon
         raise ProviderError(529)
 
     monkeypatch.setattr(apimod, "arun_agent", overloaded)
-    r = post(create_app(Settings()))
+    r = post(create_app(STRICT))
     assert r.status_code == 503
     body = r.json()
     assert body["code"] == "model_unavailable"
@@ -129,7 +132,7 @@ def test_an_unexpected_error_is_a_generic_500_with_a_request_id(monkeypatch):
         raise RuntimeError(f"database password is {SECRET}")
 
     monkeypatch.setattr(apimod, "arun_agent", broken)
-    r = post(create_app(Settings()))
+    r = post(create_app(STRICT))
     assert r.status_code == 500
     assert r.json()["code"] == "internal_error"
     assert r.json()["request_id"]
@@ -147,7 +150,7 @@ def test_a_slow_answer_gets_a_504_at_the_deadline_and_the_call_is_cancelled(monk
             raise
 
     monkeypatch.setattr(apimod, "arun_agent", slow)
-    app = create_app(Settings(request_timeout_seconds=0.3))
+    app = create_app(Settings(fallback_to_retrieval=False, request_timeout_seconds=0.3))
     r = post(app)
     assert r.status_code == 504
     assert r.json()["code"] == "timeout"
@@ -159,7 +162,7 @@ def test_a_failed_request_gives_its_slot_back(monkeypatch):
         raise ProviderError(529)
 
     monkeypatch.setattr(apimod, "arun_agent", broken)
-    app = create_app(Settings(max_concurrent_queries=1))
+    app = create_app(Settings(fallback_to_retrieval=False, max_concurrent_queries=1))
     for _ in range(5):
         assert post(app).status_code == 503
     assert app.state.gate.in_flight == 0
@@ -174,7 +177,7 @@ def test_when_full_extra_requests_get_a_fast_503_and_the_admitted_one_still_fini
         return "answer [a.pdf, Page 1]"
 
     monkeypatch.setattr(apimod, "arun_agent", blocked)
-    app = create_app(Settings(max_concurrent_queries=1, queue_timeout_seconds=0.05))
+    app = create_app(Settings(fallback_to_retrieval=False, max_concurrent_queries=1, queue_timeout_seconds=0.05))
 
     async def scenario():
         started["flag"] = asyncio.Event()
@@ -208,13 +211,13 @@ def test_every_response_has_a_request_id(monkeypatch):
         return "ok [a.pdf, Page 1]"
 
     monkeypatch.setattr(apimod, "arun_agent", fine)
-    app = create_app(Settings())
+    app = create_app(STRICT)
     r = asyncio.run(_call(app, "GET", "/health"))
     assert len(r.headers["x-request-id"]) >= 8
 
 
 def test_a_sane_request_id_from_the_caller_is_kept_and_a_bad_one_is_replaced():
-    app = create_app(Settings())
+    app = create_app(STRICT)
     good = asyncio.run(_call(app, "GET", "/health", headers={"X-Request-ID": "trace-123.abc"}))
     assert good.headers["x-request-id"] == "trace-123.abc"
     bad = asyncio.run(_call(app, "GET", "/health", headers={"X-Request-ID": "x y\"z; drop"}))
@@ -237,7 +240,7 @@ def test_a_stream_failure_is_an_error_event_without_provider_text(monkeypatch, t
         yield  # pragma: no cover
 
     monkeypatch.setattr(apimod, "stream_agent", broken_stream)
-    r = post(create_app(Settings()), path="/query/stream")
+    r = post(create_app(STRICT), path="/query/stream")
     assert r.status_code == 200
     assert '"code": "model_unavailable"' in r.text
     assert SECRET not in r.text
@@ -261,7 +264,7 @@ def test_a_stream_past_the_deadline_ends_with_a_timeout_event_and_stops_the_work
             stopped.set()
 
     monkeypatch.setattr(apimod, "stream_agent", slow_stream)
-    app = create_app(Settings(request_timeout_seconds=0.4))
+    app = create_app(Settings(fallback_to_retrieval=False, request_timeout_seconds=0.4))
     r = post(app, path="/query/stream")
     assert '"token": "first "' in r.text
     assert '"code": "timeout"' in r.text
@@ -270,7 +273,7 @@ def test_a_stream_past_the_deadline_ends_with_a_timeout_event_and_stops_the_work
 
 
 def test_a_full_service_refuses_a_stream_before_it_starts(monkeypatch):
-    app = create_app(Settings(max_concurrent_queries=1, queue_timeout_seconds=0.0))
+    app = create_app(Settings(fallback_to_retrieval=False, max_concurrent_queries=1, queue_timeout_seconds=0.0))
 
     async def scenario():
         lease = await app.state.gate.acquire(0)  # something else holds the only slot
@@ -293,7 +296,7 @@ def test_the_default_pipeline_streams_tokens_then_a_done_event_with_cost(monkeyp
 
     monkeypatch.setattr(apimod, "async_pipeline_supported", lambda: True)
     monkeypatch.setattr(apimod, "astream_agent", fake_astream)
-    app = create_app(Settings())
+    app = create_app(STRICT)
     r = post(app, path="/query/stream")
     assert r.status_code == 200
     assert '"token": "hel"' in r.text and '"token": "lo"' in r.text
@@ -308,7 +311,7 @@ def test_the_default_pipeline_reports_a_provider_failure_as_a_public_error_event
 
     monkeypatch.setattr(apimod, "async_pipeline_supported", lambda: True)
     monkeypatch.setattr(apimod, "astream_agent", broken)
-    app = create_app(Settings())
+    app = create_app(STRICT)
     r = post(app, path="/query/stream")
     assert '"code": "model_unavailable"' in r.text
     assert SECRET not in r.text
@@ -329,7 +332,7 @@ def test_the_default_pipeline_cancels_the_provider_stream_at_the_deadline(monkey
 
     monkeypatch.setattr(apimod, "async_pipeline_supported", lambda: True)
     monkeypatch.setattr(apimod, "astream_agent", slow)
-    app = create_app(Settings(request_timeout_seconds=0.3))
+    app = create_app(Settings(fallback_to_retrieval=False, request_timeout_seconds=0.3))
     r = post(app, path="/query/stream")
     assert '"token": "first "' in r.text
     assert '"code": "timeout"' in r.text
