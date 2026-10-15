@@ -111,7 +111,7 @@ def test_two_metrics_objects_do_not_share_state():
 
 
 def test_metrics_are_served_in_the_prometheus_text_format():
-    r = call(create_app(Settings()), "GET", "/metrics")
+    r = call(create_app(Settings(auth_disabled=True)), "GET", "/metrics")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/plain")
     assert "# TYPE citera_http_requests_total counter" in r.text
@@ -122,7 +122,7 @@ def test_requests_are_counted_by_endpoint_and_status(monkeypatch):
         return "Choose Network [a.pdf, Page 1]."
 
     monkeypatch.setattr(apimod, "arun_agent", fine)
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     call(app, "POST", "/query", json={"query": "how do I shut it down?"})
     call(app, "POST", "/query", json={"query": ""})  # fails validation: 422
     call(app, "GET", "/health")
@@ -140,7 +140,7 @@ def test_an_answer_and_a_refusal_are_counted_apart(monkeypatch):
         return next(answers)
 
     monkeypatch.setattr(apimod, "arun_agent", scripted)
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     call(app, "POST", "/query", json={"query": "how do I shut it down?"})
     call(app, "POST", "/query", json={"query": "what is the meaning of life?"})
     text = call(app, "GET", "/metrics").text
@@ -153,7 +153,7 @@ def test_a_failed_question_is_an_error_outcome_and_an_error_code(monkeypatch):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(apimod, "arun_agent", broken)
-    app = create_app(Settings(fallback_to_retrieval=False))
+    app = create_app(Settings(auth_disabled=True, fallback_to_retrieval=False))
     call(app, "POST", "/query", json={"query": "how do I shut it down?"})
     text = call(app, "GET", "/metrics").text
     assert value(text, 'citera_answers_total{outcome="error"}') == 1
@@ -161,7 +161,7 @@ def test_a_failed_question_is_an_error_outcome_and_an_error_code(monkeypatch):
 
 
 def test_unknown_paths_share_one_label_so_a_scanner_cannot_create_series():
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     for path in ("/wp-admin", "/.env", "/a/b/c", "/x1", "/x2"):
         call(app, "GET", path)
     text = call(app, "GET", "/metrics").text
@@ -175,13 +175,13 @@ def test_no_question_text_ever_reaches_the_metrics(monkeypatch):
         return "ok [a.pdf, Page 1]."
 
     monkeypatch.setattr(apimod, "arun_agent", fine)
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     call(app, "POST", "/query", json={"query": "my printer serial number is PX-99-SECRET"})
     assert "SECRET" not in call(app, "GET", "/metrics").text
 
 
 def test_readiness_and_what_is_being_served_are_exported():
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     call(app, "GET", "/ready")
     text = call(app, "GET", "/metrics").text
     assert value(text, "citera_ready") == 1
@@ -193,7 +193,7 @@ def test_not_ready_is_exported_as_zero(monkeypatch):
     monkeypatch.setattr(
         apimod, "compute_readiness", lambda require_manifest=True: Readiness(problems=["empty"], checked_at=1e12)
     )
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     call(app, "GET", "/ready")
     assert value(call(app, "GET", "/metrics").text, "citera_ready") == 0
 
@@ -212,7 +212,7 @@ def test_a_trace_records_what_produced_the_answer(monkeypatch):
 
     monkeypatch.setattr(apimod, "record_run", Spy)
     monkeypatch.setattr(apimod, "arun_agent", fine)
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     call(app, "GET", "/ready")
     call(app, "POST", "/query", json={"query": "how do I shut it down?"})
     assert seen["meta"]["index_version"] == "idx42"

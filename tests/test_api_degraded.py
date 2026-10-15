@@ -77,7 +77,7 @@ def post(app, path="/query", query="how do I configure the network?"):
 def test_provider_outage_returns_the_retrieved_passages_marked_as_degraded(monkeypatch):
     failing_agent(monkeypatch, 529)
     retriever = use_retriever(monkeypatch, FakeRetriever())
-    r = post(create_app(Settings()))
+    r = post(create_app(Settings(auth_disabled=True)))
     assert r.status_code == 200
     body = r.json()
     assert body["degraded"] is True
@@ -93,7 +93,7 @@ def test_provider_outage_returns_the_retrieved_passages_marked_as_degraded(monke
 def test_an_excerpt_is_short_and_has_its_whitespace_tidied(monkeypatch):
     failing_agent(monkeypatch, 529)
     use_retriever(monkeypatch, FakeRetriever())
-    sources = post(create_app(Settings())).json()["sources"]
+    sources = post(create_app(Settings(auth_disabled=True))).json()["sources"]
     assert sources[0]["excerpt"] == "Open the Settings menu. Choose Network."
     assert len(sources[1]["excerpt"]) == 300
 
@@ -103,7 +103,7 @@ def test_a_normal_response_has_exactly_the_fields_it_always_had(monkeypatch):
         return "Choose Network [network_guide.pdf, Page 3]."
 
     monkeypatch.setattr(apimod, "arun_agent", fine)
-    r = post(create_app(Settings()))
+    r = post(create_app(Settings(auth_disabled=True)))
     assert set(r.json()) == {"answer", "cost_usd", "llm_calls", "latency_seconds"}
     assert "x-citera-degraded" not in r.headers
 
@@ -114,7 +114,7 @@ def test_a_slow_provider_that_hits_the_deadline_also_degrades(monkeypatch):
 
     monkeypatch.setattr(apimod, "arun_agent", slow)
     use_retriever(monkeypatch, FakeRetriever())
-    r = post(create_app(Settings(request_timeout_seconds=0.3)))
+    r = post(create_app(Settings(auth_disabled=True, request_timeout_seconds=0.3)))
     assert r.status_code == 200 and r.json()["degraded"] is True
     assert r.headers["x-citera-degraded"] == "timeout"
 
@@ -122,7 +122,7 @@ def test_a_slow_provider_that_hits_the_deadline_also_degrades(monkeypatch):
 def test_with_the_fallback_off_an_outage_is_a_503(monkeypatch):
     failing_agent(monkeypatch, 529)
     retriever = use_retriever(monkeypatch, FakeRetriever())
-    r = post(create_app(Settings(fallback_to_retrieval=False)))
+    r = post(create_app(Settings(auth_disabled=True, fallback_to_retrieval=False)))
     assert r.status_code == 503 and r.json()["code"] == "model_unavailable"
     assert retriever.calls == 0
 
@@ -130,14 +130,14 @@ def test_with_the_fallback_off_an_outage_is_a_503(monkeypatch):
 def test_when_retrieval_finds_nothing_it_is_still_a_503_not_an_empty_answer(monkeypatch):
     failing_agent(monkeypatch, 529)
     use_retriever(monkeypatch, FakeRetriever(found=[]))
-    r = post(create_app(Settings()))
+    r = post(create_app(Settings(auth_disabled=True)))
     assert r.status_code == 503 and r.json()["code"] == "model_unavailable"
 
 
 def test_when_retrieval_also_fails_the_caller_gets_the_original_error(monkeypatch):
     failing_agent(monkeypatch, 529)
     use_retriever(monkeypatch, FakeRetriever(fail=True))
-    r = post(create_app(Settings()))
+    r = post(create_app(Settings(auth_disabled=True)))
     assert r.status_code == 503 and r.json()["code"] == "model_unavailable"
     assert "index exploded" not in r.text
 
@@ -146,14 +146,14 @@ def test_when_retrieval_also_fails_the_caller_gets_the_original_error(monkeypatc
 def test_errors_that_passages_would_not_fix_still_fail(monkeypatch, status, code):
     failing_agent(monkeypatch, status)
     retriever = use_retriever(monkeypatch, FakeRetriever())
-    r = post(create_app(Settings()))
+    r = post(create_app(Settings(auth_disabled=True)))
     assert r.json()["code"] == code and r.status_code != 200
     assert retriever.calls == 0
 
 
 def test_a_full_service_is_still_a_503_and_does_not_start_retrieval(monkeypatch):
     retriever = use_retriever(monkeypatch, FakeRetriever())
-    app = create_app(Settings(max_concurrent_queries=1, queue_timeout_seconds=0.0))
+    app = create_app(Settings(auth_disabled=True, max_concurrent_queries=1, queue_timeout_seconds=0.0))
 
     async def scenario():
         lease = await app.state.gate.acquire(0)
@@ -173,7 +173,7 @@ def test_a_stream_degrades_with_the_passages_in_its_error_event(monkeypatch):
     monkeypatch.setattr(apimod, "async_pipeline_supported", lambda: True)
     monkeypatch.setattr(apimod, "astream_agent", broken)
     use_retriever(monkeypatch, FakeRetriever())
-    r = post(create_app(Settings()), path="/query/stream")
+    r = post(create_app(Settings(auth_disabled=True)), path="/query/stream")
     assert r.status_code == 200
     assert '"degraded": true' in r.text and '"code": "model_unavailable"' in r.text
     assert "network_guide.pdf" in r.text
@@ -183,7 +183,7 @@ def test_a_stream_degrades_with_the_passages_in_its_error_event(monkeypatch):
 def test_degraded_answers_are_counted_apart_from_real_ones(monkeypatch):
     failing_agent(monkeypatch, 529)
     use_retriever(monkeypatch, FakeRetriever())
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     post(app)
     text = asyncio.run(_call(app, "GET", "/metrics")).text
     assert 'citera_answers_total{outcome="degraded"} 1.0' in text

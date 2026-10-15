@@ -58,14 +58,14 @@ def call(app, method, url, **kwargs):
 
 def test_ready_reports_what_the_service_is_serving(monkeypatch):
     use(monkeypatch, ready())
-    r = call(create_app(Settings()), "GET", "/ready")
+    r = call(create_app(Settings(auth_disabled=True)), "GET", "/ready")
     assert r.status_code == 200
     assert r.json() == {"status": "ready", "index_version": "abc123", "chunks": 88, "embedding_model": "model-a"}
 
 
 def test_not_ready_is_a_503_that_says_why(monkeypatch):
     use(monkeypatch, not_ready())
-    r = call(create_app(Settings()), "GET", "/ready")
+    r = call(create_app(Settings(auth_disabled=True)), "GET", "/ready")
     assert r.status_code == 503
     assert r.json()["status"] == "not_ready"
     assert "empty" in r.json()["problems"][0]
@@ -75,7 +75,7 @@ def test_not_ready_is_a_503_that_says_why(monkeypatch):
 def test_health_stays_ok_when_the_index_is_bad(monkeypatch):
     # an orchestrator that restarted the process because of a bad index would restart it forever
     use(monkeypatch, not_ready())
-    assert call(create_app(Settings()), "GET", "/health").status_code == 200
+    assert call(create_app(Settings(auth_disabled=True)), "GET", "/health").status_code == 200
 
 
 def test_queries_are_refused_before_any_model_call_while_not_ready(monkeypatch):
@@ -87,7 +87,7 @@ def test_queries_are_refused_before_any_model_call_while_not_ready(monkeypatch):
         return "unreachable"
 
     monkeypatch.setattr(apimod, "arun_agent", must_not_run)
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     r = call(app, "POST", "/query", json={"query": "how do I shut it down?"})
     assert r.status_code == 503 and r.json()["code"] == "not_ready"
     s = call(app, "POST", "/query/stream", json={"query": "how do I shut it down?"})
@@ -103,7 +103,7 @@ def test_a_ready_service_answers(monkeypatch):
         return "ok [a.pdf, Page 1]"
 
     monkeypatch.setattr(apimod, "arun_agent", fine)
-    r = call(create_app(Settings()), "POST", "/query", json={"query": "how do I shut it down?"})
+    r = call(create_app(Settings(auth_disabled=True)), "POST", "/query", json={"query": "how do I shut it down?"})
     assert r.status_code == 200
 
 
@@ -115,7 +115,7 @@ def test_a_service_that_was_not_ready_recovers_without_a_restart(monkeypatch):
         return "ok [a.pdf, Page 1]"
 
     monkeypatch.setattr(apimod, "arun_agent", fine)
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     assert call(app, "GET", "/ready").status_code == 503
     # a failed check is not trusted forever: once it is old, the next request checks again
     app.state.readiness.checked_at -= readiness_mod.RECHECK_AFTER_FAILURE_SECONDS + 1
@@ -131,7 +131,7 @@ def test_a_recent_failure_is_not_rechecked_on_every_probe(monkeypatch):
         return not_ready()
 
     monkeypatch.setattr(apimod, "compute_readiness", counting)
-    app = create_app(Settings())
+    app = create_app(Settings(auth_disabled=True))
     for _ in range(5):
         call(app, "GET", "/ready")
     assert len(calls) == 1
@@ -141,7 +141,7 @@ def test_startup_checks_the_index_and_warms_up_once_when_ready(monkeypatch):
     use(monkeypatch, ready())
     warmed = []
     monkeypatch.setattr(apimod, "_warm_up", lambda: warmed.append(1))
-    with TestClient(create_app(Settings())) as client:  # entering runs the lifespan
+    with TestClient(create_app(Settings(auth_disabled=True))) as client:  # entering runs the lifespan
         assert client.get("/ready").status_code == 200
     assert warmed == [1]
 
@@ -150,7 +150,7 @@ def test_startup_does_not_warm_up_or_crash_when_not_ready(monkeypatch):
     use(monkeypatch, not_ready())
     warmed = []
     monkeypatch.setattr(apimod, "_warm_up", lambda: warmed.append(1))
-    with TestClient(create_app(Settings())) as client:
+    with TestClient(create_app(Settings(auth_disabled=True))) as client:
         assert client.get("/health").status_code == 200
         assert client.get("/ready").status_code == 503
     assert warmed == []

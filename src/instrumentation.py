@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextvars
 import json
+import os
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -19,9 +20,13 @@ from typing import Any
 
 from src.config import PROJECT_ROOT
 from src.llm_factory import response_text
+from src.privacy import trace_query
 
-# traces are appended to a jsonl file, so nothing needs a hosted service to run the repo
-TRACE_PATH: Path = PROJECT_ROOT / "traces" / "traces.jsonl"
+# traces are appended to a jsonl file, so nothing needs a hosted service to run the repo. TRACE_DIR moves it,
+# for a container whose app folder is read-only, and past TRACE_MAX_BYTES the file is rotated to .1 so a
+# long-running service cannot fill its disk with traces
+TRACE_PATH: Path = Path(os.getenv("TRACE_DIR") or PROJECT_ROOT / "traces") / "traces.jsonl"
+TRACE_MAX_BYTES: int = int(os.getenv("TRACE_MAX_BYTES", str(50 * 1024 * 1024)))
 
 
 # prices in USD per million tokens, as of 2026-08-01. It's a fixed table so two eval runs stay
@@ -144,7 +149,7 @@ class RunRecord:
     def to_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
-            "query": self.query,
+            "query": trace_query(self.query),
             "started_at": self.started_at,
             "meta": self.meta,
             "llm_calls": self.llm_calls,
@@ -162,6 +167,35 @@ class RunRecord:
 _CURRENT: contextvars.ContextVar[RunRecord | None] = contextvars.ContextVar(
     "citera_run_record", default=None
 )
+
+
+def append_trace_line(path: Path, line: str, max_bytes: int | None = None) -> None:
+    """Add one line to the trace file so that lines from several processes never mix.
+
+    The whole line goes out in one write() on a file opened for appending. Python's own buffered writes
+    can split a long line into several system calls, and two workers doing that interleave their halves,
+    which leaves a line that is not JSON. Past max_bytes the file is renamed to .1 first.
+
+    This is guaranteed on Linux and other POSIX systems, where a write to a file opened for appending is
+    atomic, and that is where the service runs. It is not true on Windows, where the C runtime fakes append
+    with a seek and a write, so processes can overwrite each other: with 6 processes writing 240 lines, 155
+    survived. A Windows laptop runs one process, where it does not matter.
+    """
+    limit = TRACE_MAX_BYTES if max_bytes is None else max_bytes
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if limit > 0 and path.stat().st_size >= limit:
+            os.replace(path, path.with_name(path.name + ".1"))
+    except FileNotFoundError:
+        pass
+    data = line.encode("utf-8")
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    try:
+        view = memoryview(data)
+        while view:
+            view = view[os.write(fd, view):]
+    finally:
+        os.close(fd)
 
 
 class record_run:
@@ -198,9 +232,7 @@ class record_run:
                 _CURRENT.set(None)
         if self._persist and self.record.spans:
             try:
-                TRACE_PATH.parent.mkdir(parents=True, exist_ok=True)
-                with open(TRACE_PATH, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(self.record.to_dict(), ensure_ascii=False) + "\n")
+                append_trace_line(TRACE_PATH, json.dumps(self.record.to_dict(), ensure_ascii=False) + "\n")
             except OSError:
                 # losing a trace shouldn't break the request
                 pass

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import contextvars
 import json
 import logging
 import math
@@ -33,11 +34,14 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from api.auth import ANONYMOUS, Authenticator, parse_keys
+from api.budget import BUDGET_EXCEEDED, DailyBudget
 from api.errors import NOT_READY, OVERLOADED, TIMEOUT, ApiError, PublicError, classify_error
 from api.limits import ConcurrencyGate, Lease
+from api.logging_config import configure_logging, request_id_var
 from api.metrics import Metrics, MetricsMiddleware
 from api.readiness import Readiness, compute_readiness, needs_recheck
-from api.settings import Settings
+from api.settings import Settings, SettingsError
 from src.agent import (
     PROMPT_VERSION,
     StreamResult,
@@ -52,6 +56,7 @@ from src.agent import (
 from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K, USE_PLANNER, USE_ROUTER, USE_TOOL_LOOP, USE_VERIFIER
 from src.guardrails import screen_input
 from src.instrumentation import record_run
+from src.privacy import trace_mode
 from src.llm_factory import (
     _DEFAULT_MAX_RETRIES,
     _DEFAULT_TIMEOUT_SECONDS,
@@ -98,6 +103,8 @@ class RequestIdMiddleware:
                 break
         request_id = supplied if _REQUEST_ID_OK.match(supplied) else uuid.uuid4().hex
         scope.setdefault("state", {})["request_id"] = request_id
+        # every log line written while this request is handled, by any module, carries the id
+        token = request_id_var.set(request_id)
 
         async def send_with_id(message) -> None:
             if message["type"] == "http.response.start":
@@ -106,12 +113,18 @@ class RequestIdMiddleware:
                 message = {**message, "headers": headers}
             await send(message)
 
-        await self.app(scope, receive, send_with_id)
+        try:
+            await self.app(scope, receive, send_with_id)
+        finally:
+            request_id_var.reset(token)
 
 
 def rate_limit(request: Request) -> None:
     """Reject a client that is over its rate with 429 and a Retry-After hint."""
-    client = request.client.host if request.client else "unknown"
+    # a caller who authenticated is counted by their key. Behind a proxy every caller shares one address, so
+    # counting by address would make them all share one limit. With no key (auth off), it is the address
+    identity = getattr(request.state, "client", ANONYMOUS)
+    client = identity.label if identity is not ANONYMOUS else (request.client.host if request.client else "unknown")
     if not _limiter.allow(client):
         wait = math.ceil(_limiter.retry_after(client)) or 1
         raise HTTPException(
@@ -145,7 +158,7 @@ class QueryResponse(BaseModel):
 
 # the failures that retrieval can cover for. The other errors (a full service, a bad request, our own bad
 # credentials) would not be fixed by showing passages
-_DEGRADABLE_CODES = frozenset({"model_unavailable", "timeout"})
+_DEGRADABLE_CODES = frozenset({"model_unavailable", "timeout", "budget_exceeded"})
 
 DEGRADED_ANSWER = (
     "I could not write an answer just now because the language model is not available. "
@@ -177,6 +190,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         # check the index and load the models before the first question, not during it. The first request
         # used to take 2.7 s against 0.4 s for the rest, because it loaded the embedding model
+        configure_logging(settings.log_format)
+        if trace_mode() == "full":
+            log.warning(
+                "traces store the full text of every question. Set TRACE_QUERY_MODE=hash for a deployed service."
+            )
         readiness = await refresh_readiness(force=True)
         if readiness.ready:
             await asyncio.to_thread(_warm_up)
@@ -206,11 +224,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "(LLM_TIMEOUT_SECONDS %.0f x %d tries = %.0f s). A slow, failing provider will give a 504.",
             settings.request_timeout_seconds, _DEFAULT_TIMEOUT_SECONDS, _DEFAULT_MAX_RETRIES + 1, worst_case,
         )
+    try:
+        keys = parse_keys(settings.api_keys)
+    except ValueError as exc:
+        raise SettingsError(f"API_KEYS is not valid: {exc}") from None
+    if not keys and not settings.auth_disabled:
+        raise SettingsError(
+            "API_KEYS is not set. Set it to one or more keys, or set API_AUTH_DISABLED=true to run "
+            "with no authentication (for a laptop only)."
+        )
+    authenticate = Authenticator(keys, enabled=not settings.auth_disabled)
+    app.state.authenticate = authenticate
+    budget = DailyBudget(settings.daily_budget_usd)
+    app.state.budget = budget
+    if settings.auth_disabled:
+        log.warning("API_AUTH_DISABLED is set: anyone who can reach this service can use it")
+    log.info(
+        "auth %s (%d keys), daily budget %s, request timeout %.0f s, %d concurrent",
+        "off" if settings.auth_disabled else "on", len(keys),
+        f"${settings.daily_budget_usd:.2f}" if budget.enabled else "off",
+        settings.request_timeout_seconds, settings.max_concurrent_queries,
+    )
     app.state.gate = ConcurrencyGate(settings.max_concurrent_queries)
     metrics = Metrics()
     app.state.metrics = metrics
     metrics.set_build(default_model_label(), PROMPT_VERSION)
     metrics.in_flight.set_function(lambda: app.state.gate.in_flight)
+    metrics.budget_spent.set_function(lambda: budget.spent_usd)
+    metrics.budget_limit.set_function(lambda: budget.limit_usd if budget.enabled else 0.0)
     app.add_middleware(MetricsMiddleware, metrics=metrics)
     app.add_middleware(RequestIdMiddleware)
 
@@ -246,6 +287,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         evidence and returning a confident refusal."""
         if not (await refresh_readiness()).ready:
             raise ApiError(NOT_READY)
+
+    def finish_run(rec: Any, outcome: str) -> None:
+        """Record a finished question in the metrics, and its cost against the daily budget."""
+        metrics.observe_run(rec, outcome)
+        budget.record(rec.total_cost_usd)
 
     def run_meta() -> dict[str, str]:
         """What produced this answer, for the trace: the index, the model, the prompt and the pipeline."""
@@ -315,13 +361,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             headers={"Retry-After": str(NOT_READY.retry_after)},
         )
 
-    @app.get("/metrics")
+    @app.get("/metrics", dependencies=[Depends(authenticate)])
     def metrics_endpoint() -> Response:
         """Prometheus metrics. See api/metrics.py for what each one means."""
         body, content_type = metrics.render()
         return Response(body, media_type=content_type)
 
-    @app.post("/query", response_model=QueryResponse, response_model_exclude_none=True, dependencies=[Depends(rate_limit)])
+    @app.post(
+        "/query", response_model=QueryResponse, response_model_exclude_none=True,
+        dependencies=[Depends(authenticate), Depends(rate_limit)],
+    )
     async def query(request: Request, req: QueryRequest, response: Response) -> QueryResponse:
         """Answer one question and return the answer with its cost and latency.
 
@@ -338,6 +387,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             with record_run(query=req.query) as rec:
                 rec.meta.update(run_meta())
                 try:
+                    if budget.exceeded:
+                        raise ApiError(BUDGET_EXCEEDED)
                     async with asyncio.timeout(settings.request_timeout_seconds):
                         try:
                             answer = await arun_agent(req.query)
@@ -356,7 +407,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             # No error is raised, so the outage is counted here (a raised error is counted by its handler)
                             metrics.observe_error(public.code)
                             response.headers["X-Citera-Degraded"] = public.code
-                            metrics.observe_run(rec, "degraded")
+                            finish_run(rec, "degraded")
                             return QueryResponse(
                                 answer=DEGRADED_ANSWER,
                                 cost_usd=rec.total_cost_usd,
@@ -365,9 +416,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                                 degraded=True,
                                 sources=sources,
                             )
-                    metrics.observe_run(rec, "error")
+                    finish_run(rec, "error")
                     raise ApiError(public) from exc
-                metrics.observe_run(rec, "refused" if is_refusal(answer) else "answered")
+                finish_run(rec, "refused" if is_refusal(answer) else "answered")
         finally:
             lease.release()
         return QueryResponse(
@@ -389,6 +440,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 rec.meta.update(run_meta())
                 try:
                     try:
+                        if budget.exceeded:
+                            raise ApiError(BUDGET_EXCEEDED)
                         async with asyncio.timeout(settings.request_timeout_seconds):
                             async for text in astream_agent(query, result):
                                 parts.append(text)
@@ -419,13 +472,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         }
                     )
                 finally:
-                    metrics.observe_run(rec, outcome)
+                    finish_run(rec, outcome)
                     metrics.observe_ttft(result.ttft_seconds)
         finally:
             lease.release()
             log.info("stream finished, request_id=%s outcome=%s", request_id, outcome)
 
-    @app.post("/query/stream", dependencies=[Depends(rate_limit)])
+    @app.post("/query/stream", dependencies=[Depends(authenticate), Depends(rate_limit)])
     async def query_stream(request: Request, req: QueryRequest) -> StreamingResponse:
         """Stream the answer as server-sent events.
 
@@ -442,6 +495,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await require_ready()
         lease = await take_slot(request)
         request_id = _request_id(request)
+        if not async_pipeline_supported() and budget.exceeded:
+            lease.release()
+            raise ApiError(BUDGET_EXCEEDED)
         if async_pipeline_supported():
             return _LeasedStreamingResponse(
                 async_events(req.query, request_id, lease), lease, media_type="text/event-stream"
@@ -475,7 +531,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         chunks.close()
                     summary["cost_usd"] = rec.total_cost_usd
                     summary["llm_calls"] = rec.llm_calls
-                    metrics.observe_run(rec, outcome)
+                    finish_run(rec, outcome)
                     metrics.observe_ttft(result.ttft_seconds)
             except Exception as exc:  # surface the failure instead of hanging
                 public = classify_error(exc)
@@ -488,7 +544,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             finally:
                 emit("done", None)
 
-        worker = threading.Thread(target=produce, daemon=True)
+        # a plain thread does not inherit context variables, so run it in a copy of this context to keep the request id
+        context = contextvars.copy_context()
+        worker = threading.Thread(target=context.run, args=(produce,), daemon=True)
         worker.start()
         deadline = time.monotonic() + settings.request_timeout_seconds
 

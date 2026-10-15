@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 class SettingsError(ValueError):
@@ -28,6 +28,15 @@ def _number(env: Mapping[str, str], name: str, default: float, *, minimum: float
     if value < minimum:
         raise SettingsError(f"{name} must be at least {minimum}, got {raw!r}")
     return value
+
+
+def _choice(env: Mapping[str, str], name: str, default: str, allowed: tuple[str, ...]) -> str:
+    raw = (env.get(name) or "").strip().lower()
+    if not raw:
+        return default
+    if raw not in allowed:
+        raise SettingsError(f"{name} must be one of {', '.join(allowed)}, got {raw!r}")
+    return raw
 
 
 def _flag(env: Mapping[str, str], name: str, default: bool) -> bool:
@@ -58,6 +67,15 @@ class Settings:
     require_index_manifest: bool = True
     # when the model provider is down or too slow, answer with the passages retrieval found instead of an error
     fallback_to_retrieval: bool = True
+    # who may call the service. A comma separated list, each `label:secret` or just a secret. Not shown
+    # when settings are printed
+    api_keys: str = field(default="", repr=False)
+    # only for a laptop. With no keys and this off, the service refuses to start
+    auth_disabled: bool = False
+    # the most the service will spend on the model in one UTC day, in dollars. 0 turns it off
+    daily_budget_usd: float = 20.0
+    # text, or json (one object per line, with the request id). The container image sets json
+    log_format: str = "text"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -79,4 +97,8 @@ class Settings:
             ),
             require_index_manifest=_flag(env, "REQUIRE_INDEX_MANIFEST", defaults.require_index_manifest),
             fallback_to_retrieval=_flag(env, "FALLBACK_TO_RETRIEVAL", defaults.fallback_to_retrieval),
+            api_keys=env.get("API_KEYS", ""),
+            auth_disabled=_flag(env, "API_AUTH_DISABLED", defaults.auth_disabled),
+            daily_budget_usd=_number(env, "DAILY_BUDGET_USD", defaults.daily_budget_usd, minimum=0.0),
+            log_format=_choice(env, "LOG_FORMAT", defaults.log_format, ("text", "json")),
         )
