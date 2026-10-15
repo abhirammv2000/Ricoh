@@ -16,6 +16,7 @@ import asyncio
 import hashlib
 import os
 import threading
+import weakref
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -78,8 +79,24 @@ _DEFAULT_MAX_TOKENS: int = 4096
 # retries and timeout, so a 429, a 5xx or a dropped connection doesn't become a crash. The SDK
 # does the retrying (it honours Retry-After), and each call is stateless so retrying is safe. The
 # default timeout is effectively none, so a hung socket would block forever and no retry would fire.
-_DEFAULT_TIMEOUT_SECONDS: float = 60.0
-_DEFAULT_MAX_RETRIES: int = 3
+def _env_number(name: str, default: float, cast=float):
+    """A positive number from the environment, or the default. A bad value stops startup and names itself."""
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = cast(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a number, got {raw!r}") from None
+    if value < 0:
+        raise ValueError(f"{name} must not be negative, got {raw!r}")
+    return value
+
+
+# the API sets these to fit inside its own request deadline. The worst case for one call is
+# timeout * (retries + 1) plus backoff, and a deadline shorter than that cuts the retries short
+_DEFAULT_TIMEOUT_SECONDS: float = _env_number("LLM_TIMEOUT_SECONDS", 60.0)
+_DEFAULT_MAX_RETRIES: int = int(_env_number("LLM_MAX_RETRIES", 3, int))
 
 
 def get_llm(
@@ -169,7 +186,14 @@ _SHARED_ENV_VARS: tuple[str, ...] = (
     "SELF_HOSTED_LLM_BASE_URL",
 )
 
-_shared: dict[tuple, BaseChatModel] = {}
+# Clients used from an event loop are kept per loop, and the loop is held weakly, so a client goes when its
+# loop does. Keying on id(loop) was wrong: a closed loop's memory can be reused by the next loop, which
+# would then be handed a client whose connections belong to the dead one. Code with no running loop (a
+# worker thread, the sync path) shares one set.
+_shared_sync: dict[tuple, BaseChatModel] = {}
+_shared_by_loop: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[tuple, BaseChatModel]]" = (
+    weakref.WeakKeyDictionary()
+)
 _shared_lock = threading.Lock()
 
 
@@ -180,11 +204,11 @@ def _env_fingerprint() -> tuple:
     )
 
 
-def _running_loop_id() -> int | None:
-    """The id of the running asyncio loop, or None. An async HTTP client's connection pool belongs to
-    one loop, so a client used from a loop is not handed to another."""
+def _running_loop() -> asyncio.AbstractEventLoop | None:
+    """The running asyncio loop, or None. An async HTTP client's connection pool belongs to one loop, so a
+    client used from a loop is not handed to another."""
     try:
-        return id(asyncio.get_running_loop())
+        return asyncio.get_running_loop()
     except RuntimeError:
         return None
 
@@ -208,17 +232,22 @@ def shared_llm(
         max_tokens,
         tuple(sorted((k, repr(v)) for k, v in kwargs.items())),
         _env_fingerprint(),
-        _running_loop_id(),
     )
+    loop = _running_loop()
     with _shared_lock:
-        llm = _shared.get(key)
+        if loop is None:
+            cache = _shared_sync
+        else:
+            cache = _shared_by_loop.setdefault(loop, {})
+        llm = cache.get(key)
         if llm is None:
             llm = get_llm(provider, model, temperature, max_tokens, **kwargs)
-            _shared[key] = llm
+            cache[key] = llm
         return llm
 
 
 def clear_shared_llms() -> None:
     """Forget every shared client. For tests, and after a change that a client should not outlive."""
     with _shared_lock:
-        _shared.clear()
+        _shared_sync.clear()
+        _shared_by_loop.clear()
