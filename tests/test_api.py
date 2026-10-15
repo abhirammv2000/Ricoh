@@ -96,7 +96,14 @@ def test_stream_rejects_injection():
     assert r.status_code == 400
 
 
-def test_stream_emits_tokens_then_done(monkeypatch):
+@pytest.fixture
+def threaded_stream(monkeypatch):
+    """Streaming through the worker thread, which is what runs when the planner, verifier, tool loop, router
+    or semantic cache is on. The default pipeline streams with astream_agent instead."""
+    monkeypatch.setattr(apimod, "async_pipeline_supported", lambda: False)
+
+
+def test_stream_emits_tokens_then_done(monkeypatch, threaded_stream):
     def fake_stream(q, result):
         result.ttft_seconds = 0.1
         yield "hel"
