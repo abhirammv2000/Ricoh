@@ -17,8 +17,10 @@ os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 from dotenv import load_dotenv
 
-# override=True so a stale key left in the shell doesn't beat the one in .env
-load_dotenv(override=True)
+# The real environment wins over .env, which is the rule for a deployed service: the platform or a secrets
+# manager sets the environment, and .env is only a local default. On a laptop where a stale key in the
+# shell beats the one in .env, set DOTENV_OVERRIDE=1 to let .env win instead.
+load_dotenv(override=os.getenv("DOTENV_OVERRIDE", "").lower() in ("1", "true", "yes"))
 
 logging.basicConfig(
     level=logging.INFO,
