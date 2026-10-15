@@ -1,17 +1,22 @@
-"""FastAPI backend for the agent, so anything can call it (the Streamlit app uses the same agent code).
+"""The Citera HTTP API: ask a question, get an answer with page-level citations.
 
-    GET  /health         liveness check
+    GET  /health         is the process alive (never looks at the index)
+    GET  /ready          can it give a correct answer (503 with the reasons when not)
     POST /query          answer a question, with its cost and latency
-    POST /query/stream   stream the answer as server-sent events
+    POST /query/stream   the same, streamed as server-sent events
+    GET  /metrics        Prometheus metrics
 
-Run it with: uvicorn api.main:api --port 8000
+Run it with: uvicorn api.main:api --port 8000   (see docs/OPERATIONS.md for the settings, and the Dockerfile.api image)
 
 What it does when things go wrong, in one place:
-  * the model provider is slow, down or rate limiting: the caller gets a 503 or 504 with a short message,
-    never the provider's error text. The full error is logged with the request id.
-  * a question takes longer than REQUEST_TIMEOUT_SECONDS: 504, and the provider call is cancelled.
-  * more than MAX_CONCURRENT_QUERIES questions at once: the extra ones wait QUEUE_TIMEOUT_SECONDS for a
-    slot and then get a 503 with Retry-After.
+  * no valid API key: 401. A caller is rate limited by their key, so callers behind a proxy do not share a limit.
+  * the model provider is slow, down or the daily budget is spent: the answer is the retrieved passages, marked
+    degraded. With FALLBACK_TO_RETRIEVAL=false it is a 503 or 504 with a short message, never the provider's text.
+  * a question takes longer than REQUEST_TIMEOUT_SECONDS: the provider call is cancelled.
+  * more than MAX_CONCURRENT_QUERIES questions at once: the extra ones wait QUEUE_TIMEOUT_SECONDS for a slot and
+    then get a 503 with Retry-After.
+  * the index is missing, empty, damaged or does not match the configuration: 503 not_ready, and the model is
+    not called.
   * a streaming client goes away: the model call is stopped, so nobody pays for an answer no one reads.
 """
 
@@ -23,7 +28,6 @@ import contextvars
 import json
 import logging
 import math
-import os
 import re
 import threading
 import time
@@ -36,7 +40,7 @@ from pydantic import BaseModel, Field
 
 from api.auth import ANONYMOUS, Authenticator, parse_keys
 from api.budget import BUDGET_EXCEEDED, DailyBudget
-from api.errors import NOT_READY, OVERLOADED, TIMEOUT, ApiError, PublicError, classify_error
+from api.errors import NOT_READY, OVERLOADED, TIMEOUT, AnswerContractError, ApiError, PublicError, classify_error
 from api.limits import ConcurrencyGate, Lease
 from api.logging_config import configure_logging, request_id_var
 from api.metrics import Metrics, MetricsMiddleware
@@ -49,6 +53,7 @@ from src.agent import (
     arun_agent,
     astream_agent,
     async_pipeline_supported,
+    follows_answer_contract,
     is_refusal,
     run_agent,
     stream_agent,
@@ -70,13 +75,6 @@ log = logging.getLogger("citera.api")
 
 # cap the input length, which bounds the cost of one request and rejects bad input early
 MAX_QUERY_CHARS = 2000
-
-# rate limit per client ip: RATE_LIMIT_RPS requests a second with a burst of RATE_LIMIT_BURST.
-# Both can be set in the environment. /health is left out so a load balancer can always probe it
-_limiter = TokenBucketLimiter(
-    rate_per_sec=float(os.getenv("RATE_LIMIT_RPS", "1")),
-    capacity=int(os.getenv("RATE_LIMIT_BURST", "10")),
-)
 
 # a request id from a caller is only trusted if it looks like an id, since it goes into logs and headers
 _REQUEST_ID_OK = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
@@ -125,8 +123,9 @@ def rate_limit(request: Request) -> None:
     # counting by address would make them all share one limit. With no key (auth off), it is the address
     identity = getattr(request.state, "client", ANONYMOUS)
     client = identity.label if identity is not ANONYMOUS else (request.client.host if request.client else "unknown")
-    if not _limiter.allow(client):
-        wait = math.ceil(_limiter.retry_after(client)) or 1
+    limiter: TokenBucketLimiter = request.app.state.limiter
+    if not limiter.allow(client):
+        wait = math.ceil(limiter.retry_after(client)) or 1
         raise HTTPException(
             status_code=429,
             detail="rate limit exceeded",
@@ -158,7 +157,7 @@ class QueryResponse(BaseModel):
 
 # the failures that retrieval can cover for. The other errors (a full service, a bad request, our own bad
 # credentials) would not be fixed by showing passages
-_DEGRADABLE_CODES = frozenset({"model_unavailable", "timeout", "budget_exceeded"})
+_DEGRADABLE_CODES = frozenset({"model_unavailable", "timeout", "budget_exceeded", "invalid_answer"})
 
 DEGRADED_ANSWER = (
     "I could not write an answer just now because the language model is not available. "
@@ -213,6 +212,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Citera RAG API", version="1.0.0", lifespan=lifespan)
     app.state.settings = settings
+    # RATE_LIMIT_RPS requests a second with a burst of RATE_LIMIT_BURST, for each caller (see rate_limit)
+    app.state.limiter = TokenBucketLimiter(rate_per_sec=settings.rate_limit_rps, capacity=settings.rate_limit_burst)
     app.state.readiness = None
     app.state.readiness_lock = asyncio.Lock()
     worst_case = _DEFAULT_TIMEOUT_SECONDS * (_DEFAULT_MAX_RETRIES + 1)
@@ -394,6 +395,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             answer = await arun_agent(req.query)
                         except UnsupportedAsyncConfig:
                             answer = await asyncio.to_thread(run_agent, req.query)
+                    if not follows_answer_contract(answer):
+                        # logged by length only, since the text may be what an injected instruction asked for
+                        log.error("answer withheld: no citation and no refusal, request_id=%s len=%d", _request_id(request), len(answer))
+                        raise AnswerContractError()
                 except Exception as exc:
                     public = classify_error(exc)
                     log.error(
@@ -462,15 +467,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         outcome = "degraded" if sources else "error"
                         yield _sse(payload)
                         return
-                    outcome = "refused" if is_refusal("".join(parts)) else "answered"
-                    yield _sse(
-                        {
-                            "done": True,
-                            "ttft_seconds": result.ttft_seconds,
-                            "cost_usd": rec.total_cost_usd,
-                            "llm_calls": rec.llm_calls,
-                        }
-                    )
+                    full = "".join(parts)
+                    outcome = "refused" if is_refusal(full) else "answered"
+                    done = {
+                        "done": True,
+                        "ttft_seconds": result.ttft_seconds,
+                        "cost_usd": rec.total_cost_usd,
+                        "llm_calls": rec.llm_calls,
+                    }
+                    if not follows_answer_contract(full):
+                        # the tokens have been sent, so all that can be done is to say the answer is not to be trusted
+                        done["contract_ok"] = False
+                        metrics.observe_error("invalid_answer")
+                        log.error("streamed answer broke the citation contract, request_id=%s len=%d", request_id, len(full))
+                    yield _sse(done)
                 finally:
                     finish_run(rec, outcome)
                     metrics.observe_ttft(result.ttft_seconds)

@@ -72,6 +72,11 @@ class Metrics:
         self.empty_retrievals = Counter(
             "citera_empty_retrievals_total", "Questions for which retrieval found nothing.", registry=r
         )
+        self.quarantined_chunks = Counter(
+            "citera_quarantined_chunks_total",
+            "Retrieved chunks withheld from the model because they look like instructions to it. Should be zero.",
+            registry=r,
+        )
         self.invalid_citations = Counter(
             "citera_invalid_citations_total", "Answers that cite a document that was not retrieved.", registry=r
         )
@@ -125,6 +130,8 @@ class Metrics:
                     self.empty_retrievals.inc()
             elif span.stage == "citation_guardrail" and span.attributes.get("valid") is False:
                 self.invalid_citations.inc()
+            elif span.stage == "evidence_guard":
+                self.quarantined_chunks.inc(span.attributes.get("quarantined", 0))
 
         self.llm_calls.inc(record.llm_calls)
         self.llm_tokens.labels("input").inc(record.total_input_tokens)

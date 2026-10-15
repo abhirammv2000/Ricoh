@@ -25,7 +25,6 @@ from api.limits import ConcurrencyGate
 from api.main import create_app
 from api.readiness import Readiness
 from api.settings import Settings, SettingsError
-from src.ratelimit import TokenBucketLimiter
 
 SECRET = "sk-ant-api03-SECRET-DO-NOT-LEAK"
 
@@ -43,7 +42,6 @@ def index_is_ready(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def open_rate_limit():
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=10_000.0, capacity=10_000)
     yield
 
 

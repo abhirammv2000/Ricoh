@@ -22,6 +22,10 @@ class PublicError:
     retry_after: int | None = None
 
 
+class AnswerContractError(Exception):
+    """The model's answer neither cites a source nor declines. It is withheld, and what it said is not logged."""
+
+
 class ApiError(Exception):
     """Raised inside a request to answer with a specific public error."""
 
@@ -30,6 +34,9 @@ class ApiError(Exception):
         self.error = error
 
 
+INVALID_ANSWER = PublicError(
+    502, "invalid_answer", "The language model's answer did not meet the citation requirement, so it was withheld."
+)
 OVERLOADED = PublicError(503, "overloaded", "The service is busy. Try again in a moment.", retry_after=1)
 TIMEOUT = PublicError(504, "timeout", "The answer took too long. Try again.", retry_after=5)
 PROVIDER_UNAVAILABLE = PublicError(
@@ -47,6 +54,8 @@ def classify_error(exc: BaseException) -> PublicError:
     """Map any exception from the agent to the error the caller sees."""
     if isinstance(exc, ApiError):
         return exc.error
+    if isinstance(exc, AnswerContractError):
+        return INVALID_ANSWER
     if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
         return TIMEOUT
 

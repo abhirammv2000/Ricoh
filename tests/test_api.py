@@ -30,7 +30,7 @@ def fresh_limiter():
     """Give every test its own generous limiter, so the rate limit never fires
     incidentally and one test's requests cannot bleed into the next. A test that
     exercises the limit installs its own tight limiter."""
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=1000.0, capacity=1000)
+    api.state.limiter = TokenBucketLimiter(rate_per_sec=1000.0, capacity=1000)
     yield
 
 
@@ -129,7 +129,7 @@ def test_stream_emits_tokens_then_done(monkeypatch, threaded_stream):
 
 def test_rate_limit_returns_429_with_retry_after(monkeypatch):
     # Install a bucket of exactly one token, so the second request is throttled.
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=0.001, capacity=1)
+    api.state.limiter = TokenBucketLimiter(rate_per_sec=0.001, capacity=1)
     monkeypatch.setattr(apimod, "arun_agent", _fake_arun_agent)
     monkeypatch.setattr(apimod, "run_agent", lambda q: "ok [a.pdf, Page 1]")
 

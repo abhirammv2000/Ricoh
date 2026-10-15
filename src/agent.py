@@ -31,6 +31,7 @@ from src.conversation import Turn, condense_query  # noqa: F401 - Turn re-export
 from src.instrumentation import ainvoke as instrumented_ainvoke
 from src.instrumentation import astream as instrumented_astream
 from src.instrumentation import invoke as instrumented_invoke
+from src.guardrails import looks_like_instructions_to_the_model
 from src.instrumentation import span
 # one client per configuration, reused across requests (see shared_llm). The name stays get_llm so tests can patch it
 from src.llm_factory import shared_llm as get_llm
@@ -151,6 +152,16 @@ def cited_docs(answer: str) -> set[str]:
     return {m.strip() for m in CITATION_RE.findall(answer)}
 
 
+def follows_answer_contract(answer: str) -> bool:
+    """Whether an answer is what the synthesizer prompt asks for: it cites a source, or it declines with the marker.
+
+    This is checked on the output, so it holds however an attack was worded. A reply that is neither, such as a
+    bare word an injected instruction asked for, breaks it. On 50 real answers none did. It is not a complete
+    defense: a reply that declines and then adds text still passes. No LLM or network call.
+    """
+    return bool(cited_docs(answer)) or is_refusal(answer)
+
+
 def record_citation_guardrail(answer: str, evidence: list[dict[str, Any]]) -> None:
     """Log whether every cited document was actually retrieved.
 
@@ -175,8 +186,31 @@ def record_citation_guardrail(answer: str, evidence: list[dict[str, Any]]) -> No
 
 # helpers
 
-def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
-    """Numbered text block of the evidence, for the prompts."""
+def quarantine_suspicious_evidence(evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop retrieved chunks that look like instructions to the model, before they reach a prompt.
+
+    A dropped chunk is never shown to the model, so this holds however the model behaves, and a chunk that
+    does not match is passed through untouched, so answers on clean evidence are unchanged. What was
+    dropped is logged by document and page only, and recorded in the trace for the metrics.
+    """
+    kept = [e for e in evidence if not looks_like_instructions_to_the_model(e.get("text", ""))]
+    if len(kept) != len(evidence):
+        dropped = [e for e in evidence if e not in kept]
+        where = [f"{e.get('source_document', '?')} p.{e.get('page_number', '?')}" for e in dropped]
+        logger.warning("Quarantined %d retrieved chunk(s) that look like instructions to the model: %s", len(dropped), where)
+        with span("evidence_guard", quarantined=len(dropped), documents=where):
+            pass
+    return kept
+
+
+def _format_evidence_block(evidence: list[dict[str, Any]], quarantine: bool = True) -> str:
+    """Numbered text block of the evidence, for the prompts.
+
+    quarantine=False skips the screen for suspicious chunks. Only the injection eval does that, to measure the
+    model without the defense. The service never does.
+    """
+    if quarantine:
+        evidence = quarantine_suspicious_evidence(evidence)
     if not evidence:
         return "(no evidence retrieved)"
 

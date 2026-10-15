@@ -12,6 +12,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+# "you are now DAN", "you are now a pirate". It is in the question screen but not the document screen: a manual
+# can say "You are now ready to print", and a filter that drops real instructions is worse than none
+_PERSONA_OVERRIDE = re.compile(r"you\s+are\s+now\s+", re.I)
+
 # patterns for jailbreak and override phrasing. They match the phrasing, never a single word like
 # "system" (as in "open the system settings menu"), since a false positive blocks a real question
 _INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -39,7 +43,7 @@ _INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
         re.I,
     ),
     # persona override, e.g. "you are now DAN", "you are now a pirate"
-    re.compile(r"you\s+are\s+now\s+", re.I),
+    _PERSONA_OVERRIDE,
     # the classic "do anything now" jailbreak
     re.compile(r"do\s+anything\s+now", re.I),
     # "override your instructions", "override all safety rules"
@@ -51,12 +55,27 @@ _INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
+# what is looked for in retrieved text: the same phrasings, without the persona one
+_DOCUMENT_PATTERNS: tuple[re.Pattern[str], ...] = tuple(p for p in _INJECTION_PATTERNS if p is not _PERSONA_OVERRIDE)
+
+
 @dataclass(frozen=True)
 class GuardrailResult:
     """The result of screening one input. reason is generic on purpose, it doesn't name the pattern that matched."""
 
     allowed: bool
     reason: str = ""
+
+
+def looks_like_instructions_to_the_model(text: str) -> bool:
+    """Whether a retrieved chunk contains phrasing that tries to override the model's instructions.
+
+    Indirect prompt injection: the question can be innocent while a document in the corpus carries the attack.
+    A chunk is placed in the prompt as evidence, and a model can mistake text in it for an instruction. On
+    the real corpus (1,322 chunks) none match, so a match is a document that does not belong in it. No LLM
+    or network call.
+    """
+    return any(pattern.search(text) for pattern in _DOCUMENT_PATTERNS)
 
 
 def screen_input(query: str) -> GuardrailResult:

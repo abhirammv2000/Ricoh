@@ -19,7 +19,6 @@ from api.main import create_app
 from api.readiness import Readiness, compute_readiness, needs_recheck
 from api.settings import Settings, SettingsError
 from src.index_manifest import IndexIntegrityError
-from src.ratelimit import TokenBucketLimiter
 from tests.test_index_manifest import StubEmbedding, build, reopen
 
 SECRET_KEY = "sk-ant-test-not-a-real-key"
@@ -27,7 +26,6 @@ SECRET_KEY = "sk-ant-test-not-a-real-key"
 
 @pytest.fixture(autouse=True)
 def open_rate_limit():
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=10_000.0, capacity=10_000)
     yield
 
 

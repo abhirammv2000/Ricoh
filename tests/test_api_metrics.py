@@ -15,12 +15,10 @@ from api.readiness import Readiness
 from api.settings import Settings
 from src.agent import PROMPT_VERSION
 from src.instrumentation import RunRecord, Span
-from src.ratelimit import TokenBucketLimiter
 
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=10_000.0, capacity=10_000)
     monkeypatch.setattr(
         apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="idx42", chunks=88, embedding_model="m")
     )

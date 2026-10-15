@@ -17,7 +17,6 @@ import api.main as apimod
 from api.main import DEGRADED_ANSWER, create_app
 from api.readiness import Readiness
 from api.settings import Settings
-from src.ratelimit import TokenBucketLimiter
 
 SECRET = "sk-ant-api03-SECRET-DO-NOT-LEAK"
 
@@ -48,7 +47,6 @@ class FakeRetriever:
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=10_000.0, capacity=10_000)
     monkeypatch.setattr(apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1))
 
 

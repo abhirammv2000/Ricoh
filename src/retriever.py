@@ -31,6 +31,7 @@ from src.config import (
     RRF_K,
 )
 
+from src.guardrails import looks_like_instructions_to_the_model
 from src.privacy import describe_query, trace_query
 from src.index_manifest import (
     DEFAULT_EMBEDDING_NAME,
@@ -291,7 +292,7 @@ class HybridRetriever:
 
     def check_index(self, require_manifest: bool = True) -> IndexCheck:
         """Compare this index with its manifest and with the configuration. See src/index_manifest.py."""
-        return verify_index(
+        result = verify_index(
             self._persist_dir,
             embedding_model=self.embedding_name,
             chunk_size=CHUNK_SIZE,
@@ -301,6 +302,14 @@ class HybridRetriever:
             embedding_dim=self._stored_embedding_dim(),
             require_manifest=require_manifest,
         )
+        # a warning and not a problem: the answer path withholds such chunks from the model anyway
+        suspicious = [c for c in self._bm25_chunks if looks_like_instructions_to_the_model(c.get("text", ""))]
+        if suspicious:
+            result.warnings.append(
+                f"{len(suspicious)} chunk(s) in the index look like instructions to the model, "
+                f"for example in {suspicious[0].get('source_document', '?')}. They are withheld at answer time."
+            )
+        return result
 
     # vector search
 
