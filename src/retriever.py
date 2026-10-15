@@ -20,6 +20,8 @@ from src.config import (
     BM25_INDEX_PATH,
     CHROMA_COLLECTION_NAME,
     CHROMA_DIR,
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
     EMBEDDING_MODEL,
     RERANK_CANDIDATE_POOL,
     RERANKER_ENABLED,
@@ -27,6 +29,16 @@ from src.config import (
     RETRIEVAL_FINAL_K,
     RETRIEVAL_TOP_K,
     RRF_K,
+)
+
+from src.index_manifest import (
+    DEFAULT_EMBEDDING_NAME,
+    IndexCheck,
+    IndexManifest,
+    make_manifest,
+    verify_files_before_loading,
+    verify_index,
+    write_manifest,
 )
 
 logger = logging.getLogger(__name__)
@@ -133,6 +145,13 @@ class HybridRetriever:
         embedding_fn = embedding_function or _get_embedding_function()
         if embedding_fn is not None:
             collection_kwargs["embedding_function"] = embedding_fn
+        # the name goes into the index manifest, which is how a changed model is noticed. A function passed in
+        # by the caller can name itself, and otherwise it is recorded as custom
+        if embedding_function is not None:
+            name = getattr(embedding_function, "name", None)
+            self.embedding_name = str((name() if callable(name) else name) or "custom")
+        else:
+            self.embedding_name = EMBEDDING_MODEL or DEFAULT_EMBEDDING_NAME
 
         self._collection = self._client.get_or_create_collection(**collection_kwargs)
 
@@ -169,6 +188,8 @@ class HybridRetriever:
     def _load_bm25(self) -> None:
         """Load the pickled BM25 index and chunks, if they exist."""
         if self._bm25_index_path.exists() and self._bm25_chunks_path.exists():
+            # a pickle runs code when it is loaded, so a file that differs from the manifest is not loaded
+            verify_files_before_loading(self._persist_dir, self._bm25_index_path, self._bm25_chunks_path)
             with open(self._bm25_index_path, "rb") as f:
                 self._bm25 = pickle.load(f)
 
@@ -230,9 +251,54 @@ class HybridRetriever:
         self._bm25 = BM25Okapi(tokenised_corpus)
         self._bm25_chunks = chunks
         self._save_bm25()
+        self._write_manifest(chunks)
 
         logger.info(
             "BM25 index built and persisted: %d chunks.", len(chunks)
+        )
+
+    # the index manifest
+
+    def _stored_embedding_dim(self) -> int | None:
+        """The size of the vectors in the collection, or None if it is empty."""
+        if self._collection.count() == 0:
+            return None
+        sample = self._collection.get(limit=1, include=["embeddings"])["embeddings"]
+        return len(sample[0]) if sample is not None and len(sample) else None
+
+    def _write_manifest(self, chunks: list[dict[str, Any]]) -> IndexManifest:
+        manifest = make_manifest(
+            self._persist_dir,
+            collection=self._collection.name,
+            embedding_model=self.embedding_name,
+            embedding_dim=self._stored_embedding_dim() or 0,
+            chunk_size=CHUNK_SIZE,
+            chunk_overlap=CHUNK_OVERLAP,
+            chunks=chunks,
+            bm25_index_path=self._bm25_index_path,
+            bm25_chunks_path=self._bm25_chunks_path,
+        )
+        write_manifest(self._persist_dir, manifest)
+        return manifest
+
+    def write_manifest_for_existing_index(self) -> IndexManifest:
+        """A manifest for an index that was built before manifests existed. It records the index as it is and
+        the current configuration, so only run it on an index you know was built with that configuration."""
+        if not self.bm25_ready:
+            raise RuntimeError("there is no BM25 index to describe")
+        return self._write_manifest(self._bm25_chunks)
+
+    def check_index(self, require_manifest: bool = True) -> IndexCheck:
+        """Compare this index with its manifest and with the configuration. See src/index_manifest.py."""
+        return verify_index(
+            self._persist_dir,
+            embedding_model=self.embedding_name,
+            chunk_size=CHUNK_SIZE,
+            chunk_overlap=CHUNK_OVERLAP,
+            vector_count=self._collection.count(),
+            bm25_count=len(self._bm25_chunks),
+            embedding_dim=self._stored_embedding_dim(),
+            require_manifest=require_manifest,
         )
 
     # vector search
