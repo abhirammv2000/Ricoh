@@ -77,6 +77,7 @@ Run the tests with `pip install -r requirements-dev.txt` and `pytest`. They run 
 - [docs/EVALUATION.md](docs/EVALUATION.md): all the measurements
 - [docs/RUNNING.md](docs/RUNNING.md): running, testing, deploying
 - [docs/OPERATIONS.md](docs/OPERATIONS.md): running the API as a service, its settings, alerts and runbook
+- [docs/PRODUCTION_DESIGN.md](docs/PRODUCTION_DESIGN.md): why the API is built the way it is, what each choice was measured against, and what went wrong
 - [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md) and [docs/REPOSITORY_STRUCTURE.md](docs/REPOSITORY_STRUCTURE.md)
 
 ## Limits

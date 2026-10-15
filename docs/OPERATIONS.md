@@ -102,6 +102,9 @@ Measured against the fake model provider, one process, a 0.3 s provider, 100 que
 | Median latency | 2.32 s | 0.41 s |
 | First question after start | 2.66 s | 0.18 s |
 
+The container (`Dockerfile.api`, Docker Desktop, one process): 791 MB image, ready 7 to 12 s after it starts, 237 to
+246 MiB of memory at rest and 295 to 304 MiB after 100 questions at concurrency 10 plus the outage drills.
+
 With the real provider the time is the model's, about 10 s a question, so one process holds
 `MAX_CONCURRENT_QUERIES` questions open at once and CPU is not the limit. Add capacity with more containers, not
 more workers. The rate limits, the concurrency cap and the daily budget are counted **per process**, so with N
