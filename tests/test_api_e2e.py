@@ -42,7 +42,7 @@ def fake():
         yield server
 
 
-def _launch(fake, work: Path, damage=None):
+def _launch(fake, work: Path, damage=None, env_extra=None):
     """Start the API in its own process on a copy of the demo index. `damage` is a function that is given the
     copied index folder and may break it. Returns (process, base_url, log_path)."""
     shutil.copytree(ROOT / "demo_index", work / "demo_index")
@@ -65,6 +65,7 @@ def _launch(fake, work: Path, damage=None):
         "RATE_LIMIT_BURST": "1000",
         "DOTENV_OVERRIDE": "0",
         "PYTHONIOENCODING": "utf-8",
+        **(env_extra or {}),
     }
     log_path = work / "api.log"
     log = open(log_path, "w", encoding="utf-8")
@@ -96,6 +97,14 @@ def _stop(proc) -> None:
 def service(fake, tmp_path_factory):
     """The API in its own process. Its index is a copy, because opening a Chroma index writes to it."""
     proc, base, _ = _launch(fake, tmp_path_factory.mktemp("e2e"))
+    yield base
+    _stop(proc)
+
+
+@pytest.fixture(scope="module")
+def strict_service(fake, tmp_path_factory):
+    """The API with the retrieval fallback off, so a provider failure is reported as an error."""
+    proc, base, _ = _launch(fake, tmp_path_factory.mktemp("e2e_strict"), env_extra={"FALLBACK_TO_RETRIEVAL": "false"})
     yield base
     _stop(proc)
 
@@ -134,30 +143,39 @@ def test_a_normal_question_is_answered(service):
     assert r.json()["llm_calls"] == 1
 
 
-def test_provider_overload_is_a_clean_503_not_a_500_and_leaks_nothing(service, fake):
+def test_provider_overload_is_a_clean_503_not_a_500_and_leaks_nothing(strict_service, fake):
     fake.behavior.mode = "overloaded"
-    r = ask(service)
+    r = ask(strict_service)
     assert r.status_code == 503
     assert r.json()["code"] == "model_unavailable"
     assert r.headers["retry-after"]
     assert "overloaded_error" not in r.text and "Error code" not in r.text
 
 
-def test_a_provider_that_never_answers_gives_a_504_at_the_deadline(service, fake):
+def test_a_provider_that_never_answers_gives_a_504_at_the_deadline(strict_service, fake):
     fake.behavior.mode = "hang"
     started = time.perf_counter()
-    r = ask(service)
+    r = ask(strict_service)
     took = time.perf_counter() - started
     assert r.status_code == 504
     assert r.json()["code"] == "timeout"
     assert 2.5 < took < 6, f"the 3 s deadline did not hold: {took:.1f} s"
 
 
-def test_a_stream_hitting_provider_overload_ends_with_a_public_error_event(service, fake):
+def test_a_stream_hitting_provider_overload_ends_with_a_public_error_event(strict_service, fake):
+    fake.behavior.mode = "overloaded"
+    with CLIENT.stream("POST", strict_service + "/query/stream", json={"query": "network settings?"}) as s:
+        body = "".join(s.iter_text())
+    assert '"code": "model_unavailable"' in body
+    assert "overloaded_error" not in body and "Error code" not in body
+    assert "degraded" not in body
+
+
+def test_a_stream_hitting_provider_overload_degrades_to_the_retrieved_passages(service, fake):
     fake.behavior.mode = "overloaded"
     with CLIENT.stream("POST", service + "/query/stream", json={"query": "network settings?"}) as s:
         body = "".join(s.iter_text())
-    assert '"code": "model_unavailable"' in body
+    assert '"degraded": true' in body and '"sources"' in body
     assert "overloaded_error" not in body and "Error code" not in body
 
 
@@ -179,11 +197,50 @@ def test_when_full_extra_requests_are_refused_fast_and_admitted_ones_succeed(ser
     assert min(ok) >= 0.9  # an admitted request still took the provider's second, not longer
 
 
-def test_the_service_recovers_after_an_outage(service, fake):
+def test_the_service_recovers_after_an_outage(strict_service, fake):
     fake.behavior.mode = "overloaded"
-    assert ask(service).status_code == 503
+    assert ask(strict_service).status_code == 503
     fake.behavior.mode = "ok"
-    assert ask(service).status_code == 200
+    assert ask(strict_service).status_code == 200
+
+
+def test_during_a_provider_outage_the_answer_is_the_retrieved_passages_and_then_normal_again(service, fake):
+    fake.behavior.mode = "overloaded"
+    down = ask(service, "What does the network guide say about settings?")
+    assert down.status_code == 200
+    body = down.json()
+    # the failed attempt is recorded as a call, with no cost, since the provider never reported usage
+    assert body["degraded"] is True and body["llm_calls"] == 1 and body["cost_usd"] == 0.0
+    assert body["sources"], "retrieval found nothing in the demo index"
+    assert all(s["document"].endswith(".pdf") and s["excerpt"] for s in body["sources"])
+    assert down.headers["x-citera-degraded"] == "model_unavailable"
+    assert "overloaded_error" not in down.text and "Error code" not in down.text
+    fake.behavior.mode = "ok"
+    up = ask(service)
+    assert up.status_code == 200 and "degraded" not in up.json()
+
+
+def test_the_metrics_show_what_happened(service, fake):
+    def series(text, name):
+        for line in text.splitlines():
+            if line.startswith(name + " "):
+                return float(line.split()[-1])
+        return 0.0
+
+    before = CLIENT.get(service + "/metrics").text
+    assert ask(service).status_code == 200  # a normal answer
+    fake.behavior.mode = "overloaded"
+    assert ask(service).json()["degraded"] is True
+    fake.behavior.mode = "ok"
+    after = CLIENT.get(service + "/metrics").text
+
+    assert series(after, 'citera_answers_total{outcome="answered"}') == series(before, 'citera_answers_total{outcome="answered"}') + 1
+    assert series(after, 'citera_answers_total{outcome="degraded"}') == series(before, 'citera_answers_total{outcome="degraded"}') + 1
+    assert series(after, "citera_retrieval_top_rrf_score_count") >= series(before, "citera_retrieval_top_rrf_score_count") + 2
+    assert series(after, 'citera_llm_tokens_total{kind="input"}') > series(before, 'citera_llm_tokens_total{kind="input"}')
+    assert series(after, "citera_llm_cost_usd_total") > series(before, "citera_llm_cost_usd_total")
+    assert series(after, "citera_ready") == 1
+    assert "How do I configure" not in after, "question text reached the metrics"
 
 
 def test_a_client_that_leaves_mid_stream_stops_the_model_call(service, fake):

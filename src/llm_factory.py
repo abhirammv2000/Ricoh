@@ -246,6 +246,12 @@ def shared_llm(
         return llm
 
 
+def default_model_label(provider: str | None = None, model: str | None = None) -> str:
+    """The provider and model that get_llm() uses by default, as one short string for traces and metrics."""
+    provider = (provider or DEFAULT_LLM_PROVIDER).lower()
+    return f"{provider}:{model or _DEFAULT_MODELS.get(provider, 'unknown')}"
+
+
 def import_provider_sdk(provider: str | None = None) -> None:
     """Import the provider's client library now. It is imported on first use otherwise, and importing the
     Anthropic SDK takes about 2 s, which the first question would pay."""

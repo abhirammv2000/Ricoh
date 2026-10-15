@@ -88,6 +88,9 @@ class RunRecord:
     trace_id: str = ""
     query: str = ""
     started_at: str = ""
+    # what produced this answer: index version, model, prompt version. A change in answer quality can then
+    # be matched to a change in one of them. Set by whoever starts the run
+    meta: dict[str, Any] = field(default_factory=dict)
 
     @property
     def total_cost_usd(self) -> float:
@@ -143,6 +146,7 @@ class RunRecord:
             "trace_id": self.trace_id,
             "query": self.query,
             "started_at": self.started_at,
+            "meta": self.meta,
             "llm_calls": self.llm_calls,
             "total_cost_usd": self.total_cost_usd,
             "total_llm_seconds": self.total_llm_seconds,
