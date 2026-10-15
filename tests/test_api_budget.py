@@ -15,7 +15,6 @@ from api.readiness import Readiness
 from api.settings import Settings
 from src import instrumentation
 from src.instrumentation import Span
-from src.ratelimit import TokenBucketLimiter
 
 
 def at(day: int, hour: int = 12) -> float:
@@ -70,7 +69,6 @@ def test_it_says_how_long_until_the_budget_resets():
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=10_000.0, capacity=10_000)
     monkeypatch.setattr(apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1))
 
 

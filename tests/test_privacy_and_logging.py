@@ -22,7 +22,6 @@ from api.settings import Settings, SettingsError
 from src import instrumentation
 from src.instrumentation import RunRecord, append_trace_line, record_run
 from src.privacy import describe_query, query_id, trace_mode, trace_query
-from src.ratelimit import TokenBucketLimiter
 from tests.test_index_manifest import build
 
 QUESTION = "my printer serial number is PX-99-SECRET and my name is Dana"
@@ -222,7 +221,6 @@ def capture():
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=10_000.0, capacity=10_000)
     monkeypatch.setattr(apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1))
 
 

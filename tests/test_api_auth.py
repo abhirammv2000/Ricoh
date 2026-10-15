@@ -27,7 +27,6 @@ KEYS = f"partner-a:{KEY_A},partner-b:{KEY_B}"
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=10_000.0, capacity=10_000)
     monkeypatch.setattr(apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1))
     calls = []
 
@@ -197,8 +196,7 @@ def test_a_valid_key_still_works_from_an_address_that_has_been_guessing():
 
 
 def test_two_callers_behind_one_proxy_address_do_not_share_a_rate_limit():
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=0.001, capacity=1)
-    app = keyed_app()
+    app = keyed_app(rate_limit_rps=0.001, rate_limit_burst=1)
     # both calls come from the same address (the proxy), with different keys
     assert ask(app, key=KEY_A).status_code == 200
     assert ask(app, key=KEY_A).status_code == 429, "the same key must be limited"
@@ -206,8 +204,7 @@ def test_two_callers_behind_one_proxy_address_do_not_share_a_rate_limit():
 
 
 def test_with_auth_off_the_rate_limit_falls_back_to_the_address():
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=0.001, capacity=1)
-    app = create_app(Settings(auth_disabled=True, fallback_to_retrieval=False))
+    app = create_app(Settings(auth_disabled=True, fallback_to_retrieval=False, rate_limit_rps=0.001, rate_limit_burst=1))
     assert ask(app, client_ip="198.51.100.1").status_code == 200
     assert ask(app, client_ip="198.51.100.1").status_code == 429
     assert ask(app, client_ip="198.51.100.2").status_code == 200

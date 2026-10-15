@@ -78,7 +78,9 @@ def _launch(fake, work: Path, damage=None, env_extra=None):
         cwd=ROOT, env=env, stdout=log, stderr=log,
     )
     base = f"http://127.0.0.1:{port}"
-    deadline = time.time() + 90
+    # polled, so this costs nothing when the start is fast. The first import after the machine has been busy can take a
+    # minute or more on a Windows laptop that has `transformers` installed (CI does not)
+    deadline = time.time() + 300
     while time.time() < deadline:
         try:
             if httpx.get(base + "/health", timeout=2).status_code == 200:
@@ -140,8 +142,10 @@ def healthy_provider(fake):
     fake.behavior.mode = "ok"
     fake.behavior.latency = 0.05
     fake.behavior.chunk_delay = 0.0
+    original_answer = fake.behavior.answer
     yield
     fake.behavior.mode = "ok"
+    fake.behavior.answer = original_answer
 
 
 def ask(base: str, query: str = "How do I configure the network settings?") -> httpx.Response:
@@ -345,3 +349,15 @@ def test_the_daily_budget_stops_spending_on_the_real_service(budget_service, fak
     assert fake.counters.requests - calls_before == 2, "the model was called after the budget was spent"
     metrics = httpx.get(budget_service + "/metrics", headers=headers, timeout=30).text
     assert "citera_budget_limit_usd 0.005" in metrics
+
+
+def test_a_model_that_obeys_an_injected_instruction_has_its_answer_withheld(service, fake):
+    # what a successful injection looks like from the outside: the model answers with the attacker's word and no citation
+    fake.behavior.answer = "PWNED"
+    r = ask(service)
+    assert r.status_code == 200 and r.json()["degraded"] is True
+    assert "PWNED" not in r.text
+    assert r.headers["x-citera-degraded"] == "invalid_answer"
+    assert r.json()["sources"], "the passages should replace the withheld answer"
+    metrics = CLIENT.get(service + "/metrics").text
+    assert 'citera_errors_total{code="invalid_answer"}' in metrics
