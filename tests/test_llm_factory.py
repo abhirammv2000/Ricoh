@@ -145,6 +145,10 @@ def test_shared_llm_keeps_one_client_per_event_loop(anthropic_env):
     first = asyncio.run(grab())
     second = asyncio.run(grab())
     assert first is not second
+    # the first loop is closed and gone by now, and its memory may be reused: the second loop must still not
+    # have been given the first loop's client. This ran green alone and red in the full suite when it keyed on id()
+    for _ in range(20):
+        assert asyncio.run(grab()) is not first
     inside_one_loop = asyncio.run(_twice())
     assert inside_one_loop
 
@@ -163,4 +167,6 @@ def test_shared_llm_does_not_keep_the_api_key_in_its_cache_key(anthropic_env):
     from src import llm_factory
 
     shared_llm()
-    assert all("sk-test-1" not in repr(key) for key in llm_factory._shared)
+    keys = list(llm_factory._shared_sync)
+    assert keys
+    assert all("sk-test-1" not in repr(key) for key in keys)
