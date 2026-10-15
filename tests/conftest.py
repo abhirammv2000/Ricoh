@@ -15,6 +15,10 @@ os.environ["ANTHROPIC_BASE_URL"] = "http://127.0.0.1:9"
 for _name in ("OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "LANGSMITH_API_KEY", "LANGCHAIN_API_KEY"):
     os.environ.pop(_name, None)
 os.environ["LANGSMITH_TRACING"] = "false"
+# the API refuses to start with no keys. Tests that are not about authentication run with it off, and the
+# ones that are build their own app with keys
+os.environ["API_AUTH_DISABLED"] = "true"
+os.environ.pop("API_KEYS", None)
 os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
 

@@ -31,6 +31,7 @@ from src.config import (
     RRF_K,
 )
 
+from src.privacy import describe_query, trace_query
 from src.index_manifest import (
     DEFAULT_EMBEDDING_NAME,
     IndexCheck,
@@ -433,12 +434,12 @@ class HybridRetriever:
         top_k is the candidates per method, final_k how many fused results to return, and rerank
         overrides RERANKER_ENABLED for this call (only the sweep does that).
         """
-        logger.info("Retrieving for query: '%s'", query[:80])
+        logger.info("Retrieving (%s)", describe_query(query))  # the question itself is not logged
 
         # imported here to avoid a cycle (instrumentation imports llm_factory, which imports config)
         from src.instrumentation import span as _span
 
-        with _span("retrieval", query=query[:200], top_k=top_k, final_k=final_k) as sp:
+        with _span("retrieval", query=trace_query(query)[:200], top_k=top_k, final_k=final_k) as sp:
             vector_results = self._vector_search(query, top_k=top_k)
             bm25_results = self._bm25_search(query, top_k=top_k)
 

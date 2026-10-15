@@ -27,7 +27,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # one client for every call, as a real caller has. httpx.post() builds a new client each time, and that includes loading
 # the TLS certificates, which costs about 0.1 s and, with 8 threads at once, made the timings below measure the test.
-CLIENT = httpx.Client(timeout=30)
+API_KEY = "e2e-test-key-0123456789"
+CLIENT = httpx.Client(timeout=30, headers={"X-API-Key": API_KEY})
 
 
 def _free_port() -> int:
@@ -65,6 +66,9 @@ def _launch(fake, work: Path, damage=None, env_extra=None):
         "RATE_LIMIT_BURST": "1000",
         "DOTENV_OVERRIDE": "0",
         "PYTHONIOENCODING": "utf-8",
+        "API_KEYS": f"e2e:{API_KEY}",
+        "API_AUTH_DISABLED": "false",
+        "DAILY_BUDGET_USD": "0",
         **(env_extra or {}),
     }
     log_path = work / "api.log"
@@ -105,6 +109,14 @@ def service(fake, tmp_path_factory):
 def strict_service(fake, tmp_path_factory):
     """The API with the retrieval fallback off, so a provider failure is reported as an error."""
     proc, base, _ = _launch(fake, tmp_path_factory.mktemp("e2e_strict"), env_extra={"FALLBACK_TO_RETRIEVAL": "false"})
+    yield base
+    _stop(proc)
+
+
+@pytest.fixture(scope="module")
+def budget_service(fake, tmp_path_factory):
+    """The API with a daily budget of half a cent. One answer from the fake costs 0.0042 dollars."""
+    proc, base, _ = _launch(fake, tmp_path_factory.mktemp("e2e_budget"), env_extra={"DAILY_BUDGET_USD": "0.005"})
     yield base
     _stop(proc)
 
@@ -292,3 +304,44 @@ def test_a_damaged_index_keeps_the_process_alive_but_not_ready_and_answers_nothi
     stream = CLIENT.post(base + "/query/stream", json={"query": "How do I configure the network settings?"})
     assert stream.status_code == 503
     assert fake.counters.requests == calls_before, "the model was called with no usable index"
+
+
+def test_the_real_service_requires_an_api_key(service):
+    body = {"query": "How do I configure the network settings?"}
+    anonymous = httpx.post(service + "/query", json=body, timeout=30)
+    assert anonymous.status_code == 401 and anonymous.json()["code"] == "unauthorized"
+    wrong = httpx.post(service + "/query", json=body, headers={"X-API-Key": API_KEY + "x"}, timeout=30)
+    assert wrong.status_code == 401 and API_KEY not in wrong.text
+    assert httpx.post(service + "/query", json=body, headers={"Authorization": "Bearer " + API_KEY}, timeout=30).status_code == 200
+    assert httpx.get(service + "/metrics", timeout=30).status_code == 401
+    assert httpx.get(service + "/health", timeout=30).status_code == 200  # probes need no key
+    assert httpx.get(service + "/ready", timeout=30).status_code == 200
+
+
+def test_a_service_started_with_no_keys_and_auth_not_switched_off_refuses_to_start(fake, tmp_path_factory):
+    work = tmp_path_factory.mktemp("e2e_nokeys")
+    shutil.copytree(ROOT / "demo_index", work / "demo_index")
+    env = {**os.environ, "CHROMA_DIR": str(work / "demo_index"), "ANTHROPIC_API_KEY": "sk-fake",
+           "ANTHROPIC_BASE_URL": fake.url, "API_AUTH_DISABLED": "false", "PYTHONIOENCODING": "utf-8"}
+    env.pop("API_KEYS", None)
+    result = subprocess.run([sys.executable, "-m", "uvicorn", "api.main:api", "--port", str(_free_port())],
+                            cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
+    assert result.returncode != 0
+    assert "API_KEYS is not set" in result.stdout + result.stderr
+
+
+def test_the_daily_budget_stops_spending_on_the_real_service(budget_service, fake):
+    body = {"query": "How do I configure the network settings?"}
+    headers = {"X-API-Key": API_KEY}
+    calls_before = fake.counters.requests
+    first = httpx.post(budget_service + "/query", json=body, headers=headers, timeout=30)
+    second = httpx.post(budget_service + "/query", json=body, headers=headers, timeout=30)
+    assert first.status_code == 200 and "degraded" not in first.json()
+    assert second.status_code == 200 and "degraded" not in second.json()  # 0.0084 spent: crossed on this one
+    third = httpx.post(budget_service + "/query", json=body, headers=headers, timeout=30)
+    assert third.status_code == 200 and third.json()["degraded"] is True
+    assert third.headers["x-citera-degraded"] == "budget_exceeded"
+    assert third.json()["sources"]
+    assert fake.counters.requests - calls_before == 2, "the model was called after the budget was spent"
+    metrics = httpx.get(budget_service + "/metrics", headers=headers, timeout=30).text
+    assert "citera_budget_limit_usd 0.005" in metrics

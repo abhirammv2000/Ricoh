@@ -84,6 +84,8 @@ class Metrics:
             buckets=_SECONDS_BUCKETS, registry=r,
         )
 
+        self.budget_spent = Gauge("citera_budget_spent_usd", "Model spend so far today (UTC), in dollars.", registry=r)
+        self.budget_limit = Gauge("citera_budget_limit_usd", "The daily spend limit, 0 if there is none.", registry=r)
         self.ready = Gauge("citera_ready", "1 if the service can give a correct answer, else 0.", registry=r)
         self.index_info = Info("citera_index", "What the service is serving.", registry=r)
         self.build_info = Info("citera_build", "The model and prompt in use.", registry=r)
