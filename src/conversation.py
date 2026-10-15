@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.instrumentation import invoke as instrumented_invoke
-from src.llm_factory import get_llm
+from src.llm_factory import shared_llm as get_llm  # reused across requests
 
 # only the latest turns are used as context, enough to resolve a reference and short enough to keep the prompt cheap
 MAX_HISTORY_TURNS: int = 4

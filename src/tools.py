@@ -20,7 +20,8 @@ from typing import Any
 
 from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K
 from src.instrumentation import invoke_messages
-from src.llm_factory import get_llm, response_text
+from src.llm_factory import response_text
+from src.llm_factory import shared_llm as get_llm  # reused across requests
 from src.retriever import get_retriever
 
 logger = logging.getLogger(__name__)
