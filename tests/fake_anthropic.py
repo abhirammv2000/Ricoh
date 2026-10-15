@@ -94,6 +94,21 @@ def build_app(behavior: Behavior, counters: Counters) -> FastAPI:
         body = {"type": "error", "error": {"type": kind, "message": message}}
         return JSONResponse(body, status_code=status, headers=headers)
 
+    @app.post("/_admin/behavior")
+    async def set_behavior(request: Request):
+        """Change how the fake behaves while it runs, for a script on another machine or in another container.
+        Not part of the Anthropic API."""
+        changes = await request.json()
+        for key, value in changes.items():
+            if not hasattr(behavior, key):
+                return JSONResponse({"error": f"unknown setting {key}"}, status_code=400)
+            setattr(behavior, key, value)
+        return JSONResponse({"mode": behavior.mode, "latency": behavior.latency})
+
+    @app.get("/_admin/counters")
+    async def get_counters():
+        return JSONResponse({"requests": counters.requests, "completed": counters.completed, "in_flight": counters.in_flight})
+
     @app.post("/v1/messages")
     async def messages(request: Request):
         payload = await request.json()
@@ -217,10 +232,11 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=9100)
     parser.add_argument("--latency", type=float, default=0.3, help="seconds before each answer")
     parser.add_argument("--mode", default="ok")
+    parser.add_argument("--host", default="127.0.0.1", help="0.0.0.0 to be reachable from a container")
     args = parser.parse_args()
     behavior = Behavior(latency=args.latency, mode=args.mode)
     app = build_app(behavior, Counters())
-    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
 
 
 if __name__ == "__main__":

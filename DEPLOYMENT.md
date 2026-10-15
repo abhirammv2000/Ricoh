@@ -106,16 +106,32 @@ Live demo: https://citera-634289062173.us-central1.run.app
 
 ## Production hardening checklist
 
-The items below are deliberately **out of scope for this build**
-but are the next steps for a real deployment:
+The HTTP API (`Dockerfile.api`, see [docs/OPERATIONS.md](docs/OPERATIONS.md)) has been hardened. The Streamlit
+page has not, and is for demos. What is done and what is still open:
 
+- [x] API authentication: keys with labels, rotation by listing two, a rate limit per key, and failed-key
+      throttling. The service will not start without keys.
 - [ ] Real authentication in front of the Streamlit app (only a shared
       `APP_PASSWORD` and a global rate limit today).
+- [x] Failure handling: a request deadline, a concurrency cap that refuses fast, public error messages that
+      never contain provider text, and a stream that stops the model call when the client leaves.
+- [x] Readiness and liveness are separate, and a bad index keeps the service out of rotation.
+- [x] The index has a manifest, and a changed embedding model, partial re-ingest or tampered file is refused.
+- [x] Answers from retrieval alone when the model is down, slow or the budget is spent.
+- [x] A daily spend cap (per process, see the note in OPERATIONS.md).
+- [x] Metrics for service health and RAG quality, alert rules checked by `promtool`, and a runbook.
+- [x] Question text out of logs, and a setting for what traces keep. JSON logs with request ids.
+- [x] Retrieved chunks that look like instructions to the model are withheld.
+- [x] A non-root image built from its own minimal requirements, with a health check and graceful shutdown.
 - [ ] Secrets via a manager (Vault / AWS Secrets Manager), not `.env`.
+- [ ] Dashboards for the metrics.
+- [ ] A new document or a changed one is picked up without a manual rebuild and restart.
 - [x] LLM-call caching (opt-in semantic cache) + Anthropic timeout/retry handling.
 - [x] Request tracing via LangSmith (wired, opt-in) plus local JSONL and a
       per-request dashboard drill-down. Sampling live traffic into the eval set
       is still open.
 - [x] A CI retrieval regression + drift gate against `demo_index`. A
       CI-*built* full-corpus index still needs the source PDFs CI does not have.
-- [ ] Multi-replica: the semantic cache is per-process; move it to Redis.
+- [ ] Multi-replica: the semantic cache, the rate limits, the concurrency cap and the spend count are all
+      per-process. With N containers the real ceilings are N times the settings. Move them to a shared store (Redis).
+- [ ] Run it under real traffic. Nothing here has served a real user, or been deployed to a cloud.

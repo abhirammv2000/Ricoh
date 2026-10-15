@@ -57,7 +57,18 @@ echo "ANTHROPIC_API_KEY=sk-ant-your-key" > .env     # then put the PDFs in data/
 streamlit run app/main.py
 ```
 
-Run the tests with `pip install -r requirements-dev.txt` and `pytest`. They run offline and the LLM is mocked. CI also runs a retrieval regression check against a small demo index. More commands, the evaluation scripts and deployment steps are in [docs/RUNNING.md](docs/RUNNING.md).
+To run it as a service instead of the demo page:
+
+```bash
+docker build -f Dockerfile.api -t citera-api .
+docker run --rm -p 8000:8000 -e ANTHROPIC_API_KEY=sk-ant-your-key -e API_KEYS=me:a-long-random-secret citera-api
+curl -H "X-API-Key: a-long-random-secret" -d '{"query": "How do I configure the network settings?"}' \
+     -H 'Content-Type: application/json' http://localhost:8000/query
+```
+
+[docs/OPERATIONS.md](docs/OPERATIONS.md) has the settings, the endpoints, the alerts and what to do when each fires.
+
+Run the tests with `pip install -r requirements-dev.txt` and `pytest`. They run offline, the LLM is mocked, and a guard makes the suite unable to reach a paid API even by mistake. CI also runs a retrieval regression check against a small demo index, starts the container against a fake model provider and runs the failure drills. More commands, the evaluation scripts and deployment steps are in [docs/RUNNING.md](docs/RUNNING.md).
 
 ## Docs
 
@@ -65,10 +76,13 @@ Run the tests with `pip install -r requirements-dev.txt` and `pytest`. They run 
 - [docs/DESIGN.md](docs/DESIGN.md): data handling and modeling choices
 - [docs/EVALUATION.md](docs/EVALUATION.md): all the measurements
 - [docs/RUNNING.md](docs/RUNNING.md): running, testing, deploying
+- [docs/OPERATIONS.md](docs/OPERATIONS.md): running the API as a service, its settings, alerts and runbook
 - [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md) and [docs/REPOSITORY_STRUCTURE.md](docs/REPOSITORY_STRUCTURE.md)
 
 ## Limits
 
 - It needs the PDFs ingested up front. It doesn't pick up document changes on its own.
 - An answer takes about 10 to 15 seconds, which is too slow for live phone support.
-- This is a demo, not a production system. The public demo uses a shared password, and there is no real auth or secrets manager. [DEPLOYMENT.md](DEPLOYMENT.md) lists what is missing.
+- The Streamlit page is a demo. It uses a shared password and has no rate limit.
+- The API in `api/` is built to run as a service: keys, per-key limits, a deadline, a concurrency cap, a daily spend cap, a readiness check, metrics, and answers from retrieval alone when the model is down. It has been tested against a fake model provider and in its container. It has not served real users, and it has not been deployed to a cloud. Its rate limits, concurrency cap and budget are per process.
+- [DEPLOYMENT.md](DEPLOYMENT.md) lists what is still missing, and [docs/OPERATIONS.md](docs/OPERATIONS.md) says how the service behaves when things go wrong.
