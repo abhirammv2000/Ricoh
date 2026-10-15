@@ -26,7 +26,7 @@ from api.main import create_app
 from api.readiness import Readiness
 from api.settings import Settings, SettingsError
 
-SECRET = "sk-ant-api03-SECRET-DO-NOT-LEAK"
+SECRET = "PROVIDER-SECRET-DO-NOT-LEAK"
 
 # these tests are about how failures are reported, so the retrieval fallback (tested in test_api_degraded.py) is off
 STRICT = Settings(fallback_to_retrieval=False, auth_disabled=True)

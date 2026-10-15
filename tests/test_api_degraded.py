@@ -18,7 +18,7 @@ from api.main import DEGRADED_ANSWER, create_app
 from api.readiness import Readiness
 from api.settings import Settings
 
-SECRET = "sk-ant-api03-SECRET-DO-NOT-LEAK"
+SECRET = "PROVIDER-SECRET-DO-NOT-LEAK"
 
 PASSAGES = [
     {"source_document": "network_guide.pdf", "page_number": 3, "text": "Open the Settings menu.\n  Choose Network.", "rrf_score": 0.0328},
