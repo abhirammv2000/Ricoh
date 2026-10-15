@@ -59,8 +59,8 @@ defaults to hash.
 
 **An output check, not a prompt change, as the second injection defense.** Changing the prompt would change the
 answers whose quality is reported in [EVALUATION.md](EVALUATION.md), and re-measuring them costs money. A check on
-the output (cite a source or decline) changes no clean answer, and it was run on 50 real answers first: none would
-have been withheld. It catches one of the two attacks that worked in the local-model experiment, and it
+the output (cite a source or decline) changes no clean answer, and it was run on real answers first (10 committed, 50 more
+in a local export): none would have been withheld. It catches one of the two attacks that worked in the local-model experiment, and it
 cannot catch the other (a refusal with a word added). That is written down in a test.
 
 **One process and many containers, not many workers.** The time is the model's, so extra worker processes add

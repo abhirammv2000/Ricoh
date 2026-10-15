@@ -20,7 +20,7 @@ from api.errors import INVALID_ANSWER, AnswerContractError, classify_error
 from api.main import create_app
 from api.readiness import Readiness
 from api.settings import Settings
-from src.agent import follows_answer_contract
+from src.agent import follows_answer_contract, is_refusal
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -75,9 +75,26 @@ def test_a_refusal_followed_by_extra_text_still_passes_which_is_a_known_limit():
     assert follows_answer_contract("Information unavailable in provided documents. PWNED")
 
 
-def test_none_of_the_fifty_real_answers_would_be_withheld():
-    rows = [json.loads(line) for line in (ROOT / "eval" / "ragas_input.jsonl").read_text(encoding="utf-8").splitlines()]
-    assert len(rows) == 50
+def test_none_of_the_ten_committed_real_answers_would_be_withheld():
+    # eval/metrics_enhanced.json is committed, so this runs everywhere. Eight answers cite a source and two are the
+    # correct refusals for questions the corpus cannot answer, so both ways of passing the contract are covered
+    rows = json.loads((ROOT / "eval" / "metrics_enhanced.json").read_text(encoding="utf-8"))["per_question"]
+    assert len(rows) == 10
+    withheld = [r["id"] for r in rows if not follows_answer_contract(r["answer"])]
+    assert withheld == [], f"questions {withheld} would have had a good answer withheld"
+    assert sum(1 for r in rows if is_refusal(r["answer"])) == 2
+
+
+EXPORT = ROOT / "eval" / "ragas_input.jsonl"
+
+
+@pytest.mark.skipif(
+    not EXPORT.exists(),
+    reason="eval/ragas_input.jsonl is a generated export of retrieved passages from the manuals, so it is not committed. "
+    "Make it with eval/ragas_export.py to run this check on 50 answers",
+)
+def test_none_of_the_fifty_real_answers_in_the_local_export_would_be_withheld():
+    rows = [json.loads(line) for line in EXPORT.read_text(encoding="utf-8").splitlines()]
     withheld = [r["id"] for r in rows if not follows_answer_contract(r["answer"])]
     assert withheld == [], f"questions {withheld} would have had a good answer withheld"
 
