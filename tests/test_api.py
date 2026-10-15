@@ -11,9 +11,18 @@ from fastapi.testclient import TestClient
 
 import api.main as apimod
 from api.main import api
+from api.readiness import Readiness
 from src.ratelimit import TokenBucketLimiter
 
 client = TestClient(api)
+
+
+@pytest.fixture(autouse=True)
+def index_is_ready(monkeypatch):
+    """These tests replace the agent, so they do not need an index. Readiness has its own tests."""
+    monkeypatch.setattr(
+        apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="test", chunks=1)
+    )
 
 
 @pytest.fixture(autouse=True)

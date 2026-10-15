@@ -30,6 +30,18 @@ def _number(env: Mapping[str, str], name: str, default: float, *, minimum: float
     return value
 
 
+def _flag(env: Mapping[str, str], name: str, default: bool) -> bool:
+    raw = env.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    value = raw.strip().lower()
+    if value in ("1", "true", "yes", "on"):
+        return True
+    if value in ("0", "false", "no", "off"):
+        return False
+    raise SettingsError(f"{name} must be true or false, got {raw!r}")
+
+
 @dataclass(frozen=True)
 class Settings:
     # the longest one question may take, from the request arriving to the answer (or the stream ending)
@@ -41,6 +53,9 @@ class Settings:
     # per client, requests a second with a burst
     rate_limit_rps: float = 1.0
     rate_limit_burst: int = 10
+    # serve only from an index that has a manifest and passes its checks. Turn off only for an index built
+    # before manifests existed that you cannot rebuild
+    require_index_manifest: bool = True
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -60,4 +75,5 @@ class Settings:
             rate_limit_burst=int(
                 _number(env, "RATE_LIMIT_BURST", defaults.rate_limit_burst, minimum=1, integer=True)
             ),
+            require_index_manifest=_flag(env, "REQUIRE_INDEX_MANIFEST", defaults.require_index_manifest),
         )

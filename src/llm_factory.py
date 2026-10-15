@@ -246,6 +246,44 @@ def shared_llm(
         return llm
 
 
+def import_provider_sdk(provider: str | None = None) -> None:
+    """Import the provider's client library now. It is imported on first use otherwise, and importing the
+    Anthropic SDK takes about 2 s, which the first question would pay."""
+    provider = (provider or DEFAULT_LLM_PROVIDER).lower()
+    if provider == "anthropic":
+        import langchain_anthropic  # noqa: F401
+    elif provider in ("openai", "google", "self_hosted"):
+        import langchain_openai  # noqa: F401
+
+
+def warm_up_client() -> None:
+    """Build the shared client and its HTTP client in the current event loop, with no network call. Call it
+    from the loop that will serve requests, since the client belongs to that loop."""
+    llm = shared_llm()
+    # these are built lazily, about 0.3 s, on the first call
+    for attribute in ("_client", "_async_client"):
+        getattr(llm, attribute, None)
+
+
+def missing_provider_settings(provider: str | None = None) -> list[str]:
+    """The environment variables the provider needs and does not have. Empty means it can be built.
+
+    It reads names only and never a value, and it does not call the provider, so it is safe and free to run on
+    every readiness check.
+    """
+    provider = (provider or DEFAULT_LLM_PROVIDER).lower()
+    needs = {
+        "anthropic": ["ANTHROPIC_API_KEY"],
+        "openai": ["OPENAI_API_KEY"],
+        "self_hosted": ["SELF_HOSTED_LLM_BASE_URL"],
+    }
+    if provider == "google":
+        return [] if (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")) else ["GEMINI_API_KEY"]
+    if provider not in needs:
+        return [f"LLM_PROVIDER (unknown provider {provider!r})"]
+    return [name for name in needs[provider] if not os.getenv(name)]
+
+
 def clear_shared_llms() -> None:
     """Forget every shared client. For tests, and after a change that a client should not outlive."""
     with _shared_lock:

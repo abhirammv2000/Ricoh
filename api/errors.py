@@ -36,6 +36,9 @@ PROVIDER_UNAVAILABLE = PublicError(
     503, "model_unavailable", "The language model is temporarily unavailable. Try again shortly.", retry_after=10
 )
 PROVIDER_REJECTED = PublicError(502, "model_error", "The language model could not answer this request.")
+NOT_READY = PublicError(
+    503, "not_ready", "The service is not ready to answer questions. Try again shortly.", retry_after=10
+)
 MISCONFIGURED = PublicError(500, "service_misconfigured", "The service is not configured correctly.")
 INTERNAL = PublicError(500, "internal_error", "Something went wrong.")
 

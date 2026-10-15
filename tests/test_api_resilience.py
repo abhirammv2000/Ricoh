@@ -23,10 +23,19 @@ from api.errors import (
 )
 from api.limits import ConcurrencyGate
 from api.main import create_app
+from api.readiness import Readiness
 from api.settings import Settings, SettingsError
 from src.ratelimit import TokenBucketLimiter
 
 SECRET = "sk-ant-api03-SECRET-DO-NOT-LEAK"
+
+
+@pytest.fixture(autouse=True)
+def index_is_ready(monkeypatch):
+    """These tests replace the agent, so they do not need an index. Readiness has its own tests."""
+    monkeypatch.setattr(
+        apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="test", chunks=1)
+    )
 
 
 @pytest.fixture(autouse=True)

@@ -42,11 +42,12 @@ def fake():
         yield server
 
 
-@pytest.fixture(scope="module")
-def service(fake, tmp_path_factory):
-    """The API in its own process. Its index is a copy, because opening a Chroma index writes to it."""
-    work = tmp_path_factory.mktemp("e2e")
+def _launch(fake, work: Path, damage=None):
+    """Start the API in its own process on a copy of the demo index. `damage` is a function that is given the
+    copied index folder and may break it. Returns (process, base_url, log_path)."""
     shutil.copytree(ROOT / "demo_index", work / "demo_index")
+    if damage is not None:
+        damage(work / "demo_index")
     port = _free_port()
     env = {
         **os.environ,
@@ -62,9 +63,11 @@ def service(fake, tmp_path_factory):
         "QUEUE_TIMEOUT_SECONDS": "0.1",
         "RATE_LIMIT_RPS": "1000",
         "RATE_LIMIT_BURST": "1000",
+        "DOTENV_OVERRIDE": "0",
         "PYTHONIOENCODING": "utf-8",
     }
-    log = open(work / "api.log", "w", encoding="utf-8")
+    log_path = work / "api.log"
+    log = open(log_path, "w", encoding="utf-8")
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "api.main:api", "--port", str(port), "--log-level", "warning"],
         cwd=ROOT, env=env, stdout=log, stderr=log,
@@ -74,20 +77,41 @@ def service(fake, tmp_path_factory):
     while time.time() < deadline:
         try:
             if httpx.get(base + "/health", timeout=2).status_code == 200:
-                break
+                return proc, base, log_path
         except httpx.HTTPError:
             time.sleep(0.3)
-    else:
-        proc.kill()
-        pytest.fail("the API did not start:\n" + (work / "api.log").read_text(encoding="utf-8")[-2000:])
-    # the first request loads the retriever, so do it before any timing
-    httpx.post(base + "/query", json={"query": "warm up"}, timeout=60)
-    yield base
+    proc.kill()
+    pytest.fail("the API did not start:\n" + log_path.read_text(encoding="utf-8")[-2000:])
+
+
+def _stop(proc) -> None:
     proc.terminate()
     try:
         proc.wait(timeout=10)
     except subprocess.TimeoutExpired:
         proc.kill()
+
+
+@pytest.fixture(scope="module")
+def service(fake, tmp_path_factory):
+    """The API in its own process. Its index is a copy, because opening a Chroma index writes to it."""
+    proc, base, _ = _launch(fake, tmp_path_factory.mktemp("e2e"))
+    yield base
+    _stop(proc)
+
+
+@pytest.fixture(scope="module")
+def broken_service(fake, tmp_path_factory):
+    """The API started on an index whose BM25 file has been damaged."""
+
+    def damage(index_dir: Path) -> None:
+        path = index_dir / "bm25_chunks.pkl"
+        path.write_bytes(path.read_bytes()[:-7])
+
+    work = tmp_path_factory.mktemp("e2e_broken")
+    proc, base, log_path = _launch(fake, work, damage=damage)
+    yield base, log_path
+    _stop(proc)
 
 
 @pytest.fixture(autouse=True)
@@ -174,3 +198,40 @@ def test_a_client_that_leaves_mid_stream_stops_the_model_call(service, fake):
     assert fake.counters.disconnected == cancelled_before + 1, "the provider connection was not closed"
     time.sleep(2.5)
     assert fake.counters.completed == done_before, "the model call ran to the end for nobody"
+
+
+def test_a_ready_service_says_what_it_is_serving(service):
+    r = CLIENT.get(service + "/ready")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ready" and body["chunks"] == 88
+    assert body["index_version"] == "53b873d83374"  # from demo_index/index_manifest.json
+
+
+def test_the_first_question_after_startup_is_not_slower_than_the_rest(fake, tmp_path_factory):
+    # the embedding model loads at startup now. Before, the first question took about 2.7 s and the rest 0.4 s
+    proc, base, _ = _launch(fake, tmp_path_factory.mktemp("e2e_first"))
+    try:
+        times = []
+        for _ in range(4):
+            started = time.perf_counter()
+            assert CLIENT.post(base + "/query", json={"query": "How do I configure the network settings?"}).status_code == 200
+            times.append(time.perf_counter() - started)
+        assert times[0] < 1.0, f"the first question took {times[0]:.2f} s: {times}"
+        assert times[0] < 3 * (sum(times[1:]) / 3) + 0.3, times
+    finally:
+        _stop(proc)
+
+
+def test_a_damaged_index_keeps_the_process_alive_but_not_ready_and_answers_nothing(broken_service, fake):
+    base, log_path = broken_service
+    calls_before = fake.counters.requests
+    assert CLIENT.get(base + "/health").status_code == 200, "a bad index must not look like a dead process"
+    ready = CLIENT.get(base + "/ready")
+    assert ready.status_code == 503
+    assert "bm25_chunks.pkl" in " ".join(ready.json()["problems"])
+    answer = CLIENT.post(base + "/query", json={"query": "How do I configure the network settings?"})
+    assert answer.status_code == 503 and answer.json()["code"] == "not_ready"
+    stream = CLIENT.post(base + "/query/stream", json={"query": "How do I configure the network settings?"})
+    assert stream.status_code == 503
+    assert fake.counters.requests == calls_before, "the model was called with no usable index"
