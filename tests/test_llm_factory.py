@@ -93,3 +93,74 @@ def test_self_hosted_provider_without_a_base_url_raises(monkeypatch):
     monkeypatch.delenv("SELF_HOSTED_LLM_BASE_URL", raising=False)
     with pytest.raises(EnvironmentError, match="SELF_HOSTED_LLM_BASE_URL"):
         get_llm(provider="self_hosted")
+
+
+# ---- shared_llm: one client per configuration ----
+
+import asyncio
+
+from src.llm_factory import clear_shared_llms, shared_llm
+
+
+@pytest.fixture
+def anthropic_env(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-1")
+    monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
+    clear_shared_llms()
+    yield
+    clear_shared_llms()
+
+
+def test_shared_llm_returns_the_same_client_for_the_same_arguments(anthropic_env):
+    assert shared_llm() is shared_llm()
+
+
+def test_shared_llm_matches_get_llm_settings(anthropic_env):
+    llm = shared_llm()
+    assert llm.max_retries == 3
+    assert llm.default_request_timeout == 60.0
+
+
+def test_shared_llm_gives_a_different_client_for_a_different_model_or_setting(anthropic_env):
+    base = shared_llm()
+    assert shared_llm(model="claude-haiku-4-5") is not base
+    assert shared_llm(max_tokens=100) is not base
+    assert shared_llm(timeout=5.0) is not base
+
+
+def test_shared_llm_does_not_hand_out_a_client_built_for_another_key_or_endpoint(anthropic_env, monkeypatch):
+    first = shared_llm()
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-2")
+    assert shared_llm() is not first
+    other_key = shared_llm()
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://127.0.0.1:9")
+    assert shared_llm() is not other_key
+
+
+def test_shared_llm_keeps_one_client_per_event_loop(anthropic_env):
+    # an async client's connection pool belongs to its loop, so a second loop must not get the first one's
+    async def grab():
+        return shared_llm()
+
+    first = asyncio.run(grab())
+    second = asyncio.run(grab())
+    assert first is not second
+    inside_one_loop = asyncio.run(_twice())
+    assert inside_one_loop
+
+
+async def _twice():
+    return shared_llm() is shared_llm()
+
+
+def test_clear_shared_llms_forgets_clients(anthropic_env):
+    first = shared_llm()
+    clear_shared_llms()
+    assert shared_llm() is not first
+
+
+def test_shared_llm_does_not_keep_the_api_key_in_its_cache_key(anthropic_env):
+    from src import llm_factory
+
+    shared_llm()
+    assert all("sk-test-1" not in repr(key) for key in llm_factory._shared)

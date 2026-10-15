@@ -30,7 +30,8 @@ from src.conversation import Turn, condense_query  # noqa: F401 - Turn re-export
 from src.instrumentation import ainvoke as instrumented_ainvoke
 from src.instrumentation import invoke as instrumented_invoke
 from src.instrumentation import span
-from src.llm_factory import get_llm
+# one client per configuration, reused across requests (see shared_llm). The name stays get_llm so tests can patch it
+from src.llm_factory import shared_llm as get_llm
 from src.retriever import get_retriever
 from src.semantic_cache import get_semantic_cache
 

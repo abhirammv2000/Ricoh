@@ -12,7 +12,10 @@ comes from the argument, or DEFAULT_LLM_PROVIDER.
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import os
+import threading
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -145,3 +148,77 @@ def get_llm(
             f"Unknown LLM provider '{provider}'. "
             "Supported: 'anthropic', 'openai', 'google', 'self_hosted'."
         )
+
+
+# ---------------------------------------------------------------------------------------------
+# one client per configuration, for code that handles requests
+# ---------------------------------------------------------------------------------------------
+#
+# get_llm() builds a new client every time. Building one costs about 150 ms, and the async client
+# inside it about another 270 ms the first time it is used, so a service that calls get_llm() per
+# request spent most of its CPU on that and could not use a connection twice. shared_llm() keeps one
+# client per configuration, so the HTTP connection pool is reused.
+
+_SHARED_ENV_VARS: tuple[str, ...] = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_API_URL",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "SELF_HOSTED_LLM_BASE_URL",
+)
+
+_shared: dict[tuple, BaseChatModel] = {}
+_shared_lock = threading.Lock()
+
+
+def _env_fingerprint() -> tuple:
+    """The credentials and endpoints that change what a client talks to. Hashed, so a key never sits in the cache key."""
+    return tuple(
+        hashlib.sha256(os.getenv(name, "").encode()).hexdigest()[:12] for name in _SHARED_ENV_VARS
+    )
+
+
+def _running_loop_id() -> int | None:
+    """The id of the running asyncio loop, or None. An async HTTP client's connection pool belongs to
+    one loop, so a client used from a loop is not handed to another."""
+    try:
+        return id(asyncio.get_running_loop())
+    except RuntimeError:
+        return None
+
+
+def shared_llm(
+    provider: str | None = None,
+    model: str | None = None,
+    temperature: float = 0.0,
+    max_tokens: int = _DEFAULT_MAX_TOKENS,
+    **kwargs,
+) -> BaseChatModel:
+    """The same arguments as get_llm(), but the client is built once and reused.
+
+    Use this on a request path. A different provider, model, setting, key or endpoint gets its own
+    client, and so does a different running event loop.
+    """
+    key = (
+        (provider or DEFAULT_LLM_PROVIDER).lower(),
+        model,
+        temperature,
+        max_tokens,
+        tuple(sorted((k, repr(v)) for k, v in kwargs.items())),
+        _env_fingerprint(),
+        _running_loop_id(),
+    )
+    with _shared_lock:
+        llm = _shared.get(key)
+        if llm is None:
+            llm = get_llm(provider, model, temperature, max_tokens, **kwargs)
+            _shared[key] = llm
+        return llm
+
+
+def clear_shared_llms() -> None:
+    """Forget every shared client. For tests, and after a change that a client should not outlive."""
+    with _shared_lock:
+        _shared.clear()
