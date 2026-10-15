@@ -186,7 +186,12 @@ class record_run:
 
     def __exit__(self, *exc: Any) -> None:
         if self._token is not None:
-            _CURRENT.reset(self._token)
+            try:
+                _CURRENT.reset(self._token)
+            except ValueError:
+                # a stream that was never finished can be closed by the garbage collector in another
+                # context, where the token is not valid. The record is done either way
+                _CURRENT.set(None)
         if self._persist and self.record.spans:
             try:
                 TRACE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -383,3 +388,47 @@ async def ainvoke(llm: Any, prompt: str, stage: str) -> str:
         )
 
     return response_text(response)
+
+
+async def astream(llm: Any, prompt: str, stage: str):
+    """Stream an LLM call chunk by chunk and record one span for it, even if the caller stops early.
+
+    Iterating this inside the task that handles a request means cancelling that task (a client that left,
+    a deadline) cancels the model's HTTP stream too, so the provider stops generating. A cancelled call
+    records a span with an error and no cost, because the provider's usage report never arrived.
+    """
+    rec = _CURRENT.get()
+    model = getattr(llm, "model", None) or getattr(llm, "model_name", "unknown")
+    started = time.perf_counter()
+    merged = None
+    try:
+        async for chunk in llm.astream(prompt):
+            merged = chunk if merged is None else merged + chunk
+            yield chunk
+    except BaseException as exc:  # includes CancelledError and GeneratorExit, which are what we want to record
+        if rec is not None:
+            rec.spans.append(
+                Span(
+                    stage=stage,
+                    model=str(model),
+                    latency_seconds=round(time.perf_counter() - started, 3),
+                    error=f"{type(exc).__name__}: {exc}"[:200],
+                )
+            )
+        raise
+
+    if rec is not None:
+        usage = getattr(merged, "usage_metadata", None) or {}
+        details = usage.get("input_token_details") or {}
+        rec.spans.append(
+            Span(
+                stage=stage,
+                model=str(model),
+                input_tokens=int(usage.get("input_tokens", 0) or 0),
+                output_tokens=int(usage.get("output_tokens", 0) or 0),
+                cache_read_tokens=int(details.get("cache_read", 0) or 0),
+                cache_write_tokens=int(details.get("cache_creation", 0) or 0),
+                latency_seconds=round(time.perf_counter() - started, 3),
+                cost_usd=round(_cost(str(model), usage), 6),
+            )
+        )

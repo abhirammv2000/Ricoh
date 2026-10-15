@@ -11,7 +11,7 @@ import asyncio
 import logging
 import re
 import time
-from collections.abc import Iterator, Sequence
+from collections.abc import AsyncIterator, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
@@ -28,6 +28,7 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
 )
 from src.conversation import Turn, condense_query  # noqa: F401 - Turn re-exported for callers
 from src.instrumentation import ainvoke as instrumented_ainvoke
+from src.instrumentation import astream as instrumented_astream
 from src.instrumentation import invoke as instrumented_invoke
 from src.instrumentation import span
 # one client per configuration, reused across requests (see shared_llm). The name stays get_llm so tests can patch it
@@ -504,6 +505,14 @@ class UnsupportedAsyncConfig(RuntimeError):
     """
 
 
+def async_pipeline_supported() -> bool:
+    """Whether the async pipeline can serve this configuration. The flags and the cache add calls that
+    are not async yet, so with any of them on the sync path has to be used."""
+    if USE_PLANNER or USE_VERIFIER or USE_TOOL_LOOP or USE_ROUTER:
+        return False
+    return get_semantic_cache() is None
+
+
 async def arun_agent(query: str) -> str:
     """Async version of run_agent, for the default pipeline only.
 
@@ -536,6 +545,39 @@ async def arun_agent(query: str) -> str:
     answer = await instrumented_ainvoke(llm, prompt, stage="synthesizer")
     record_citation_guardrail(answer, evidence)
     return answer
+
+
+async def astream_agent(query: str, result: "StreamResult") -> AsyncIterator[str]:
+    """Stream the answer for the default pipeline, with the same steps as arun_agent.
+
+    This is a plain async iterator over the model's stream, so cancelling the task that reads it (a
+    client that left, a deadline) closes the connection to the provider and generation stops. The
+    graph-based stream_agent cannot do that: a graph node that is already running cannot be cancelled.
+    Raises UnsupportedAsyncConfig, before yielding anything, for any other configuration.
+    """
+    if not async_pipeline_supported():
+        raise UnsupportedAsyncConfig(
+            "astream_agent only supports the default pipeline. Use stream_agent for any other configuration."
+        )
+    llm = get_llm()
+    started = time.perf_counter()
+    evidence = await asyncio.to_thread(
+        get_retriever().retrieve,
+        query,
+        top_k=RETRIEVAL_TOP_K,
+        final_k=RETRIEVAL_FINAL_K,
+    )
+    prompt = SYNTHESIZER_PROMPT.format(user_query=query, evidence_block=_format_evidence_block(evidence))
+    answer_parts: list[str] = []
+    async for chunk in instrumented_astream(llm, prompt, stage="synthesizer"):
+        text = _chunk_text(chunk)
+        if text:
+            if result.ttft_seconds is None:
+                result.ttft_seconds = time.perf_counter() - started
+            answer_parts.append(text)
+            yield text
+    result.total_seconds = time.perf_counter() - started
+    record_citation_guardrail("".join(answer_parts).strip(), evidence)
 
 
 @dataclass
