@@ -1,0 +1,14 @@
+{
+  "bm25_chunks_sha256": "ffbcb889758077e037bcd243b3acc10527bb56c0d625bb4f27cc6ae3257b9d73",
+  "bm25_index_sha256": "ada61c3d43a7c16e81cfd4471e306ef1ac097a3424b95ba01439f4c582631efc",
+  "built_at": "2026-10-15T18:09:36+00:00",
+  "chunk_count": 88,
+  "chunk_overlap": 50,
+  "chunk_size": 500,
+  "collection": "ricoh_manuals",
+  "corpus_fingerprint": "25025a9cc65e666c",
+  "document_count": 46,
+  "embedding_dim": 384,
+  "embedding_model": "chromadb-default-all-MiniLM-L6-v2",
+  "schema_version": 1
+}

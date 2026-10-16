@@ -12,7 +12,11 @@ comes from the argument, or DEFAULT_LLM_PROVIDER.
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import os
+import threading
+import weakref
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -75,8 +79,24 @@ _DEFAULT_MAX_TOKENS: int = 4096
 # retries and timeout, so a 429, a 5xx or a dropped connection doesn't become a crash. The SDK
 # does the retrying (it honours Retry-After), and each call is stateless so retrying is safe. The
 # default timeout is effectively none, so a hung socket would block forever and no retry would fire.
-_DEFAULT_TIMEOUT_SECONDS: float = 60.0
-_DEFAULT_MAX_RETRIES: int = 3
+def _env_number(name: str, default: float, cast=float):
+    """A positive number from the environment, or the default. A bad value stops startup and names itself."""
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = cast(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a number, got {raw!r}") from None
+    if value < 0:
+        raise ValueError(f"{name} must not be negative, got {raw!r}")
+    return value
+
+
+# the API sets these to fit inside its own request deadline. The worst case for one call is
+# timeout * (retries + 1) plus backoff, and a deadline shorter than that cuts the retries short
+_DEFAULT_TIMEOUT_SECONDS: float = _env_number("LLM_TIMEOUT_SECONDS", 60.0)
+_DEFAULT_MAX_RETRIES: int = int(_env_number("LLM_MAX_RETRIES", 3, int))
 
 
 def get_llm(
@@ -145,3 +165,133 @@ def get_llm(
             f"Unknown LLM provider '{provider}'. "
             "Supported: 'anthropic', 'openai', 'google', 'self_hosted'."
         )
+
+
+# ---------------------------------------------------------------------------------------------
+# one client per configuration, for code that handles requests
+# ---------------------------------------------------------------------------------------------
+#
+# get_llm() builds a new client every time. Building one costs about 150 ms, and the async client
+# inside it about another 270 ms the first time it is used, so a service that calls get_llm() per
+# request spent most of its CPU on that and could not use a connection twice. shared_llm() keeps one
+# client per configuration, so the HTTP connection pool is reused.
+
+_SHARED_ENV_VARS: tuple[str, ...] = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_API_URL",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "SELF_HOSTED_LLM_BASE_URL",
+)
+
+# Clients used from an event loop are kept per loop, and the loop is held weakly, so a client goes when its
+# loop does. Keying on id(loop) was wrong: a closed loop's memory can be reused by the next loop, which
+# would then be handed a client whose connections belong to the dead one. Code with no running loop (a
+# worker thread, the sync path) shares one set.
+_shared_sync: dict[tuple, BaseChatModel] = {}
+_shared_by_loop: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[tuple, BaseChatModel]]" = (
+    weakref.WeakKeyDictionary()
+)
+_shared_lock = threading.Lock()
+
+
+def _env_fingerprint() -> tuple:
+    """The credentials and endpoints that change what a client talks to. Hashed, so a key never sits in the cache key."""
+    return tuple(
+        hashlib.sha256(os.getenv(name, "").encode()).hexdigest()[:12] for name in _SHARED_ENV_VARS
+    )
+
+
+def _running_loop() -> asyncio.AbstractEventLoop | None:
+    """The running asyncio loop, or None. An async HTTP client's connection pool belongs to one loop, so a
+    client used from a loop is not handed to another."""
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+
+
+def shared_llm(
+    provider: str | None = None,
+    model: str | None = None,
+    temperature: float = 0.0,
+    max_tokens: int = _DEFAULT_MAX_TOKENS,
+    **kwargs,
+) -> BaseChatModel:
+    """The same arguments as get_llm(), but the client is built once and reused.
+
+    Use this on a request path. A different provider, model, setting, key or endpoint gets its own
+    client, and so does a different running event loop.
+    """
+    key = (
+        (provider or DEFAULT_LLM_PROVIDER).lower(),
+        model,
+        temperature,
+        max_tokens,
+        tuple(sorted((k, repr(v)) for k, v in kwargs.items())),
+        _env_fingerprint(),
+    )
+    loop = _running_loop()
+    with _shared_lock:
+        if loop is None:
+            cache = _shared_sync
+        else:
+            cache = _shared_by_loop.setdefault(loop, {})
+        llm = cache.get(key)
+        if llm is None:
+            llm = get_llm(provider, model, temperature, max_tokens, **kwargs)
+            cache[key] = llm
+        return llm
+
+
+def default_model_label(provider: str | None = None, model: str | None = None) -> str:
+    """The provider and model that get_llm() uses by default, as one short string for traces and metrics."""
+    provider = (provider or DEFAULT_LLM_PROVIDER).lower()
+    return f"{provider}:{model or _DEFAULT_MODELS.get(provider, 'unknown')}"
+
+
+def import_provider_sdk(provider: str | None = None) -> None:
+    """Import the provider's client library now. It is imported on first use otherwise, and importing the
+    Anthropic SDK takes about 2 s, which the first question would pay."""
+    provider = (provider or DEFAULT_LLM_PROVIDER).lower()
+    if provider == "anthropic":
+        import langchain_anthropic  # noqa: F401
+    elif provider in ("openai", "google", "self_hosted"):
+        import langchain_openai  # noqa: F401
+
+
+def warm_up_client() -> None:
+    """Build the shared client and its HTTP client in the current event loop, with no network call. Call it
+    from the loop that will serve requests, since the client belongs to that loop."""
+    llm = shared_llm()
+    # these are built lazily, about 0.3 s, on the first call
+    for attribute in ("_client", "_async_client"):
+        getattr(llm, attribute, None)
+
+
+def missing_provider_settings(provider: str | None = None) -> list[str]:
+    """The environment variables the provider needs and does not have. Empty means it can be built.
+
+    It reads names only and never a value, and it does not call the provider, so it is safe and free to run on
+    every readiness check.
+    """
+    provider = (provider or DEFAULT_LLM_PROVIDER).lower()
+    needs = {
+        "anthropic": ["ANTHROPIC_API_KEY"],
+        "openai": ["OPENAI_API_KEY"],
+        "self_hosted": ["SELF_HOSTED_LLM_BASE_URL"],
+    }
+    if provider == "google":
+        return [] if (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")) else ["GEMINI_API_KEY"]
+    if provider not in needs:
+        return [f"LLM_PROVIDER (unknown provider {provider!r})"]
+    return [name for name in needs[provider] if not os.getenv(name)]
+
+
+def clear_shared_llms() -> None:
+    """Forget every shared client. For tests, and after a change that a client should not outlive."""
+    with _shared_lock:
+        _shared_sync.clear()
+        _shared_by_loop.clear()

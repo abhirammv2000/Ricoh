@@ -1,0 +1,151 @@
+# Prometheus alert rules for the Citera API. Each one names a metric from api/metrics.py, and docs/OPERATIONS.md
+# says what to do when it fires. The thresholds are a first guess made before there was real traffic. Set them
+# from what the service actually does once it has run for a few weeks, and the comments say how.
+#
+#   promtool check rules ops/alerts.yml
+
+groups:
+  - name: citera-availability
+    rules:
+      - alert: CiteraNotReady
+        # The service is up but cannot give a correct answer: the index is missing, empty, damaged or does not
+        # match the configuration, or the model provider is not configured. /query refuses every question.
+        expr: citera_ready == 0
+        for: 2m
+        labels: {severity: page}
+        annotations:
+          summary: "Citera is not ready and is refusing questions"
+          runbook: "docs/OPERATIONS.md#citeranotready"
+          description: "curl /ready on the instance. The problems list says exactly what is wrong."
+
+      - alert: CiteraServerErrors
+        # 5xx from the query endpoints. A degraded answer is a 200 and is covered by CiteraModelOutage.
+        expr: |
+          sum(rate(citera_http_requests_total{endpoint=~"/query.*", status=~"5.."}[5m]))
+            /
+          clamp_min(sum(rate(citera_http_requests_total{endpoint=~"/query.*"}[5m])), 0.001) > 0.05
+        for: 10m
+        labels: {severity: page}
+        annotations:
+          summary: "More than 5% of questions are failing with a server error"
+          runbook: "docs/OPERATIONS.md#citeraservererrors"
+
+      - alert: CiteraModelOutage
+        # Answers are being served from retrieval alone because the model provider failed or timed out.
+        expr: sum(rate(citera_answers_total{outcome="degraded"}[5m])) > 0
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Citera is answering with passages only: the model provider is failing"
+          runbook: "docs/OPERATIONS.md#citeramodeloutage"
+
+  - name: citera-capacity
+    rules:
+      - alert: CiteraSlowAnswers
+        # Median answer time is about 10 s on Claude Sonnet, so this guards against it getting much worse. Set it
+        # at about twice the 95th percentile you see in normal traffic.
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(citera_http_request_seconds_bucket{endpoint="/query"}[10m]))) > 25
+        for: 10m
+        labels: {severity: ticket}
+        annotations:
+          summary: "95th percentile answer time is over 25 s"
+          runbook: "docs/OPERATIONS.md#citeraslowanswers"
+
+      - alert: CiteraTurningAwayCallers
+        # The concurrency cap is full and requests are being refused. Raise MAX_CONCURRENT_QUERIES if the provider
+        # allows it, or add another instance.
+        expr: sum(rate(citera_errors_total{code="overloaded"}[5m])) > 0.1
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Citera is turning away questions because it is at its concurrency limit"
+          runbook: "docs/OPERATIONS.md#citeraturningawaycallers"
+
+  - name: citera-cost
+    rules:
+      - alert: CiteraBudgetNearlyUsed
+        expr: citera_budget_limit_usd > 0 and citera_budget_spent_usd / citera_budget_limit_usd > 0.8
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than 80% of today's model budget is spent"
+          runbook: "docs/OPERATIONS.md#citerabudgetnearlyused"
+
+      - alert: CiteraCostPerQuestionUp
+        # Dollars per answered question, over an hour, against the same hour a week ago. A rise means longer prompts,
+        # a changed model or a stage that was switched on.
+        expr: |
+          (sum(rate(citera_llm_cost_usd_total[1h])) / clamp_min(sum(rate(citera_answers_total{outcome=~"answered|refused"}[1h])), 1e-6))
+            > 1.5 *
+          (sum(rate(citera_llm_cost_usd_total[1h] offset 7d)) / clamp_min(sum(rate(citera_answers_total{outcome=~"answered|refused"}[1h] offset 7d)), 1e-6))
+        for: 1h
+        labels: {severity: ticket}
+        annotations:
+          summary: "Cost per question is 50% above the same time last week"
+          runbook: "docs/OPERATIONS.md#citeracostperquestionup"
+
+  - name: citera-answer-quality
+    # Retrieval and answer quality can get worse while every request succeeds, so these watch the signals that move
+    # when it does. They are the nearest thing to a quality alarm before users complain.
+    rules:
+      - alert: CiteraRefusalsUp
+        # The share of questions the system declines to answer. The benchmark set has a known share of questions
+        # with no answer in the corpus, so compare with what you see normally. A rise means the corpus no longer
+        # covers what people ask, or retrieval has broken.
+        expr: |
+          sum(rate(citera_answers_total{outcome="refused"}[1h]))
+            /
+          clamp_min(sum(rate(citera_answers_total{outcome=~"answered|refused"}[1h])), 1e-6) > 0.35
+        for: 1h
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than a third of questions are being refused"
+          runbook: "docs/OPERATIONS.md#citerarefusalsup"
+
+      - alert: CiteraRetrievalFindingNothing
+        expr: sum(increase(citera_empty_retrievals_total[1h])) > 0
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Retrieval is returning no chunks for some questions"
+          runbook: "docs/OPERATIONS.md#citeraretrievalfindingnothing"
+
+      - alert: CiteraRetrievalWeaker
+        # The median score of the best chunk, against the same hour a week ago. RRF scores are small numbers, so
+        # compare rather than use a fixed level.
+        expr: |
+          histogram_quantile(0.5, sum by (le) (rate(citera_retrieval_top_rrf_score_bucket[1h])))
+            < 0.8 *
+          histogram_quantile(0.5, sum by (le) (rate(citera_retrieval_top_rrf_score_bucket[1h] offset 7d)))
+        for: 2h
+        labels: {severity: ticket}
+        annotations:
+          summary: "The best retrieved chunk is scoring lower than it did last week"
+          runbook: "docs/OPERATIONS.md#citeraretrievalweaker"
+
+      - alert: CiteraInvalidCitations
+        # An answer cited a document that was not in its evidence. This was zero on the 100-question benchmark.
+        expr: sum(increase(citera_invalid_citations_total[1h])) > 0
+        labels: {severity: ticket}
+        annotations:
+          summary: "An answer cited a document that was not retrieved"
+          runbook: "docs/OPERATIONS.md#citerainvalidcitations"
+
+      - alert: CiteraAnswersBreakingContract
+        # The model produced an answer with no citation and no refusal, and it was withheld. None of 50 real answers
+        # did. It can mean a prompt or model change, or an attack that got through to the model.
+        expr: sum(increase(citera_errors_total{code="invalid_answer"}[1h])) > 0
+        labels: {severity: ticket}
+        annotations:
+          summary: "The model gave answers with no citation and no refusal, which were withheld"
+          runbook: "docs/OPERATIONS.md#citeraanswersbreakingcontract"
+
+      - alert: CiteraChunksQuarantined
+        # Retrieved text looked like instructions to the model and was withheld. On the real corpus this is zero, so
+        # it means a document was added that carries an attack, or someone is poisoning the corpus.
+        expr: sum(increase(citera_quarantined_chunks_total[1h])) > 0
+        labels: {severity: ticket}
+        annotations:
+          summary: "Retrieved chunks that look like instructions to the model were withheld"
+          runbook: "docs/OPERATIONS.md#citerachunksquarantined"

@@ -1,0 +1,62 @@
+# Citera API container: the HTTP service in api/, not the Streamlit demo (that is Dockerfile).
+#
+#   docker build -f Dockerfile.api -t citera-api .
+#   docker run --rm -p 8000:8000 -e ANTHROPIC_API_KEY=... -e API_KEYS=partner:a-long-random-secret citera-api
+#
+# It will not start without API_KEYS. Set API_AUTH_DISABLED=true only on a laptop.
+#
+# The image serves the small index in demo_index/ so it works out of the box. For the full corpus, build the
+# index with src/ingest.py, mount it, and point CHROMA_DIR at it. The service checks the index against its
+# manifest at startup and answers 503 from /ready until it passes.
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    ANONYMIZED_TELEMETRY=False
+
+WORKDIR /app
+
+# Dependencies first, so a code change does not reinstall them.
+COPY requirements-api.txt .
+RUN pip install --upgrade pip && pip install -r requirements-api.txt
+
+# The embedding model ships in the image. Chroma downloads it (79 MB) on first use otherwise, which would make the
+# first request slow and fail outright where there is no outbound access.
+RUN python -c "from chromadb.utils import embedding_functions as ef; ef.ONNXMiniLM_L6_V2()(['warm up'])"
+
+COPY src/ ./src/
+COPY api/ ./api/
+COPY demo_index/ ./demo_index/
+
+# Run as a user that owns only what it must write: the index folder (Chroma writes to it when it opens) and the traces.
+RUN useradd --create-home --uid 1000 appuser \
+    && mkdir -p /var/log/citera \
+    && chown -R appuser /app/demo_index /var/log/citera
+USER appuser
+
+# What a deployed service should do. Each can be overridden with -e.
+#   LOG_FORMAT           one JSON object per log line, with the request id
+#   TRACE_QUERY_MODE     hash: traces hold a length and a hash of the question, never the text
+#   LLM_*                one retry, and a client timeout that fits inside the request deadline below
+ENV CHROMA_DIR=/app/demo_index \
+    DEMO_MODE=true \
+    LOG_FORMAT=json \
+    TRACE_DIR=/var/log/citera \
+    TRACE_QUERY_MODE=hash \
+    LLM_TIMEOUT_SECONDS=30 \
+    LLM_MAX_RETRIES=1 \
+    REQUEST_TIMEOUT_SECONDS=45 \
+    PORT=8000
+
+EXPOSE 8000
+
+# /ready, not /health: a container with a bad index shows as unhealthy instead of looking fine.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.getenv('PORT','8000')+'/ready', timeout=4)" || exit 1
+
+# One worker process, many concurrent requests. The time is spent waiting on the model provider, not on the CPU, so
+# more processes would add memory and split the rate limits and the daily budget without adding capacity. Add
+# capacity with more containers. --timeout-graceful-shutdown lets answers in progress finish when the container
+# is stopped. --no-server-header keeps the server's name out of responses.
+CMD ["sh", "-c", "exec uvicorn api.main:api --host 0.0.0.0 --port ${PORT} --no-server-header --timeout-graceful-shutdown 30"]

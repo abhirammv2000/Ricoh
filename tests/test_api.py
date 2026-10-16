@@ -11,9 +11,18 @@ from fastapi.testclient import TestClient
 
 import api.main as apimod
 from api.main import api
+from api.readiness import Readiness
 from src.ratelimit import TokenBucketLimiter
 
 client = TestClient(api)
+
+
+@pytest.fixture(autouse=True)
+def index_is_ready(monkeypatch):
+    """These tests replace the agent, so they do not need an index. Readiness has its own tests."""
+    monkeypatch.setattr(
+        apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="test", chunks=1)
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -21,7 +30,7 @@ def fresh_limiter():
     """Give every test its own generous limiter, so the rate limit never fires
     incidentally and one test's requests cannot bleed into the next. A test that
     exercises the limit installs its own tight limiter."""
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=1000.0, capacity=1000)
+    api.state.limiter = TokenBucketLimiter(rate_per_sec=1000.0, capacity=1000)
     yield
 
 
@@ -96,7 +105,14 @@ def test_stream_rejects_injection():
     assert r.status_code == 400
 
 
-def test_stream_emits_tokens_then_done(monkeypatch):
+@pytest.fixture
+def threaded_stream(monkeypatch):
+    """Streaming through the worker thread, which is what runs when the planner, verifier, tool loop, router
+    or semantic cache is on. The default pipeline streams with astream_agent instead."""
+    monkeypatch.setattr(apimod, "async_pipeline_supported", lambda: False)
+
+
+def test_stream_emits_tokens_then_done(monkeypatch, threaded_stream):
     def fake_stream(q, result):
         result.ttft_seconds = 0.1
         yield "hel"
@@ -113,7 +129,7 @@ def test_stream_emits_tokens_then_done(monkeypatch):
 
 def test_rate_limit_returns_429_with_retry_after(monkeypatch):
     # Install a bucket of exactly one token, so the second request is throttled.
-    apimod._limiter = TokenBucketLimiter(rate_per_sec=0.001, capacity=1)
+    api.state.limiter = TokenBucketLimiter(rate_per_sec=0.001, capacity=1)
     monkeypatch.setattr(apimod, "arun_agent", _fake_arun_agent)
     monkeypatch.setattr(apimod, "run_agent", lambda q: "ok [a.pdf, Page 1]")
 
