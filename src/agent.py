@@ -8,10 +8,11 @@ verdict sends the graph back to the planner once. The prompts are module-level c
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import re
 import time
-from collections.abc import Iterator, Sequence
+from collections.abc import AsyncIterator, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
@@ -28,9 +29,12 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
 )
 from src.conversation import Turn, condense_query  # noqa: F401 - Turn re-exported for callers
 from src.instrumentation import ainvoke as instrumented_ainvoke
+from src.instrumentation import astream as instrumented_astream
 from src.instrumentation import invoke as instrumented_invoke
+from src.guardrails import looks_like_instructions_to_the_model
 from src.instrumentation import span
-from src.llm_factory import get_llm
+# one client per configuration, reused across requests (see shared_llm). The name stays get_llm so tests can patch it
+from src.llm_factory import shared_llm as get_llm
 from src.retriever import get_retriever
 from src.semantic_cache import get_semantic_cache
 
@@ -125,6 +129,11 @@ Answer:
 """
 
 
+# a short id for the synthesizer prompt, so a trace says which wording produced an answer. It changes when the
+# prompt text does, and in no other case
+PROMPT_VERSION: str = hashlib.sha256(SYNTHESIZER_PROMPT.encode()).hexdigest()[:8]
+
+
 # the synthesizer says this (rule 4 of its prompt) when it can't answer. The harness and the
 # router look for it, ignoring case and whitespace.
 REFUSAL_MARKER = "information unavailable"
@@ -141,6 +150,16 @@ CITATION_RE = re.compile(r"\[([^\]]+?),\s*Page\s*\d+\]", re.IGNORECASE)
 def cited_docs(answer: str) -> set[str]:
     """Distinct document names the answer cites, by the [Doc, Page X] format."""
     return {m.strip() for m in CITATION_RE.findall(answer)}
+
+
+def follows_answer_contract(answer: str) -> bool:
+    """Whether an answer is what the synthesizer prompt asks for: it cites a source, or it declines with the marker.
+
+    This is checked on the output, so it holds however an attack was worded. A reply that is neither, such as a
+    bare word an injected instruction asked for, breaks it. On 50 real answers none did. It is not a complete
+    defense: a reply that declines and then adds text still passes. No LLM or network call.
+    """
+    return bool(cited_docs(answer)) or is_refusal(answer)
 
 
 def record_citation_guardrail(answer: str, evidence: list[dict[str, Any]]) -> None:
@@ -167,8 +186,31 @@ def record_citation_guardrail(answer: str, evidence: list[dict[str, Any]]) -> No
 
 # helpers
 
-def _format_evidence_block(evidence: list[dict[str, Any]]) -> str:
-    """Numbered text block of the evidence, for the prompts."""
+def quarantine_suspicious_evidence(evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop retrieved chunks that look like instructions to the model, before they reach a prompt.
+
+    A dropped chunk is never shown to the model, so this holds however the model behaves, and a chunk that
+    does not match is passed through untouched, so answers on clean evidence are unchanged. What was
+    dropped is logged by document and page only, and recorded in the trace for the metrics.
+    """
+    kept = [e for e in evidence if not looks_like_instructions_to_the_model(e.get("text", ""))]
+    if len(kept) != len(evidence):
+        dropped = [e for e in evidence if e not in kept]
+        where = [f"{e.get('source_document', '?')} p.{e.get('page_number', '?')}" for e in dropped]
+        logger.warning("Quarantined %d retrieved chunk(s) that look like instructions to the model: %s", len(dropped), where)
+        with span("evidence_guard", quarantined=len(dropped), documents=where):
+            pass
+    return kept
+
+
+def _format_evidence_block(evidence: list[dict[str, Any]], quarantine: bool = True) -> str:
+    """Numbered text block of the evidence, for the prompts.
+
+    quarantine=False skips the screen for suspicious chunks. Only the injection eval does that, to measure the
+    model without the defense. The service never does.
+    """
+    if quarantine:
+        evidence = quarantine_suspicious_evidence(evidence)
     if not evidence:
         return "(no evidence retrieved)"
 
@@ -503,6 +545,14 @@ class UnsupportedAsyncConfig(RuntimeError):
     """
 
 
+def async_pipeline_supported() -> bool:
+    """Whether the async pipeline can serve this configuration. The flags and the cache add calls that
+    are not async yet, so with any of them on the sync path has to be used."""
+    if USE_PLANNER or USE_VERIFIER or USE_TOOL_LOOP or USE_ROUTER:
+        return False
+    return get_semantic_cache() is None
+
+
 async def arun_agent(query: str) -> str:
     """Async version of run_agent, for the default pipeline only.
 
@@ -535,6 +585,39 @@ async def arun_agent(query: str) -> str:
     answer = await instrumented_ainvoke(llm, prompt, stage="synthesizer")
     record_citation_guardrail(answer, evidence)
     return answer
+
+
+async def astream_agent(query: str, result: "StreamResult") -> AsyncIterator[str]:
+    """Stream the answer for the default pipeline, with the same steps as arun_agent.
+
+    This is a plain async iterator over the model's stream, so cancelling the task that reads it (a
+    client that left, a deadline) closes the connection to the provider and generation stops. The
+    graph-based stream_agent cannot do that: a graph node that is already running cannot be cancelled.
+    Raises UnsupportedAsyncConfig, before yielding anything, for any other configuration.
+    """
+    if not async_pipeline_supported():
+        raise UnsupportedAsyncConfig(
+            "astream_agent only supports the default pipeline. Use stream_agent for any other configuration."
+        )
+    llm = get_llm()
+    started = time.perf_counter()
+    evidence = await asyncio.to_thread(
+        get_retriever().retrieve,
+        query,
+        top_k=RETRIEVAL_TOP_K,
+        final_k=RETRIEVAL_FINAL_K,
+    )
+    prompt = SYNTHESIZER_PROMPT.format(user_query=query, evidence_block=_format_evidence_block(evidence))
+    answer_parts: list[str] = []
+    async for chunk in instrumented_astream(llm, prompt, stage="synthesizer"):
+        text = _chunk_text(chunk)
+        if text:
+            if result.ttft_seconds is None:
+                result.ttft_seconds = time.perf_counter() - started
+            answer_parts.append(text)
+            yield text
+    result.total_seconds = time.perf_counter() - started
+    record_citation_guardrail("".join(answer_parts).strip(), evidence)
 
 
 @dataclass
