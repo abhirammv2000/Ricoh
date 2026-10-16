@@ -30,6 +30,9 @@ DEFAULT_PATH = Path(__file__).resolve().parent / "human_labels.json"
 # what the page may see of an item. Anything else, including any judge score, stays on the server
 VISIBLE = ("id", "question", "answer", "expected_behavior", "evidence", "human_grounded", "human_correct", "human_note")
 MAX_NOTE = 2000
+# a request body above MAX_BODY is refused. Up to MAX_DRAIN of it is read and discarded first (see _take_body)
+MAX_BODY = 10_000
+MAX_DRAIN = 1_000_000
 _write_lock = threading.Lock()
 
 
@@ -292,17 +295,40 @@ def make_handler(path: Path, token: str, port_holder: list[int]):
                 return self._send(200, body, "application/json")
             self._send(404, b"not found", "text/plain")
 
+        def _take_body(self) -> bytes | None:
+            """Read the whole request body, or None if it is too large or its length is not a number.
+
+            The body is always consumed before replying, even when the answer is going to be an error. A server that
+            replies and closes with request data still unread makes the operating system send a reset, which can
+            discard the reply before the client reads it, and the client then reports a confusing connection error
+            instead of the status. An oversized body is read and thrown away, up to a limit, for the same reason.
+            """
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                return None
+            if length < 0:
+                return None
+            kept = self.rfile.read(min(length, MAX_BODY))
+            remaining = min(length, MAX_DRAIN) - len(kept)
+            while remaining > 0:
+                chunk = self.rfile.read(min(remaining, 65536))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+            return kept if length <= MAX_BODY else None
+
         def do_POST(self) -> None:
+            body = self._take_body()
             origin_ok = self.headers.get("Origin") in (None, f"http://127.0.0.1:{port_holder[0]}", f"http://localhost:{port_holder[0]}")
             if not self._local() or not origin_ok or not secrets.compare_digest(self.headers.get("X-Label-Token", ""), token):
                 return self._send(403, b"forbidden", "text/plain")
             if self.path != "/api/label":
                 return self._send(404, b"not found", "text/plain")
             try:
-                length = int(self.headers.get("Content-Length", "0"))
-                if length > 10_000:
-                    raise LabelError("too large")
-                payload = json.loads(self.rfile.read(length) or b"{}")
+                if body is None:
+                    raise LabelError("request too large or malformed")
+                payload = json.loads(body or b"{}")
                 result = apply_label(path, payload)
             except (LabelError, json.JSONDecodeError, ValueError) as exc:
                 return self._send(400, str(exc).encode("utf-8"), "text/plain")
@@ -320,6 +346,20 @@ def make_server(path: Path = DEFAULT_PATH, port: int = 8765) -> tuple[ThreadingH
     return server, token
 
 
+def make_server_preferring(path: Path, preferred: int) -> tuple[ThreadingHTTPServer, str, bool]:
+    """The preferred port if it is free, otherwise any free one. The last value says which happened.
+
+    A port can be taken by another program (Docker Desktop holds 8765 on one machine this was run on), and
+    Windows reports that as "access forbidden" and not "address in use", so any OSError means "use another".
+    """
+    try:
+        server, token = make_server(path, preferred)
+        return server, token, False
+    except OSError:
+        server, token = make_server(path, 0)
+        return server, token, True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Label the judge worksheet in a browser")
     parser.add_argument("--path", default=str(DEFAULT_PATH))
@@ -330,9 +370,11 @@ def main() -> None:
     path = Path(args.path)
     if not path.exists():
         raise SystemExit(f"No worksheet at {path}. Make one with: python -m eval.label_for_kappa --sample 30")
-    server, _token = make_server(path, args.port)
+    server, _token, fell_back = make_server_preferring(path, args.port)
     url = f"http://127.0.0.1:{server.server_address[1]}/"
     state = progress(read_sheet(path))
+    if fell_back:
+        print(f"Port {args.port} is in use by another program, so a free port was chosen instead.")
     print(f"{state['labelled']} of {state['total']} labelled. Open {url}  (Ctrl+C to stop)")
     if not args.no_browser:
         webbrowser.open(url)

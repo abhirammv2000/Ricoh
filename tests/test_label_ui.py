@@ -9,7 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from eval.label_ui import LabelError, apply_label, make_server, progress, public_items, read_sheet
+from eval.label_ui import LabelError, apply_label, make_server, make_server_preferring, progress, public_items, read_sheet
 
 
 def worksheet(n=3) -> dict:
@@ -210,3 +210,42 @@ def test_unknown_paths_are_404(running):
 def test_only_one_mistake_type_is_raised_for_bad_input(sheet_path):
     with pytest.raises(LabelError):
         apply_label(sheet_path, [1, 2, 3])
+
+
+def test_when_the_preferred_port_is_taken_a_free_one_is_used_instead(sheet_path):
+    import socket
+
+    blocker = socket.socket()
+    blocker.bind(("127.0.0.1", 0))
+    blocker.listen()
+    taken = blocker.getsockname()[1]
+    try:
+        server, token, fell_back = make_server_preferring(sheet_path, taken)
+        try:
+            assert fell_back and server.server_address[1] != taken
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base = f"http://127.0.0.1:{server.server_address[1]}"
+            assert httpx.get(base + "/api/items").json()["total"] == 3
+            # the origin check follows the port that was really used, so saving still works
+            ok = httpx.post(base + "/api/label", json={"id": 10, "human_grounded": 1},
+                            headers={"X-Label-Token": token, "Origin": base})
+            assert ok.status_code == 200
+        finally:
+            server.shutdown()
+            server.server_close()
+    finally:
+        blocker.close()
+
+
+def test_a_free_preferred_port_is_used_as_asked(sheet_path):
+    import socket
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        free = probe.getsockname()[1]
+    server, _token, fell_back = make_server_preferring(sheet_path, free)
+    try:
+        assert not fell_back and server.server_address[1] == free
+    finally:
+        server.server_close()
