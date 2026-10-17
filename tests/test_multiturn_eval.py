@@ -6,17 +6,16 @@ aggregation helpers.
 
 from __future__ import annotations
 
-import io
 import json
 
-from src.config import PROJECT_ROOT
 from eval.multiturn_eval import _aggregate, _distinct_docs, _recall
+from src.config import PROJECT_ROOT
 
 CHAINS = PROJECT_ROOT / "eval" / "multiturn_questions.json"
 
 
 def _chains():
-    return json.loads(io.open(CHAINS, encoding="utf-8").read())["chains"]
+    return json.loads(open(CHAINS, encoding="utf-8").read())["chains"]
 
 
 # --- chain file structure ---

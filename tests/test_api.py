@@ -46,7 +46,7 @@ async def _fake_arun_agent(q: str) -> str:
 
 def test_query_returns_answer_and_trace(monkeypatch):
     # /query tries arun_agent first (the default config in this test
-    # environment does not raise UnsupportedAsyncConfig), so that is the seam
+    # environment does not raise AsyncNotSupportedError), so that is the seam
     # that must be mocked. run_agent is also patched, in case the fallback
     # path ever fires, so this test cannot depend on real API access whichever
     # branch runs.
@@ -60,13 +60,13 @@ def test_query_returns_answer_and_trace(monkeypatch):
 
 
 def test_query_falls_back_to_sync_agent_when_async_unsupported(monkeypatch):
-    # arun_agent raises UnsupportedAsyncConfig whenever a non-default flag
+    # arun_agent raises AsyncNotSupportedError whenever a non-default flag
     # (planner, verifier, tool loop, router, semantic cache) is on. The
     # endpoint must catch exactly that and fall back to run_agent, not swallow
     # every RuntimeError, so this confirms the fallback branch actually works
     # end to end rather than assuming it from reading the code.
     async def _raise(q: str) -> str:
-        raise apimod.UnsupportedAsyncConfig("planner is on")
+        raise apimod.AsyncNotSupportedError("planner is on")
 
     monkeypatch.setattr(apimod, "arun_agent", _raise)
     monkeypatch.setattr(apimod, "run_agent", lambda q: "fell back [a.pdf, Page 1]")

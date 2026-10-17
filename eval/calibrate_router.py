@@ -14,7 +14,6 @@ Retrieval only, so free and exact.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 from pathlib import Path
 
@@ -32,7 +31,7 @@ def _expected_hit(ranked_docs: list[str], expected: list[str]) -> bool:
 
 def calibrate(split: str) -> int:
     questions = [
-        q for q in json.load(io.open(QUESTIONS_PATH, encoding="utf-8"))["questions"]
+        q for q in json.load(open(QUESTIONS_PATH, encoding="utf-8"))["questions"]
         if q.get("split") == split
     ]
     if not questions:

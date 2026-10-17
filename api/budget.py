@@ -15,7 +15,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from api.errors import PublicError
 
@@ -25,7 +25,7 @@ BUDGET_EXCEEDED = PublicError(
 
 
 def _utc_day(now: float) -> str:
-    return datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m-%d")
+    return datetime.fromtimestamp(now, UTC).strftime("%Y-%m-%d")
 
 
 class DailyBudget:
@@ -62,6 +62,6 @@ class DailyBudget:
         return self.enabled and self.spent_usd >= self.limit_usd
 
     def seconds_until_reset(self) -> int:
-        now = datetime.fromtimestamp(self._clock(), timezone.utc)
+        now = datetime.fromtimestamp(self._clock(), UTC)
         midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         return max(1, int((midnight - now).total_seconds()))

@@ -7,7 +7,7 @@ import asyncio
 import src.agent as agent
 from src.agent import (
     MAX_ITERATIONS,
-    UnsupportedAsyncConfig,
+    AsyncNotSupportedError,
     arun_agent,
     planner_node,
     record_citation_guardrail,
@@ -17,7 +17,6 @@ from src.agent import (
 )
 from src.instrumentation import record_run
 from tests.helpers import FakeLLM
-
 
 # routing
 
@@ -155,7 +154,6 @@ import pytest
 
 from src.agent import build_agent_graph, get_agent_graph, initial_state
 
-
 # arun_agent. Retrieval and the LLM are faked, so these only check its own logic
 
 class _FakeRetriever:
@@ -195,13 +193,13 @@ def test_arun_agent_runs_retrieval_then_synthesis(monkeypatch):
 )
 def test_arun_agent_raises_when_a_non_default_flag_is_on(monkeypatch, flag):
     _patch_async_defaults(monkeypatch, **{flag: True})
-    with pytest.raises(UnsupportedAsyncConfig):
+    with pytest.raises(AsyncNotSupportedError):
         asyncio.run(arun_agent("q"))
 
 
 def test_arun_agent_raises_when_semantic_cache_enabled(monkeypatch):
     _patch_async_defaults(monkeypatch, semantic_cache=object())
-    with pytest.raises(UnsupportedAsyncConfig):
+    with pytest.raises(AsyncNotSupportedError):
         asyncio.run(arun_agent("q"))
 
 

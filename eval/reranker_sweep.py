@@ -18,7 +18,6 @@ Writes eval/reranker_sweep.{json,md}.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import time
@@ -28,8 +27,8 @@ from typing import Any
 os.environ.setdefault("OMP_NUM_THREADS", "8")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
-from src.config import PROJECT_ROOT  # noqa: E402
 from eval.sweep_embeddings import _distinct_ranked_docs, _score_one  # noqa: E402
+from src.config import PROJECT_ROOT  # noqa: E402
 
 INDEX_ROOT: Path = PROJECT_ROOT / "eval" / "indexes"
 QUESTIONS_PATH: Path = PROJECT_ROOT / "eval" / "generated_questions.json"
@@ -81,7 +80,7 @@ def run(rerankers: list[str], index_label: str) -> int:
     if not (index_dir / "chroma.sqlite3").exists():
         raise SystemExit(f"no index for '{index_label}'. run: python -m eval.sweep_embeddings --build {index_label}")
 
-    questions = json.loads(io.open(QUESTIONS_PATH, encoding="utf-8").read())["questions"]
+    questions = json.loads(open(QUESTIONS_PATH, encoding="utf-8").read())["questions"]
     retriever = HybridRetriever(persist_dir=index_dir)
 
     rows: list[dict[str, Any]] = []

@@ -259,7 +259,7 @@ if __name__ == "__main__":
         print("\nNo chunks produced - something went wrong.")
         sys.exit(1)
 
-    print(f"\nIngestion successful!")
+    print("\nIngestion successful!")
     print(f"   Total chunks : {len(chunks)}")
     print(f"   Source files  : {set(c['source_document'] for c in chunks)}")
 
@@ -275,7 +275,7 @@ if __name__ == "__main__":
     print(json.dumps(sample, indent=2))
 
     sample_path.unlink(missing_ok=True)
-    print(f"\nCleaned up sample PDF.")
+    print("\nCleaned up sample PDF.")
     print("=" * 70)
     print("Smoke test complete.")
     print("=" * 70)

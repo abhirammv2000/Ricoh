@@ -30,9 +30,7 @@ from src.config import (
     RETRIEVAL_TOP_K,
     RRF_K,
 )
-
 from src.guardrails import looks_like_instructions_to_the_model
-from src.privacy import describe_query, trace_query
 from src.index_manifest import (
     DEFAULT_EMBEDDING_NAME,
     IndexCheck,
@@ -42,6 +40,7 @@ from src.index_manifest import (
     verify_index,
     write_manifest,
 )
+from src.privacy import describe_query, trace_query
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +48,10 @@ logger = logging.getLogger(__name__)
 _reranker = None
 
 # making a retriever reopens chroma and unpickles the whole BM25 index, so share one
-_retriever: "HybridRetriever | None" = None
+_retriever: HybridRetriever | None = None
 
 
-def get_retriever() -> "HybridRetriever":
+def get_retriever() -> HybridRetriever:
     """The shared HybridRetriever, made on first use. Call reset_retriever() after rebuilding the index."""
     global _retriever
     if _retriever is None:
@@ -338,7 +337,7 @@ class HybridRetriever:
         dists = results["distances"][0]
 
         ranked: list[dict[str, Any]] = []
-        for doc_id, doc, meta, dist in zip(ids, docs, metas, dists):
+        for doc_id, doc, meta, dist in zip(ids, docs, metas, dists, strict=False):
             ranked.append(
                 {
                     "id": doc_id,
@@ -499,7 +498,7 @@ class HybridRetriever:
         pairs = [(query, d["text"]) for d in docs]
         scores = reranker.predict(pairs)
         ranked = sorted(
-            zip(docs, scores), key=lambda x: x[1], reverse=True
+            zip(docs, scores, strict=False), key=lambda x: x[1], reverse=True
         )[:final_k]
         out: list[dict[str, Any]] = []
         for doc, score in ranked:

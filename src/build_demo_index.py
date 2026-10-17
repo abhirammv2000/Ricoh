@@ -14,7 +14,6 @@ manifest records what was included.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import random
 import shutil
@@ -32,7 +31,7 @@ def _referenced_docs() -> set[str]:
     """The documents the curated benchmark uses."""
     docs: set[str] = set()
     if GROUND_TRUTH.exists():
-        for q in json.loads(io.open(GROUND_TRUTH, encoding="utf-8").read())["questions"]:
+        for q in json.loads(open(GROUND_TRUTH, encoding="utf-8").read())["questions"]:
             docs.update(q.get("expected_sources", []))
     return docs
 
@@ -41,7 +40,7 @@ def _sampled_docs(exclude: set[str], n: int, seed: int) -> set[str]:
     """A fixed-seed sample of other documents from the generated set."""
     pool: list[str] = []
     if GENERATED.exists():
-        for q in json.loads(io.open(GENERATED, encoding="utf-8").read())["questions"]:
+        for q in json.loads(open(GENERATED, encoding="utf-8").read())["questions"]:
             for d in q.get("expected_sources", []):
                 if d not in exclude and d not in pool:
                     pool.append(d)

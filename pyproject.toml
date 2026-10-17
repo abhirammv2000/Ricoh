@@ -1,0 +1,22 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["notebooks", "chroma_db", "data", "demo_index", "traces"]
+
+[tool.ruff.lint]
+# E and F are the basics, I sorts imports, N checks names are snake_case, B catches likely bugs, UP keeps syntax current
+select = ["E", "F", "I", "N", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# These files set an environment variable or the import path before the other imports run, so those
+# imports cannot move to the top.
+"src/config.py" = ["E402"]
+"src/evaluate.py" = ["E402"]
+"src/eval_harness.py" = ["E402"]
+"app/main.py" = ["E402"]
+# record_run and span are used like functions (with record_run(...):), so they stay lowercase.
+"src/instrumentation.py" = ["N801"]
+# A few tests import a module after patching something it needs.
+"tests/test_agent.py" = ["E402"]
+"tests/test_eval_metrics.py" = ["E402"]
+"tests/test_llm_factory.py" = ["E402"]

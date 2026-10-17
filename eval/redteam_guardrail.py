@@ -17,9 +17,7 @@ had 4 unit tests checking its own patterns. This measures it in two stages:
 from __future__ import annotations
 
 import argparse
-import io
 import json
-from pathlib import Path
 from typing import Any
 
 from src.config import PROJECT_ROOT, RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K
@@ -39,7 +37,7 @@ _PROMPT_LEAK_SIGNATURES = (
 
 
 def _screen_stage() -> dict[str, Any]:
-    payload = json.loads(io.open(PROMPTS_PATH, encoding="utf-8").read())
+    payload = json.loads(open(PROMPTS_PATH, encoding="utf-8").read())
     prompts = payload["prompts"]
 
     by_category: dict[str, list[dict[str, Any]]] = {}
@@ -107,7 +105,7 @@ def run(full_pipeline: bool) -> int:
 
     if full_pipeline:
         bypassed_ids = {i for s in stage1["summary"].values() for i in s["bypassed_ids"]}
-        all_prompts = json.loads(io.open(PROMPTS_PATH, encoding="utf-8").read())["prompts"]
+        all_prompts = json.loads(open(PROMPTS_PATH, encoding="utf-8").read())["prompts"]
         bypassed_prompts = [p for p in all_prompts if p["id"] in bypassed_ids]
         print(f"\nRunning {len(bypassed_prompts)} bypassed prompts through the real pipeline...")
         full_rows = _full_pipeline_stage(bypassed_prompts)

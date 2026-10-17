@@ -78,7 +78,7 @@ class Settings:
     log_format: str = "text"
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
+    def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
         env = os.environ if env is None else env
         defaults = cls()
         return cls(

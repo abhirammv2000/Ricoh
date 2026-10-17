@@ -7,7 +7,6 @@ file and writing the JSONL the RAGAS step consumes.
 
 from __future__ import annotations
 
-import io
 import json
 
 import pytest
@@ -38,7 +37,7 @@ def test_export_writes_one_row_per_sampled_question(monkeypatch, metrics_file, t
 
     rx.export(metrics_file, n=5, seed=1, out_path=out)
 
-    rows = [json.loads(line) for line in io.open(out, encoding="utf-8")]
+    rows = [json.loads(line) for line in open(out, encoding="utf-8")]
     assert len(rows) == 5
     assert set(rows[0]) == {
         "id", "question", "answer", "contexts", "judge_groundedness", "judge_correctness"
@@ -66,7 +65,7 @@ def test_export_skips_error_answers(monkeypatch, metrics_file, tmp_path):
 
     rx.export(metrics_file, n=20, seed=1, out_path=out)
 
-    ids = {json.loads(line)["id"] for line in io.open(out, encoding="utf-8")}
+    ids = {json.loads(line)["id"] for line in open(out, encoding="utf-8")}
     assert 0 not in ids
     assert len(ids) == 19
 

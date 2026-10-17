@@ -15,9 +15,7 @@ finds, and flags the ones that are not multi-hop.
 
 from __future__ import annotations
 
-import io
 import json
-from pathlib import Path
 
 from src.config import DATA_DIR, PROJECT_ROOT, RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K
 
@@ -39,7 +37,7 @@ def _ranked_docs(question: str) -> list[str]:
 
 
 def verify() -> int:
-    questions = json.loads(io.open(QUESTIONS, encoding="utf-8").read())["questions"]
+    questions = json.loads(open(QUESTIONS, encoding="utf-8").read())["questions"]
     present = {p.name for p in DATA_DIR.glob("*.pdf")}
 
     missing_any = False

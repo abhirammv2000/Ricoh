@@ -18,10 +18,8 @@ Turn 1 (already standalone) is reported separately as a control.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -73,7 +71,7 @@ def evaluate(use_judge: bool = True) -> dict[str, Any]:
     from src.eval_harness import _format_evidence_block, _judge, _run_agent_full
     from src.retriever import get_retriever
 
-    chains = json.loads(io.open(QUESTIONS, encoding="utf-8").read())["chains"]
+    chains = json.loads(open(QUESTIONS, encoding="utf-8").read())["chains"]
     retriever = get_retriever()
     rows: list[dict[str, Any]] = []
 

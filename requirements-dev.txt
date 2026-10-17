@@ -8,6 +8,7 @@
 mcp>=2.0
 
 pytest==8.3.4
+ruff==0.16.7
 
 # The tests use these directly. They are also pulled in by other packages, but a test dependency
 # that is only there by accident disappears the day that other package drops it.

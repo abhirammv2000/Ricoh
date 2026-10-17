@@ -12,10 +12,9 @@ eval/feedback_candidates.py turns feedback into eval candidates. Nothing here to
 
 from __future__ import annotations
 
-import io
 import json
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -60,7 +59,7 @@ def record_feedback(
     if not trace_id:
         raise ValueError("trace_id is required")
     event = {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "trace_id": trace_id,
         "vote": vote,
         "query": query,
@@ -70,7 +69,7 @@ def record_feedback(
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     # one write per event so two sessions don't interleave
-    with io.open(path, "a", encoding="utf-8") as f:
+    with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(event, ensure_ascii=False) + "\n")
 
 
@@ -81,7 +80,7 @@ def record_for_trace(
     comment: str = "",
     path: Path = FEEDBACK_PATH,
 ) -> bool:
-    """Find the assistant message for a trace in the chat and record the vote. Returns False if the trace isn't there."""
+    """Find the assistant message for a trace in the chat and record the vote. Returns False if it isn't there."""
     for i, msg in enumerate(messages):
         state = msg.get("agent_state") or {}
         if i > 0 and (state.get("trace") or {}).get("trace_id") == trace_id:
@@ -103,7 +102,7 @@ def load_feedback(path: Path = FEEDBACK_PATH) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     latest: dict[str, dict[str, Any]] = {}
-    with io.open(path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:

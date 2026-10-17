@@ -172,6 +172,11 @@ if __name__ == "__main__":
     ap.add_argument("--n", type=int, default=350)
     ap.add_argument("--pilot", action="store_true", help="generate 3 and stop, to inspect quality before spending more")
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
-    ap.add_argument("--skip", type=int, default=0, help="skip the first N sampled chunks (already generated in a prior run with this seed)")
+    ap.add_argument(
+        "--skip",
+        type=int,
+        default=0,
+        help="skip the first N sampled chunks (already generated in a prior run with this seed)",
+    )
     args = ap.parse_args()
     raise SystemExit(generate(3 if args.pilot else args.n, args.seed, skip=args.skip))

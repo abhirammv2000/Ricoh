@@ -16,10 +16,9 @@ Writes eval/feedback_candidates.json, which is gitignored: it holds user text.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -41,7 +40,7 @@ def known_questions(eval_dir: Path = PROJECT_ROOT / "eval") -> set[str]:
         path = eval_dir / name
         if not path.exists():
             continue
-        data = json.loads(io.open(path, encoding="utf-8").read())
+        data = json.loads(open(path, encoding="utf-8").read())
         questions = data.get("questions", []) if isinstance(data, dict) else data
         known.update(_normalise(q["question"]) for q in questions if q.get("question"))
     return known
@@ -102,7 +101,7 @@ def main() -> int:
             "Do not add to the benchmark until expected_behavior and expected_sources "
             "have been filled in from the source documents."
         ),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "counts": {
             "feedback_events": len(events),
             "candidates": len(candidates),

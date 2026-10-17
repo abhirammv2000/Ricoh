@@ -11,10 +11,26 @@ from src import mcp_server
 
 class FakeRetriever:
     def __init__(self, chunks=None):
-        self.chunks = chunks if chunks is not None else [
-            {"id": "a", "source_document": "Install Guide.pdf", "page_number": 12, "text": "Run the installer.", "rrf_score": 0.0321},
-            {"id": "b", "source_document": "Admin Guide.pdf", "page_number": 40, "text": "x" * 5000, "rrf_score": 0.0164},
-        ]
+        self.chunks = (
+            chunks
+            if chunks is not None
+            else [
+                {
+                    "id": "a",
+                    "source_document": "Install Guide.pdf",
+                    "page_number": 12,
+                    "text": "Run the installer.",
+                    "rrf_score": 0.0321,
+                },
+                {
+                    "id": "b",
+                    "source_document": "Admin Guide.pdf",
+                    "page_number": 40,
+                    "text": "x" * 5000,
+                    "rrf_score": 0.0164,
+                },
+            ]
+        )
         self.queries = []
 
     def retrieve(self, query, final_k=5, **_):
@@ -60,7 +76,13 @@ def test_search_returns_cited_passages_best_first(monkeypatch):
     assert not result.is_error
     passages = result.structured_content["result"]
     assert [p["rank"] for p in passages] == [1, 2]
-    assert passages[0] == {"rank": 1, "document": "Install Guide.pdf", "page": 12, "text": "Run the installer.", "score": 0.0321}
+    assert passages[0] == {
+        "rank": 1,
+        "document": "Install Guide.pdf",
+        "page": 12,
+        "text": "Run the installer.",
+        "score": 0.0321,
+    }
     assert retriever.queries == [("install the server", 2)]
 
 

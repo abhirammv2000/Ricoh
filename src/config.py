@@ -17,10 +17,29 @@ os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 from dotenv import load_dotenv
 
-# The real environment wins over .env, which is the rule for a deployed service: the platform or a secrets
-# manager sets the environment, and .env is only a local default. On a laptop where a stale key in the
-# shell beats the one in .env, set DOTENV_OVERRIDE=1 to let .env win instead.
-load_dotenv(override=os.getenv("DOTENV_OVERRIDE", "").lower() in ("1", "true", "yes"))
+
+def env_flag(name: str) -> bool:
+    """True when the variable is 1, true or yes, in any case. Unset, or anything else, is False."""
+    return os.getenv(name, "").lower() in ("1", "true", "yes")
+
+
+def env_number(name: str, default: float, cast=float):
+    """A number from the environment, or the default. A bad or negative value stops startup and names itself."""
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = cast(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a number, got {raw!r}") from None
+    if value < 0:
+        raise ValueError(f"{name} must not be negative, got {raw!r}")
+    return value
+
+
+# the real environment beats .env. A deployed service gets its settings from the platform, and .env is only a
+# local default. If an old key in your shell is hiding the one in .env, set DOTENV_OVERRIDE=true.
+load_dotenv(override=env_flag("DOTENV_OVERRIDE"))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,7 +93,7 @@ BM25_INDEX_PATH: Path = CHROMA_DIR / "bm25_index.pkl"
 BM25_CHUNKS_PATH: Path = CHROMA_DIR / "bm25_chunks.pkl"
 
 # set when serving a smaller corpus, so the UI can say so
-DEMO_MODE: bool = os.getenv("DEMO_MODE", "false").lower() in ("1", "true", "yes")
+DEMO_MODE: bool = env_flag("DEMO_MODE")
 
 CHROMA_COLLECTION_NAME: str = "ricoh_manuals"
 
@@ -99,11 +118,7 @@ RRF_K: int = 60
 
 # cross-encoder reranker, off by default because it needs torch
 # (pip install -r requirements-reranker.txt)
-RERANKER_ENABLED: bool = os.getenv("RERANKER_ENABLED", "false").lower() in (
-    "1",
-    "true",
-    "yes",
-)
+RERANKER_ENABLED: bool = env_flag("RERANKER_ENABLED")
 RERANKER_MODEL: str = os.getenv(
     "RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"
 )
@@ -115,33 +130,33 @@ AZURE_SEARCH_ENDPOINT: str = os.getenv("AZURE_SEARCH_ENDPOINT", "")
 AZURE_SEARCH_API_KEY: str = os.getenv("AZURE_SEARCH_API_KEY", "")
 AZURE_SEARCH_INDEX: str = os.getenv("AZURE_SEARCH_INDEX", "citera-chunks")
 
-# "anthropic" or "google"
+# anthropic, openai, google or self_hosted
 DEFAULT_LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
 
 # planner and verifier are both off. The verifier never helped in the ablation. The planner helped
-# on dev but not on holdout, which isn't worth 1.7x the cost per query (see README section 7).
-USE_PLANNER: bool = os.getenv("USE_PLANNER", "false").lower() in ("1", "true", "yes")
-USE_VERIFIER: bool = os.getenv("USE_VERIFIER", "false").lower() in ("1", "true", "yes")
+# on dev but not on holdout, which isn't worth 1.7x the cost per query (see docs/EVALUATION.md).
+USE_PLANNER: bool = env_flag("USE_PLANNER")
+USE_VERIFIER: bool = env_flag("USE_VERIFIER")
 
 # lets the model run its own searches and re-query when the first ones don't answer. It recovered
 # 4 of the 6 retrieval misses at n=100 for 1.77x the cost, but that was retrieval only, so it stays
 # off until the judged run is done.
-USE_TOOL_LOOP: bool = os.getenv("USE_TOOL_LOOP", "false").lower() in ("1", "true", "yes")
+USE_TOOL_LOOP: bool = env_flag("USE_TOOL_LOOP")
 
 # runs the cheap path and only escalates to the tool loop when the synthesizer refuses (src/router.py).
 # Takes precedence over the flags above. Off because the gain was inside judge noise.
-USE_ROUTER: bool = os.getenv("USE_ROUTER", "false").lower() in ("1", "true", "yes")
+USE_ROUTER: bool = env_flag("USE_ROUTER")
 
 # return a stored answer for a near-duplicate question. The 0.90 threshold comes from measuring
 # MiniLM on this corpus: paraphrases scored 0.87 to 0.91, different questions 0.48 or lower.
 # The eval harness skips the cache, so a hit can't change a measured number.
-SEMANTIC_CACHE_ENABLED: bool = os.getenv("SEMANTIC_CACHE_ENABLED", "false").lower() in ("1", "true", "yes")
-SEMANTIC_CACHE_THRESHOLD: float = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.90"))
-SEMANTIC_CACHE_MAX_ENTRIES: int = int(os.getenv("SEMANTIC_CACHE_MAX_ENTRIES", "512"))
+SEMANTIC_CACHE_ENABLED: bool = env_flag("SEMANTIC_CACHE_ENABLED")
+SEMANTIC_CACHE_THRESHOLD: float = env_number("SEMANTIC_CACHE_THRESHOLD", 0.90)
+SEMANTIC_CACHE_MAX_ENTRIES: int = int(env_number("SEMANTIC_CACHE_MAX_ENTRIES", 512, int))
 
 # the judge is a different, stronger model than the agent (which runs Sonnet), so it isn't
 # grading its own writing. Set JUDGE_MODEL to compare a second judge.
 JUDGE_MODEL: str = os.getenv("JUDGE_MODEL", "claude-opus-5")
 
 # max_tokens covers thinking plus text on models that think by default, so leave room
-JUDGE_MAX_TOKENS: int = int(os.getenv("JUDGE_MAX_TOKENS", "8192"))
+JUDGE_MAX_TOKENS: int = int(env_number("JUDGE_MAX_TOKENS", 8192, int))
