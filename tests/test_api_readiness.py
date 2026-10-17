@@ -19,7 +19,7 @@ from api.main import create_app
 from api.readiness import Readiness, compute_readiness, needs_recheck
 from api.settings import Settings, SettingsError
 from src.index_manifest import IndexIntegrityError
-from tests.test_index_manifest import StubEmbedding, build, reopen
+from tests.test_index_manifest import build, reopen
 
 SECRET_KEY = "sk-ant-test-not-a-real-key"
 

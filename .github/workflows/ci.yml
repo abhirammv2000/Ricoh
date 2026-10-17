@@ -28,6 +28,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      - name: Lint
+        # rules and exceptions are in pyproject.toml, including the snake_case name check
+        run: ruff check .
+
       - name: Byte-compile (syntax check)
         run: python -m compileall src app tests
 

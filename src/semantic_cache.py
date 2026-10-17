@@ -72,7 +72,7 @@ class SemanticCache:
         self._embed = embedder
         self._threshold = threshold
         self._max_entries = max_entries
-        self._entries: "OrderedDict[str, _Entry]" = OrderedDict()
+        self._entries: OrderedDict[str, _Entry] = OrderedDict()
         self._lock = threading.Lock()
 
     def lookup(self, query: str) -> CacheHit | None:

@@ -32,7 +32,9 @@ from src.ratelimit import TokenBucketLimiter
 API_KEY_HEADER = "X-API-Key"
 
 UNAUTHORIZED = PublicError(401, "unauthorized", "A valid API key is required.")
-TOO_MANY_FAILURES = PublicError(429, "too_many_failed_attempts", "Too many failed attempts. Wait and try again.", retry_after=60)
+TOO_MANY_FAILURES = PublicError(
+    429, "too_many_failed_attempts", "Too many failed attempts. Wait and try again.", retry_after=60
+)
 
 # these answer a probe or a load balancer, so they work with no key
 OPEN_PATHS = frozenset({"/health", "/ready"})

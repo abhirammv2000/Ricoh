@@ -67,7 +67,11 @@ def test_every_outcome_and_error_code_an_alert_names_exists(rules):
 
 def test_every_runbook_anchor_points_at_a_heading_in_the_runbook(rules):
     runbook = (ALERTS.parent.parent / "docs" / "OPERATIONS.md").read_text(encoding="utf-8")
-    headings = {re.sub(r"[^a-z0-9]", "", line.lstrip("# ").strip().lower()) for line in runbook.splitlines() if line.startswith("#")}
+    headings = {
+        re.sub(r"[^a-z0-9]", "", line.lstrip("# ").strip().lower())
+        for line in runbook.splitlines()
+        if line.startswith("#")
+    }
     for rule in rules:
         anchor = rule["annotations"]["runbook"].split("#", 1)[1]
         assert anchor in headings, f"{rule['alert']} links to #{anchor}, which is not a heading in docs/OPERATIONS.md"

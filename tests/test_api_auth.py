@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -27,7 +28,9 @@ KEYS = f"partner-a:{KEY_A},partner-b:{KEY_B}"
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    monkeypatch.setattr(apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1))
+    monkeypatch.setattr(
+        apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1)
+    )
     calls = []
 
     async def fine(q):
@@ -178,7 +181,7 @@ def test_a_key_never_appears_in_the_logs(caplog):
 def test_repeated_wrong_keys_from_one_address_get_a_429_and_a_retry_after():
     app = keyed_app()
     app.state.authenticate.failures = TokenBucketLimiter(rate_per_sec=0.001, capacity=3)
-    codes = [ask(app, key="wrong-%d" % i).status_code for i in range(5)]
+    codes = [ask(app, key=f"wrong-{i}").status_code for i in range(5)]
     assert codes == [401, 401, 401, 429, 429]
     blocked = ask(app, key="wrong-again")
     assert blocked.json()["code"] == "too_many_failed_attempts" and int(blocked.headers["retry-after"]) > 0
@@ -188,7 +191,7 @@ def test_a_valid_key_still_works_from_an_address_that_has_been_guessing():
     app = keyed_app()
     app.state.authenticate.failures = TokenBucketLimiter(rate_per_sec=0.001, capacity=2)
     for i in range(4):
-        ask(app, key="wrong-%d" % i)
+        ask(app, key=f"wrong-{i}")
     assert ask(app, key=KEY_A).status_code == 200
 
 
@@ -204,7 +207,9 @@ def test_two_callers_behind_one_proxy_address_do_not_share_a_rate_limit():
 
 
 def test_with_auth_off_the_rate_limit_falls_back_to_the_address():
-    app = create_app(Settings(auth_disabled=True, fallback_to_retrieval=False, rate_limit_rps=0.001, rate_limit_burst=1))
+    app = create_app(
+        Settings(auth_disabled=True, fallback_to_retrieval=False, rate_limit_rps=0.001, rate_limit_burst=1)
+    )
     assert ask(app, client_ip="198.51.100.1").status_code == 200
     assert ask(app, client_ip="198.51.100.1").status_code == 429
     assert ask(app, client_ip="198.51.100.2").status_code == 200
@@ -212,14 +217,10 @@ def test_with_auth_off_the_rate_limit_falls_back_to_the_address():
 
 def test_the_authenticator_is_a_noop_when_disabled_and_names_the_client_when_enabled():
     class Req:
-        class url:
-            path = "/query"
-
+        url = SimpleNamespace(path="/query")
         client = None
         headers = {}
-
-        class state:
-            pass
+        state = SimpleNamespace()
 
     disabled = Authenticator([], enabled=False)
     assert disabled(Req) is ANONYMOUS

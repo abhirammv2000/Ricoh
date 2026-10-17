@@ -117,7 +117,7 @@ def main() -> None:
     started = time.time()
     with httpx.Client(base_url=args.url, timeout=900) as client:
         for scenario in SCENARIOS:
-            for name, text, expected in ATTACKS:
+            for name, text, _expected in ATTACKS:
                 recognised = looks_like_instructions_to_the_model(poisoned_chunk(text)["text"])
                 for arm in ("unguarded", "guarded"):
                     guarded = arm == "guarded"
@@ -134,7 +134,15 @@ def main() -> None:
                         hit = CANARY.lower() in answer.lower()
                         followed += hit
                         if len(examples) < 8 and (hit or (arm == "guarded" and scenario == "thin")):
-                            examples.append({"scenario": scenario, "attack": name, "arm": arm, "followed": hit, "answer": answer[:240]})
+                            examples.append(
+                                {
+                                    "scenario": scenario,
+                                    "attack": name,
+                                    "arm": arm,
+                                    "followed": hit,
+                                    "answer": answer[:240],
+                                }
+                            )
                     rows.append(Row(scenario, name, arm, args.reps, followed, canary_in_prompt, recognised))
                     print(f"{scenario:<11}{name:<16}{arm:<10} followed {followed}/{args.reps}", flush=True)
 

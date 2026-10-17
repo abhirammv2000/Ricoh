@@ -48,8 +48,8 @@ from api.readiness import Readiness, compute_readiness, needs_recheck
 from api.settings import Settings, SettingsError
 from src.agent import (
     PROMPT_VERSION,
+    AsyncNotSupportedError,
     StreamResult,
-    UnsupportedAsyncConfig,
     arun_agent,
     astream_agent,
     async_pipeline_supported,
@@ -61,7 +61,6 @@ from src.agent import (
 from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K, USE_PLANNER, USE_ROUTER, USE_TOOL_LOOP, USE_VERIFIER
 from src.guardrails import screen_input
 from src.instrumentation import record_run
-from src.privacy import trace_mode
 from src.llm_factory import (
     _DEFAULT_MAX_RETRIES,
     _DEFAULT_TIMEOUT_SECONDS,
@@ -69,6 +68,7 @@ from src.llm_factory import (
     import_provider_sdk,
     warm_up_client,
 )
+from src.privacy import trace_mode
 from src.ratelimit import TokenBucketLimiter
 
 log = logging.getLogger("citera.api")
@@ -376,7 +376,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Answer one question and return the answer with its cost and latency.
 
         It is traced like a UI request (traces/traces.jsonl). It uses the async arun_agent, which only
-        handles the default setup. For any other configuration it catches UnsupportedAsyncConfig and
+        handles the default setup. For any other configuration it catches AsyncNotSupportedError and
         runs the sync run_agent in a worker thread (a thread cannot be cancelled, so after a timeout it
         runs on until the provider call gives up, which the client timeout bounds).
         """
@@ -393,11 +393,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     async with asyncio.timeout(settings.request_timeout_seconds):
                         try:
                             answer = await arun_agent(req.query)
-                        except UnsupportedAsyncConfig:
+                        except AsyncNotSupportedError:
                             answer = await asyncio.to_thread(run_agent, req.query)
                     if not follows_answer_contract(answer):
                         # logged by length only, since the text may be what an injected instruction asked for
-                        log.error("answer withheld: no citation and no refusal, request_id=%s len=%d", _request_id(request), len(answer))
+                        log.error(
+                            "answer withheld: no citation and no refusal, request_id=%s len=%d",
+                            _request_id(request),
+                            len(answer),
+                        )
                         raise AnswerContractError()
                 except Exception as exc:
                     public = classify_error(exc)
@@ -408,8 +412,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     if settings.fallback_to_retrieval and public.code in _DEGRADABLE_CODES:
                         sources = await degraded_sources(req.query)
                         if sources:
-                            # still a success for the caller: they get the evidence, and are told it is degraded.
-                            # No error is raised, so the outage is counted here (a raised error is counted by its handler)
+                            # the caller still gets the evidence and is told it is degraded. No error is raised,
+                            # so the outage is counted here (a raised error is counted by its own handler)
                             metrics.observe_error(public.code)
                             response.headers["X-Citera-Degraded"] = public.code
                             finish_run(rec, "degraded")
@@ -479,7 +483,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         # the tokens have been sent, so all that can be done is to say the answer is not to be trusted
                         done["contract_ok"] = False
                         metrics.observe_error("invalid_answer")
-                        log.error("streamed answer broke the citation contract, request_id=%s len=%d", request_id, len(full))
+                        log.error(
+                            "streamed answer broke the citation contract, request_id=%s len=%d", request_id, len(full)
+                        )
                     yield _sse(done)
                 finally:
                     finish_run(rec, outcome)
@@ -567,7 +573,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     remaining = deadline - time.monotonic()
                     try:
                         kind, value = await asyncio.wait_for(channel.get(), timeout=max(remaining, 0.001))
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         stop.set()
                         outcome = "timeout"
                         log.error("stream timed out, request_id=%s", request_id)

@@ -20,7 +20,9 @@ from src.instrumentation import RunRecord, Span
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
     monkeypatch.setattr(
-        apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="idx42", chunks=88, embedding_model="m")
+        apimod,
+        "compute_readiness",
+        lambda require_manifest=True: Readiness(index_version="idx42", chunks=88, embedding_model="m"),
     )
 
 

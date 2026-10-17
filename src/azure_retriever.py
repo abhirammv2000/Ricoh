@@ -172,7 +172,7 @@ class AzureRetriever:
                     "chunk_index": c["chunk_index"],
                     "embedding": v,
                 }
-                for c, v in zip(batch, vectors)
+                for c, v in zip(batch, vectors, strict=False)
             ]
             results = self._client.upload_documents(documents=docs)
             failed = [r.key for r in results if not r.succeeded]
@@ -193,7 +193,7 @@ class AzureRetriever:
         top_k: int = RETRIEVAL_TOP_K,
         final_k: int = RETRIEVAL_FINAL_K,
     ) -> list[dict[str, Any]]:
-        """Up to final_k chunks in the same shape HybridRetriever returns. top_k is how many vector neighbours to fetch before fusion."""
+        """Up to final_k chunks, shaped like HybridRetriever's. top_k is how many vector hits to fetch first."""
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}, got {mode!r}")
 

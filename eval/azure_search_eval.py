@@ -19,7 +19,6 @@ Writes eval/azure_search_eval.{json,md}.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import time
 from typing import Any
@@ -73,7 +72,7 @@ def run(with_semantic: bool, chroma_rerank: bool) -> list[dict[str, Any]]:
     from src.azure_retriever import AzureRetriever
     from src.retriever import HybridRetriever
 
-    questions = json.load(io.open(QUESTIONS_PATH, encoding="utf-8"))["questions"]
+    questions = json.load(open(QUESTIONS_PATH, encoding="utf-8"))["questions"]
     azure = AzureRetriever()
     print(f"azure index holds {azure.index_size} chunks, {len(questions)} questions", flush=True)
 
@@ -161,7 +160,7 @@ if __name__ == "__main__":
                     help="also run the local cross-encoder reranker row (slower)")
     args = ap.parse_args()
 
-    n_questions = len(json.load(io.open(QUESTIONS_PATH, encoding="utf-8"))["questions"])
+    n_questions = len(json.load(open(QUESTIONS_PATH, encoding="utf-8"))["questions"])
     planned = n_questions * len(TOP_K_GRID) if args.semantic else 0
     print(f"semantic ranker requests planned: {planned}", flush=True)
 

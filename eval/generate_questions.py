@@ -16,7 +16,6 @@ Questions are split into dev and holdout. Only tune on dev.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import pickle
 import random
@@ -188,7 +187,7 @@ def audit() -> int:
 
     from src.retriever import get_retriever
 
-    payload = json.loads(io.open(OUT_PATH, encoding="utf-8").read())
+    payload = json.loads(open(OUT_PATH, encoding="utf-8").read())
     questions = payload["questions"]
     chunks = {c["id"]: c for c in _load_chunks()}
     retriever = get_retriever()
@@ -233,7 +232,7 @@ def audit() -> int:
     n = len(questions)
     mean_overlap = sum(overlaps) / len(overlaps) if overlaps else 0.0
     print(f"Questions: {n}  (dev={payload['counts']['dev']}, holdout={payload['counts']['holdout']})")
-    print(f"\nDifficulty audit")
+    print("\nDifficulty audit")
     print(f"  mean lexical overlap with source chunk : {mean_overlap:.1%}")
     print(f"  retrieval recall@{RETRIEVAL_FINAL_K}                    : {sum(recalls)/n:.3f}")
     print(f"  retrieval recall@1                     : {at1/n:.3f}")
@@ -297,7 +296,7 @@ def expand_labels() -> int:
     """
     from src.retriever import get_retriever
 
-    payload = json.loads(io.open(OUT_PATH, encoding="utf-8").read())
+    payload = json.loads(open(OUT_PATH, encoding="utf-8").read())
     questions = payload["questions"]
     chunks = _load_chunks()
     by_doc: dict[str, str] = {}

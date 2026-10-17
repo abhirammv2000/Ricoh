@@ -24,7 +24,7 @@ import json
 import logging
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -132,7 +132,7 @@ def make_manifest(
 ) -> IndexManifest:
     return IndexManifest(
         schema_version=SCHEMA_VERSION,
-        built_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        built_at=datetime.now(UTC).isoformat(timespec="seconds"),
         collection=collection,
         embedding_model=embedding_model,
         embedding_dim=embedding_dim,

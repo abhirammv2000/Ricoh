@@ -16,7 +16,6 @@ The worksheet hides the judge's scores while you label so they don't sway you.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import random
 from pathlib import Path
@@ -54,7 +53,7 @@ def _reconstruct_evidence(question: str) -> list[dict[str, Any]]:
 
 
 def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
-    report = json.loads(io.open(metrics_path, encoding="utf-8").read())
+    report = json.loads(open(metrics_path, encoding="utf-8").read())
     rows = [r for r in report["per_question"] if r.get("groundedness") is not None]
     if not rows:
         raise SystemExit(f"No judged rows in {metrics_path}")
@@ -112,7 +111,7 @@ def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
 
 def _kappa(human: list[int], judge: list[int]) -> dict[str, float]:
     n = len(human)
-    observed = sum(1 for h, j in zip(human, judge) if h == j) / n
+    observed = sum(1 for h, j in zip(human, judge, strict=False) if h == j) / n
 
     # chance agreement from how often each one says yes
     ph1 = sum(human) / n
@@ -159,9 +158,9 @@ def _interpret(k: float) -> str:
 def score() -> int:
     if not WORKSHEET_PATH.exists():
         raise SystemExit(f"No worksheet at {WORKSHEET_PATH}. Run --sample first.")
-    sheet = json.loads(io.open(WORKSHEET_PATH, encoding="utf-8").read())
+    sheet = json.loads(open(WORKSHEET_PATH, encoding="utf-8").read())
     metrics_path = PROJECT_ROOT / "eval" / sheet["source_metrics"]
-    report = json.loads(io.open(metrics_path, encoding="utf-8").read())
+    report = json.loads(open(metrics_path, encoding="utf-8").read())
     judged = {r["id"]: r for r in report["per_question"]}
     threshold = sheet.get("binary_threshold", BINARY_THRESHOLD)
 
@@ -265,11 +264,11 @@ def spot_check(metrics_path: Path) -> int:
     can catch a judge giving full marks to an answer that never states the fact. The disagreements
     are what to read.
     """
-    report = json.loads(io.open(metrics_path, encoding="utf-8").read())
+    report = json.loads(open(metrics_path, encoding="utf-8").read())
     gt_path = PROJECT_ROOT / "eval" / "generated_questions.json"
     truth = {}
     if gt_path.exists():
-        for q in json.loads(io.open(gt_path, encoding="utf-8").read())["questions"]:
+        for q in json.loads(open(gt_path, encoding="utf-8").read())["questions"]:
             truth[q["id"]] = q.get("key_facts", [])
 
     rows, flagged = [], []
@@ -319,7 +318,7 @@ def cross_judge(metrics_path: Path, n: int, seed: int) -> int:
     from src.instrumentation import record_run
     from src.retriever import get_retriever
 
-    report = json.loads(io.open(metrics_path, encoding="utf-8").read())
+    report = json.loads(open(metrics_path, encoding="utf-8").read())
     cfg = report.get("config", {})
     if cfg.get("use_planner"):
         print("This run used the planner, so retrieval is not reproducible from")

@@ -22,7 +22,7 @@ class _Bucket:
 
 
 class TokenBucketLimiter:
-    """A token bucket per key (usually a client ip). Each refills at rate_per_sec up to capacity, and a request costs one token."""
+    """One token bucket per key (usually a client ip). Refills at rate_per_sec up to capacity, one token per request."""
 
     def __init__(
         self,
@@ -74,8 +74,8 @@ class TokenBucketLimiter:
             return (1.0 - bucket.tokens) / self._rate
 
     def _evict_full(self, now: float) -> None:
-        """Drop keys whose bucket is full again. Nothing is lost, since a full bucket is the same as a new client, and it
-        stops the map growing forever."""
+        """Drop keys whose bucket is full again. A full bucket is the same as a new client, so nothing is lost,
+        and the map stops growing forever."""
         stale = [
             key
             for key, bucket in self._buckets.items()

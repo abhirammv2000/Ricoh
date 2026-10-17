@@ -19,10 +19,9 @@ import math
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from pathlib import Path
 
-from src.config import PROJECT_ROOT
 from src.agent import run_agent
+from src.config import PROJECT_ROOT
 from src.instrumentation import record_run
 
 GROUND_TRUTH = PROJECT_ROOT / "eval" / "ground_truth.json"
@@ -38,7 +37,7 @@ class Result:
 
 
 def _load_queries(n: int) -> list[str]:
-    """Questions from the ground truth, repeated up to n. Repeats are fine since this tests serving, not answer quality."""
+    """Questions from the ground truth, repeated up to n. Repeats are fine because this tests serving, not answers."""
     data = json.loads(GROUND_TRUTH.read_text(encoding="utf-8"))
     base = [q["question"] for q in data["questions"]]
     out: list[str] = []

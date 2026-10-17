@@ -42,7 +42,7 @@ RAGAS_MODEL = os.getenv("RAGAS_MODEL", "claude-sonnet-4-6")
 def _kappa(a: list[int], b: list[int]) -> dict[str, float]:
     """Cohen's kappa for two lists of 0 and 1, same formula as label_for_kappa."""
     n = len(a)
-    observed = sum(1 for x, y in zip(a, b) if x == y) / n
+    observed = sum(1 for x, y in zip(a, b, strict=False) if x == y) / n
     pa = sum(a) / n
     pb = sum(b) / n
     chance = pa * pb + (1 - pa) * (1 - pb)
@@ -60,7 +60,7 @@ def _pearson(xs: list[float], ys: list[float]) -> float | None:
     if n < 2:
         return None
     mx, my = sum(xs) / n, sum(ys) / n
-    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys, strict=False))
     sx = math.sqrt(sum((x - mx) ** 2 for x in xs))
     sy = math.sqrt(sum((y - my) ** 2 for y in ys))
     if sx == 0 or sy == 0:
@@ -122,7 +122,7 @@ def main() -> int:
     ragas_scores, judge_scores = [], []
     disagreements = []
     unscored = []
-    for row, f in zip(rows, faithfulness):
+    for row, f in zip(rows, faithfulness, strict=False):
         if f != f:  # NaN: RAGAS could not extract claims from the answer
             unscored.append(row["id"])
             per_question.append(

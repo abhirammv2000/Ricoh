@@ -13,7 +13,6 @@ Writes eval/query_transform_sweep.{json,md}.
 
 from __future__ import annotations
 
-import io
 import json
 import sys
 from pathlib import Path
@@ -124,7 +123,7 @@ def _configs(retriever: HybridRetriever, question: str, extra: dict[str, Any]) -
 
 
 def sweep() -> int:
-    questions = json.load(io.open(QUESTIONS_PATH, encoding="utf-8"))["questions"]
+    questions = json.load(open(QUESTIONS_PATH, encoding="utf-8"))["questions"]
     cache = _generate(questions)
 
     index_dir = INDEX_ROOT / "minilm"
@@ -163,7 +162,10 @@ def sweep() -> int:
     }
     RESULT_JSON.write_text(json.dumps({"blocked_question_ids": blocked, "rows": summary}, indent=1), encoding="utf-8")
     _write_md(summary, blocked)
-    print(f"questions where Gemini's safety filter blocked the call: HyDE {blocked['hyde']}, multi-query {blocked['multi_query']}")
+    print(
+        "questions where Gemini's safety filter blocked the call: "
+        f"HyDE {blocked['hyde']}, multi-query {blocked['multi_query']}"
+    )
     for r in summary:
         print(f"{r['config']:<52} dev R@5 {r['dev']['recall@5']:.3f}  holdout R@5 {r['holdout']['recall@5']:.3f}  "
               f"(+{r['recall5_wins_vs_baseline']}/-{r['recall5_losses_vs_baseline']} questions)")
@@ -192,7 +194,8 @@ def _write_md(summary: list[dict[str, Any]], blocked: dict[str, list[str]]) -> N
     lines += [
         "",
         "Gemini's safety filter blocked a few harmless requests (no output returned). For those questions the",
-        f"raw question is used instead, so they behave like the baseline. HyDE blocked on ids {blocked['hyde'] or 'none'};",
+        "raw question is used instead, so they behave like the baseline. "
+        f"HyDE blocked on ids {blocked['hyde'] or 'none'};",
         f"multi-query blocked on ids {blocked['multi_query'] or 'none'}.",
     ]
     lines += ["", "Questions whose recall@5 changed against the baseline (out of 100):", "",

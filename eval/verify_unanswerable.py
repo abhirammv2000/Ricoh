@@ -12,13 +12,12 @@ Usage:
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import fitz  # PyMuPDF
 
 from src.config import DATA_DIR
-
 
 # each claim pairs a question with a regex that must be absent from the corpus for it to be unanswerable.
 # Keep the pattern broad, then read what it finds

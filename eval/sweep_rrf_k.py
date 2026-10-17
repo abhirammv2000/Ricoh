@@ -13,7 +13,6 @@ prefer a k on a plateau over one that wins by a single question.
 
 from __future__ import annotations
 
-import io
 import json
 from pathlib import Path
 
@@ -28,7 +27,7 @@ K_GRID = (0, 1, 5, 10, 20, 60, 120)
 def sweep() -> int:
     questions = [
         q
-        for q in json.loads(io.open(GROUND_TRUTH_PATH, encoding="utf-8").read())["questions"]
+        for q in json.loads(open(GROUND_TRUTH_PATH, encoding="utf-8").read())["questions"]
         if q.get("expected_sources")
     ]
     retriever = get_retriever()

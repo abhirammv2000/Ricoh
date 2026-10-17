@@ -6,7 +6,6 @@ this just guards the shape so a typo cannot silently break an ablation run.
 
 from __future__ import annotations
 
-import io
 import json
 
 from src.config import PROJECT_ROOT
@@ -15,7 +14,7 @@ QUESTIONS = PROJECT_ROOT / "eval" / "multihop_questions.json"
 
 
 def _load():
-    return json.loads(io.open(QUESTIONS, encoding="utf-8").read())["questions"]
+    return json.loads(open(QUESTIONS, encoding="utf-8").read())["questions"]
 
 
 def test_ids_are_unique_and_contiguous():

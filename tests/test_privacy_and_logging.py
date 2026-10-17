@@ -19,7 +19,6 @@ from api.logging_config import JsonFormatter, configure_logging, request_id_var
 from api.main import create_app
 from api.readiness import Readiness
 from api.settings import Settings, SettingsError
-from src import instrumentation
 from src.instrumentation import RunRecord, append_trace_line, record_run
 from src.privacy import describe_query, query_id, trace_mode, trace_query
 from tests.test_index_manifest import build
@@ -62,7 +61,9 @@ def test_a_trace_record_follows_the_mode(monkeypatch):
     assert RunRecord(trace_id="t", query=QUESTION).to_dict()["query"] == QUESTION
 
 
-def test_retrieval_does_not_log_the_question_and_does_not_put_it_in_the_span_in_hash_mode(tmp_path, monkeypatch, caplog):
+def test_retrieval_does_not_log_the_question_and_does_not_put_it_in_the_span_in_hash_mode(
+    tmp_path, monkeypatch, caplog
+):
     monkeypatch.setenv("TRACE_QUERY_MODE", "hash")
     retriever = build(tmp_path)
     # the level is set on the retriever's own logger, because eval_harness.py and app/main.py silence it at import
@@ -91,7 +92,7 @@ def test_a_full_trace_file_is_rotated_so_a_long_running_service_cannot_fill_its_
         append_trace_line(path, line, max_bytes=1000)
     assert (tmp_path / "traces.jsonl.1").exists()
     assert path.stat().st_size < 1000 + len(line)
-    assert all(json.loads(l) for l in path.read_text(encoding="utf-8").splitlines())
+    assert all(json.loads(line) for line in path.read_text(encoding="utf-8").splitlines())
 
 
 def test_the_trace_directory_can_be_moved_for_a_read_only_container(tmp_path):
@@ -105,7 +106,7 @@ def test_the_trace_directory_can_be_moved_for_a_read_only_container(tmp_path):
 
 @pytest.mark.skipif(
     sys.platform == "win32",
-    reason="Windows does not make appends atomic across processes (6 writers lost 85 of 240 lines when this was run there). "
+    reason="Windows does not make appends atomic across processes (6 writers lost 85 of 240 lines there). "
     "The service runs on Linux, where this runs, in CI and in the container.",
 )
 def test_several_processes_writing_large_lines_at_once_never_interleave(tmp_path):
@@ -138,8 +139,11 @@ def test_several_processes_writing_large_lines_at_once_never_interleave(tmp_path
 
 
 def log_record(message="hello", **extra) -> logging.LogRecord:
-    return logging.LogRecord("citera.test", logging.WARNING, __file__, 1, message, (), None, extra=None) if not extra else \
-        _with_extra(message, extra)
+    return (
+        logging.LogRecord("citera.test", logging.WARNING, __file__, 1, message, (), None, extra=None)
+        if not extra
+        else _with_extra(message, extra)
+    )
 
 
 def _with_extra(message, extra):
@@ -221,7 +225,9 @@ def capture():
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    monkeypatch.setattr(apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1))
+    monkeypatch.setattr(
+        apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1)
+    )
 
 
 async def _call(app, method, url, **kwargs):
@@ -275,5 +281,7 @@ def test_the_id_does_not_leak_into_code_that_runs_after_the_request(monkeypatch)
         return "ok [a.pdf, Page 1]."
 
     monkeypatch.setattr(apimod, "arun_agent", agent)
-    asyncio.run(_call(create_app(Settings(auth_disabled=True)), "POST", "/query", json={"query": "how do I shut it down?"}))
+    asyncio.run(
+        _call(create_app(Settings(auth_disabled=True)), "POST", "/query", json={"query": "how do I shut it down?"})
+    )
     assert request_id_var.get() == ""
