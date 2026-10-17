@@ -68,7 +68,7 @@ def verify() -> int:
     print()
     print(f"{n_multi} multi-source questions; "
           f"{single_pass_covers_all} are fully covered by one retrieval "
-          f"({n_multi - single_pass_covers_all} genuinely exercise multi-hop retrieval).")
+          f"({n_multi - single_pass_covers_all} really exercise multi-hop retrieval).")
     if missing_any:
         print("FAIL: some expected sources are not in the corpus.")
         return 1

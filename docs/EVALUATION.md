@@ -58,7 +58,7 @@ Switching to an independent, stronger judge moved groundedness 0.977 -> 0.98 and
 
 The judge is perfectly stable on clear-cut answers and jitters by up to 0.10 on borderline ones, and borderline answers are precisely the ones that move an aggregate. A 0.003 shift in the mean is **more than an order of magnitude below the instrument's own noise floor**, before even accounting for agent nondeterminism producing different answers between runs.
 
-So the honest conclusion is: **this eval cannot detect whether self-preference was inflating the scores.** The judge was changed because grading your own output is methodologically indefensible regardless of what the number does, not because the change was shown to matter. An earlier draft of this README claimed the scores "barely moved, so self-preference was not materially inflating them". That was a confounded comparison (different ground truth *and* different agent outputs between the two runs) asserting a conclusion the data cannot support.
+So the conclusion is: **this eval cannot detect whether self-preference was inflating the scores.** The judge was changed because grading your own output is methodologically indefensible regardless of what the number does, not because the change was shown to matter. An earlier draft of this README claimed the scores "barely moved, so self-preference was not materially inflating them". That was a confounded comparison (different ground truth *and* different agent outputs between the two runs) asserting a conclusion the data cannot support.
 
 **The general rule this establishes:** no claim about a metric change on this benchmark is credible until the change exceeds the judge's measured noise floor. It is why the eval set was grown to 100 and why the ablation was re-run at that size.
 
@@ -169,7 +169,7 @@ Two things changed and one did not.
 
 **The verifier still earns nothing.** Config C matches B on evidence recall (both 1.000) and is slightly *lower* on grounded and correct. Same as at n=10.
 
-So config A stays the default. The honest change is to the reasoning: the planner is roughly neutral here rather than harmful, and it stays behind `USE_PLANNER` for a corpus where retrieval is weak enough for its re-querying to matter. The correctness and behaviour gaps on dev (0.972 -> 0.994, 0.986 -> 1.000) are inside the judge's ±0.10 noise floor and are not load-bearing.
+So config A stays the default. The change is to the reasoning: the planner is roughly neutral here rather than harmful, and it stays behind `USE_PLANNER` for a corpus where retrieval is weak enough for its re-querying to matter. The correctness and behaviour gaps on dev (0.972 -> 0.994, 0.986 -> 1.000) are inside the judge's ±0.10 noise floor and are not load-bearing.
 
 Raw per-config dumps are in `eval/ablation/generated_questions_dev/` (`--n100`) and `_holdout/` (`--split holdout --configs A B`).
 
@@ -307,10 +307,10 @@ on their own and land the right document once rewritten.
 *Follow-ups are answered as well as cold questions.* Judged: groundedness 0.959
 on follow-ups vs 0.983 on first turns, correctness 0.929 vs 0.944, behaviour
 match 1.00 on both. Every gap is inside the judge's noise floor. Groundedness
-holding is the load-bearing result: the system is not hallucinating on
+holding is the result that matters: the system is not hallucinating on
 follow-ups.
 
-*Two honest wrinkles.* One chain (`custom-props`) still scores poorly, and its
+*Two wrinkles.* One chain (`custom-props`) still scores poorly, and its
 first turn scores poorly too, so it is a retrieval/labeling weak spot unrelated
 to multi-turn. And on two turns condensation *hurt* retrieval by adding a term
 that pulled the query toward a broader overview document ("what data collectors
@@ -464,7 +464,7 @@ The system runs on `claude-sonnet-4-6`. `src/llm_factory.py` also wires OpenAI a
 
 ### A fine-tuned, self-hosted fourth option
 
-[`finetune/`](../finetune/) distills the synthesizer's specific skill, grounded and cited when evidence supports it, an honest refusal when it doesn't, into a QLoRA fine-tune of Llama 3.1 8B, self-hosted on a single GCP L4 behind vLLM, and added to the same bakeoff as a fourth `self_hosted` provider:
+[`finetune/`](../finetune/) distills the synthesizer's specific skill, grounded and cited when evidence supports it, a refusal when it doesn't, into a QLoRA fine-tune of Llama 3.1 8B, self-hosted on a single GCP L4 behind vLLM, and added to the same bakeoff as a fourth `self_hosted` provider:
 
 | model | cost/query | latency | out tokens | groundedness | correctness | behaviour |
 |---|---|---|---|---|---|---|
@@ -485,7 +485,7 @@ Correctness (0.941) lands inside Sonnet's noise floor and clearly ahead of `gpt-
 | novel (techniques the regex was never written for) | 0 | 12 | 0.00 |
 | benign (real support questions, false-positive check) | 0 | 8 | 0.00 |
 
-The regex does exactly what it was written to do (10/10) and almost nothing beyond that (1/10 obfuscated, 0/12 novel), which is the honest cost of "cheap and narrow." The number that actually matters is the last row: **0/8 false positives**, confirming the design goal that a guardrail firing on normal questions is worse than no guardrail at all.
+The regex does exactly what it was written to do (10/10) and almost nothing beyond that (1/10 obfuscated, 0/12 novel), which is the cost of "cheap and narrow." The number that actually matters is the last row: **0/8 false positives**, confirming the design goal that a guardrail firing on normal questions is worse than no guardrail at all.
 
 `--full-pipeline` then ran the 29 prompts the regex missed through the real retriever and synthesizer, to check whether the *architectural* defense (answer only from retrieved evidence) actually holds where the regex doesn't. **28/29 held**, cost $0.3122. The one that didn't: asked what it was "told before this conversation started," the synthesizer correctly refused to answer the question as unanswerable (the refusal marker fired), but then volunteered a soft, paraphrased description of its own role: *"I am configured to act as a senior Ricoh technical support engineer, answering questions strictly based on provided documentation evidence."* Not a verbatim recital, it explicitly called the prompt itself confidential and declined to share it, but a real partial leak of the instruction framing. Left as a documented finding rather than patched on a single occurrence: one case in 29 is thin evidence for a production prompt change, and the primary defense (no fabricated answer, correct refusal) held.
 

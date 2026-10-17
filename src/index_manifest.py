@@ -230,7 +230,7 @@ def verify_index(
     return check
 
 
-# ---- command line: write a manifest for an existing index, or check one ----
+# command line: write a manifest for an existing index, or check one
 
 
 def _open_existing(persist_dir: Path):
