@@ -29,7 +29,7 @@ The ablation, on the 70 dev questions:
 | C | B + verifier and retry | 3.0 | $0.0414 | 1.00 | 0.99 |
 
 - The verifier adds nothing, so it stays off.
-- The planner raises evidence recall from 0.94 to 1.00 on the dev questions. On the 30 held-out questions A and B both score 0.93, so the gain doesn't carry over. It also costs 1.7x per query, so it stays behind `USE_PLANNER`.
+- The planner raises evidence recall from 0.94 to 1.00 on the dev questions. On the 30 held-out questions A and B both reach 0.93 evidence recall, so the gain doesn't carry over. It also costs 1.7x per query, so it stays behind `USE_PLANNER`.
 - An earlier 10-question set gave flattering numbers. Growing it to 100 moved groundedness from 0.98 to 0.96.
 - A cross-provider test on 20 questions found `gemini-3.6-flash` close to Sonnet on quality (0.95 against 0.99 correctness) at 1/50th the cost per query, while `gpt-4o-mini` loses 0.21 correctness.
 - On the same 20 questions, a QLoRA fine-tune of Llama 3.1 8B on one GPU scored 0.94 correctness against Sonnet's 0.99. The judge's noise is about 0.10, so that gap is inside it and I cannot say they differ. Groundedness is lower (0.91 against 0.98) and latency is 25 s against 10 s.
@@ -89,6 +89,8 @@ Run the tests with `pip install -r requirements-dev.txt` and `pytest`. They run 
 
 - It needs the PDFs ingested up front. It doesn't pick up document changes on its own.
 - An answer takes about 10 to 15 seconds, which is too slow for live phone support.
+- Declining is barely measured. The 100 generated questions are all answerable, and only 2 curated questions have no answer in the documents.
+- The judge is a Claude model. A second Claude model agreed with it on 30 answers, but it has not been checked against human labels.
 - The Streamlit page is a demo. It uses a shared password and has no rate limit.
 - The API in `api/` is built to run as a service: keys, per-key limits, a deadline, a concurrency cap, a daily spend cap, a readiness check, metrics, and answers from retrieval alone when the model is down. It has been tested against a fake model provider and in its container. It has not served real users, and it has not been deployed to a cloud. Its rate limits, concurrency cap and budget are per process.
 - [DEPLOYMENT.md](DEPLOYMENT.md) lists what is still missing, and [docs/OPERATIONS.md](docs/OPERATIONS.md) says how the service behaves when things go wrong.
