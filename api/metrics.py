@@ -95,7 +95,7 @@ class Metrics:
         self.index_info = Info("citera_index", "What the service is serving.", registry=r)
         self.build_info = Info("citera_build", "The model and prompt in use.", registry=r)
 
-    # ---- what the service records ----
+    # what the service records
 
     def observe_http(self, path: str, status: int, seconds: float) -> None:
         endpoint = endpoint_label(path)

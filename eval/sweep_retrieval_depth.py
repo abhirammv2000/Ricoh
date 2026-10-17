@@ -89,7 +89,7 @@ def sweep() -> int:
     print("    DOCUMENTS (not chunks) - the unit that matters on a corpus of")
     print("    mostly single-page articles.")
     print("  * 'full-hit' counts questions where EVERY expected doc was found;")
-    print("    it is the stricter and more honest headline.")
+    print("    it is the stricter headline.")
     print("  * token estimates are indicative, not billed values - the harness")
     print("    reports real token counts from the API.")
     print("  * pick the knee, not the argmax: n is small enough that the last")

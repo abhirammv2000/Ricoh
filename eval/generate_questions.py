@@ -244,7 +244,7 @@ def audit() -> int:
     else:
         print("  Overlap is moderate; questions are paraphrased rather than copied.")
     if sum(recalls) / n >= 0.99:
-        print("  recall@k is ~perfect. Either retrieval genuinely is this")
+        print("  recall@k is ~perfect. Either retrieval really is this")
         print("    strong on this corpus (consistent with the 10-question set),")
         print("    or the set is too easy to discriminate between systems.")
     else:

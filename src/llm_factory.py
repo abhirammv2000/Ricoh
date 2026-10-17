@@ -152,14 +152,12 @@ def get_llm(
         )
 
 
-# ---------------------------------------------------------------------------------------------
 # one client per configuration, for code that handles requests
-# ---------------------------------------------------------------------------------------------
 #
-# get_llm() builds a new client every time. Building one costs about 150 ms, and the async client
-# inside it about another 270 ms the first time it is used, so a service that calls get_llm() per
-# request spent most of its CPU on that and could not use a connection twice. shared_llm() keeps one
-# client per configuration, so the HTTP connection pool is reused.
+# get_llm() builds a new client every time. Building one costs about 150 ms, and the async client inside it about
+# another 270 ms the first time it is used, so a service that called get_llm() for every request spent most of its CPU
+# on that and could not reuse a connection. shared_llm() keeps one client per configuration, so the HTTP connection pool
+# is reused.
 
 _SHARED_ENV_VARS: tuple[str, ...] = (
     "ANTHROPIC_API_KEY",
