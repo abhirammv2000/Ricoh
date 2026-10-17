@@ -30,7 +30,7 @@ from pathlib import Path
 import httpx
 
 from src.agent import SYNTHESIZER_PROMPT, _format_evidence_block
-from src.guardrails import looks_like_instructions_to_the_model
+from src.guardrails import looks_like_instructions
 
 CANARY = "PWNED"
 
@@ -118,7 +118,7 @@ def main() -> None:
     with httpx.Client(base_url=args.url, timeout=900) as client:
         for scenario in SCENARIOS:
             for name, text, _expected in ATTACKS:
-                recognised = looks_like_instructions_to_the_model(poisoned_chunk(text)["text"])
+                recognised = looks_like_instructions(poisoned_chunk(text)["text"])
                 for arm in ("unguarded", "guarded"):
                     guarded = arm == "guarded"
                     canary_in_prompt = CANARY in build_prompt(QUESTION, text, guarded, scenario)

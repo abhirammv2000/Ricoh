@@ -30,13 +30,13 @@ from src.config import (
     RETRIEVAL_TOP_K,
     RRF_K,
 )
-from src.guardrails import looks_like_instructions_to_the_model
+from src.guardrails import looks_like_instructions
 from src.index_manifest import (
     DEFAULT_EMBEDDING_NAME,
     IndexCheck,
     IndexManifest,
+    check_files,
     make_manifest,
-    verify_files_before_loading,
     verify_index,
     write_manifest,
 )
@@ -190,7 +190,7 @@ class HybridRetriever:
         """Load the pickled BM25 index and chunks, if they exist."""
         if self._bm25_index_path.exists() and self._bm25_chunks_path.exists():
             # a pickle runs code when it is loaded, so a file that differs from the manifest is not loaded
-            verify_files_before_loading(self._persist_dir, self._bm25_index_path, self._bm25_chunks_path)
+            check_files(self._persist_dir, self._bm25_index_path, self._bm25_chunks_path)
             with open(self._bm25_index_path, "rb") as f:
                 self._bm25 = pickle.load(f)
 
@@ -282,7 +282,7 @@ class HybridRetriever:
         write_manifest(self._persist_dir, manifest)
         return manifest
 
-    def write_manifest_for_existing_index(self) -> IndexManifest:
+    def add_missing_manifest(self) -> IndexManifest:
         """A manifest for an index that was built before manifests existed. It records the index as it is and
         the current configuration, so only run it on an index you know was built with that configuration."""
         if not self.bm25_ready:
@@ -302,7 +302,7 @@ class HybridRetriever:
             require_manifest=require_manifest,
         )
         # a warning and not a problem: the answer path withholds such chunks from the model anyway
-        suspicious = [c for c in self._bm25_chunks if looks_like_instructions_to_the_model(c.get("text", ""))]
+        suspicious = [c for c in self._bm25_chunks if looks_like_instructions(c.get("text", ""))]
         if suspicious:
             result.warnings.append(
                 f"{len(suspicious)} chunk(s) in the index look like instructions to the model, "
