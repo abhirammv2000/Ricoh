@@ -11,7 +11,6 @@ There are only 8 scorable questions here, so pick the knee of the curve, not the
 
 from __future__ import annotations
 
-import io
 import json
 from pathlib import Path
 
@@ -31,7 +30,7 @@ PROMPTS_EMBEDDING_EVIDENCE = 2
 
 
 def _questions() -> list[dict]:
-    gt = json.loads(io.open(GROUND_TRUTH_PATH, encoding="utf-8").read())["questions"]
+    gt = json.loads(open(GROUND_TRUTH_PATH, encoding="utf-8").read())["questions"]
     return [q for q in gt if q.get("expected_sources")]
 
 
@@ -90,7 +89,7 @@ def sweep() -> int:
     print("    DOCUMENTS (not chunks) - the unit that matters on a corpus of")
     print("    mostly single-page articles.")
     print("  * 'full-hit' counts questions where EVERY expected doc was found;")
-    print("    it is the stricter and more honest headline.")
+    print("    it is the stricter headline.")
     print("  * token estimates are indicative, not billed values - the harness")
     print("    reports real token counts from the API.")
     print("  * pick the knee, not the argmax: n is small enough that the last")

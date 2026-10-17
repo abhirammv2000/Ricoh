@@ -28,11 +28,12 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
     USE_VERIFIER,
 )
 from src.conversation import Turn, condense_query  # noqa: F401 - Turn re-exported for callers
+from src.guardrails import looks_like_instructions
 from src.instrumentation import ainvoke as instrumented_ainvoke
 from src.instrumentation import astream as instrumented_astream
 from src.instrumentation import invoke as instrumented_invoke
-from src.guardrails import looks_like_instructions_to_the_model
 from src.instrumentation import span
+
 # one client per configuration, reused across requests (see shared_llm). The name stays get_llm so tests can patch it
 from src.llm_factory import shared_llm as get_llm
 from src.retriever import get_retriever
@@ -193,11 +194,13 @@ def quarantine_suspicious_evidence(evidence: list[dict[str, Any]]) -> list[dict[
     does not match is passed through untouched, so answers on clean evidence are unchanged. What was
     dropped is logged by document and page only, and recorded in the trace for the metrics.
     """
-    kept = [e for e in evidence if not looks_like_instructions_to_the_model(e.get("text", ""))]
+    kept = [e for e in evidence if not looks_like_instructions(e.get("text", ""))]
     if len(kept) != len(evidence):
         dropped = [e for e in evidence if e not in kept]
         where = [f"{e.get('source_document', '?')} p.{e.get('page_number', '?')}" for e in dropped]
-        logger.warning("Quarantined %d retrieved chunk(s) that look like instructions to the model: %s", len(dropped), where)
+        logger.warning(
+            "Quarantined %d retrieved chunk(s) that look like instructions to the model: %s", len(dropped), where
+        )
         with span("evidence_guard", quarantined=len(dropped), documents=where):
             pass
     return kept
@@ -286,7 +289,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
     # show progress in the terminal
     print(f"\nPLANNER - Iteration {state['iterations'] + 1}")
     print(f"   Entities : {entities}")
-    print(f"   Sub-queries:")
+    print("   Sub-queries:")
     for i, sq in enumerate(sub_queries, 1):
         print(f"     {i}. {sq}")
 
@@ -391,19 +394,19 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
 
 # routing after the verifier
 
-def should_retry_or_synthesize(state: AgentState) -> str:
+def retry_or_answer(state: AgentState) -> str:
     """Back to the planner if the evidence was insufficient and retries are left, else synthesize."""
     if (
         state["verification_status"] == "INSUFFICIENT"
         and state["iterations"] < MAX_ITERATIONS
     ):
-        print(f"\nROUTING back to PLANNER (retry)")
+        print("\nROUTING back to PLANNER (retry)")
         return "planner"
 
     if state["iterations"] >= MAX_ITERATIONS:
-        print(f"\nROUTING to SYNTHESIZER (max iterations reached)")
+        print("\nROUTING to SYNTHESIZER (max iterations reached)")
     else:
-        print(f"\nROUTING to SYNTHESIZER (evidence sufficient)")
+        print("\nROUTING to SYNTHESIZER (evidence sufficient)")
     return "synthesizer"
 
 
@@ -438,7 +441,7 @@ def build_agent_graph(
         if use_planner:
             graph.add_conditional_edges(
                 "verifier",
-                should_retry_or_synthesize,
+                retry_or_answer,
                 {"planner": "planner", "synthesizer": "synthesizer"},
             )
         else:
@@ -538,7 +541,7 @@ def run_agent(
     return answer
 
 
-class UnsupportedAsyncConfig(RuntimeError):
+class AsyncNotSupportedError(RuntimeError):
     """arun_agent was called with a flag it can't handle.
 
     Its own type so a fallback to run_agent doesn't also catch unrelated RuntimeErrors.
@@ -556,19 +559,19 @@ def async_pipeline_supported() -> bool:
 async def arun_agent(query: str) -> str:
     """Async version of run_agent, for the default pipeline only.
 
-    The flags and the cache add calls that aren't async yet, so it raises UnsupportedAsyncConfig
+    The flags and the cache add calls that aren't async yet, so it raises AsyncNotSupportedError
     instead of mixing blocking and async work. Retrieval runs in a thread because it is disk and cpu
     bound. It mirrors the default path (one sub-query, no entities) rather than going through the
     graph. Single turn only.
     """
     if USE_PLANNER or USE_VERIFIER or USE_TOOL_LOOP or USE_ROUTER:
-        raise UnsupportedAsyncConfig(
+        raise AsyncNotSupportedError(
             "arun_agent only supports the default pipeline (no planner, "
             "verifier, tool loop, or router). Use run_agent for any other "
             "configuration."
         )
     if get_semantic_cache() is not None:
-        raise UnsupportedAsyncConfig(
+        raise AsyncNotSupportedError(
             "arun_agent does not support the semantic cache yet. Use "
             "run_agent, or disable SEMANTIC_CACHE_ENABLED."
         )
@@ -587,16 +590,16 @@ async def arun_agent(query: str) -> str:
     return answer
 
 
-async def astream_agent(query: str, result: "StreamResult") -> AsyncIterator[str]:
+async def astream_agent(query: str, result: StreamResult) -> AsyncIterator[str]:
     """Stream the answer for the default pipeline, with the same steps as arun_agent.
 
     This is a plain async iterator over the model's stream, so cancelling the task that reads it (a
     client that left, a deadline) closes the connection to the provider and generation stops. The
     graph-based stream_agent cannot do that: a graph node that is already running cannot be cancelled.
-    Raises UnsupportedAsyncConfig, before yielding anything, for any other configuration.
+    Raises AsyncNotSupportedError, before yielding anything, for any other configuration.
     """
     if not async_pipeline_supported():
-        raise UnsupportedAsyncConfig(
+        raise AsyncNotSupportedError(
             "astream_agent only supports the default pipeline. Use stream_agent for any other configuration."
         )
     llm = get_llm()

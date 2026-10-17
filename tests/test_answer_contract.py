@@ -34,7 +34,9 @@ class FakeRetriever:
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    monkeypatch.setattr(apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1))
+    monkeypatch.setattr(
+        apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1)
+    )
     monkeypatch.setattr("src.agent.get_retriever", lambda: FakeRetriever())
 
 
@@ -90,7 +92,7 @@ EXPORT = ROOT / "eval" / "ragas_input.jsonl"
 
 @pytest.mark.skipif(
     not EXPORT.exists(),
-    reason="eval/ragas_input.jsonl is a generated export of retrieved passages from the manuals, so it is not committed. "
+    reason="eval/ragas_input.jsonl is an export of passages from the manuals, so it is not committed. "
     "Make it with eval/ragas_export.py to run this check on 50 answers",
 )
 def test_none_of_the_fifty_real_answers_in_the_local_export_would_be_withheld():

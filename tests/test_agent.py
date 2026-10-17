@@ -7,33 +7,32 @@ import asyncio
 import src.agent as agent
 from src.agent import (
     MAX_ITERATIONS,
-    UnsupportedAsyncConfig,
+    AsyncNotSupportedError,
     arun_agent,
     planner_node,
     record_citation_guardrail,
-    should_retry_or_synthesize,
+    retry_or_answer,
     synthesizer_node,
     verifier_node,
 )
 from src.instrumentation import record_run
 from tests.helpers import FakeLLM
 
-
 # routing
 
 def test_routes_back_to_planner_when_insufficient_and_under_cap():
     state = {"verification_status": "INSUFFICIENT", "iterations": 1}
-    assert should_retry_or_synthesize(state) == "planner"
+    assert retry_or_answer(state) == "planner"
 
 
 def test_routes_to_synthesizer_when_cap_reached():
     state = {"verification_status": "INSUFFICIENT", "iterations": MAX_ITERATIONS}
-    assert should_retry_or_synthesize(state) == "synthesizer"
+    assert retry_or_answer(state) == "synthesizer"
 
 
 def test_routes_to_synthesizer_when_sufficient():
     state = {"verification_status": "SUFFICIENT", "iterations": 0}
-    assert should_retry_or_synthesize(state) == "synthesizer"
+    assert retry_or_answer(state) == "synthesizer"
 
 
 # planner json
@@ -155,7 +154,6 @@ import pytest
 
 from src.agent import build_agent_graph, get_agent_graph, initial_state
 
-
 # arun_agent. Retrieval and the LLM are faked, so these only check its own logic
 
 class _FakeRetriever:
@@ -195,13 +193,13 @@ def test_arun_agent_runs_retrieval_then_synthesis(monkeypatch):
 )
 def test_arun_agent_raises_when_a_non_default_flag_is_on(monkeypatch, flag):
     _patch_async_defaults(monkeypatch, **{flag: True})
-    with pytest.raises(UnsupportedAsyncConfig):
+    with pytest.raises(AsyncNotSupportedError):
         asyncio.run(arun_agent("q"))
 
 
 def test_arun_agent_raises_when_semantic_cache_enabled(monkeypatch):
     _patch_async_defaults(monkeypatch, semantic_cache=object())
-    with pytest.raises(UnsupportedAsyncConfig):
+    with pytest.raises(AsyncNotSupportedError):
         asyncio.run(arun_agent("q"))
 
 

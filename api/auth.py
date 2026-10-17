@@ -1,21 +1,20 @@
-"""API key authentication, and who a request is for the purposes of rate limiting.
+"""API key authentication, and who a request is for when it comes to rate limiting.
 
-API_KEYS holds one or more keys, separated by commas. A key can carry a label, `partner-a:the-secret`, and a
-label is what shows up in logs and what a client's rate limit is counted against. A key with no label gets
-one made from a hash of the key, which names it without giving it away. More than one key is how a key is
-rotated: add the new one, move callers over, then remove the old one.
+API_KEYS holds one or more keys separated by commas. A key can have a label, like `partner-a:the-secret`. The label is
+what shows up in logs and what a client's rate limit is counted against. A key with no label gets one made from its
+hash, which names it without giving it away. To rotate a key, add the new one, move callers over, then remove the old
+one.
 
 Two details that are easy to get wrong:
 
-* Keys are compared as SHA-256 digests with hmac.compare_digest, and every key is checked on every request.
-  The comparison does not stop at the first differing byte, and the time taken does not say which key
-  matched or how long the right one is.
-* Failed attempts are counted per source address and limited, so the key cannot be guessed at speed. That
-  is the one place the client address is used. A caller who authenticated is limited by their key, since
-  behind a proxy every caller shares one address.
+* Keys are compared as SHA-256 digests with hmac.compare_digest, and every key is checked on every request. The
+  comparison does not stop at the first different byte, and the time it takes does not reveal which key matched or how
+  long the right one is.
+* Wrong attempts are counted per source address and limited, so a key cannot be guessed quickly. This is the only place
+  the client address is used. A caller who authenticated is limited by their key, because behind a proxy every caller
+  shares one address.
 
-Authentication is on by default. The service will not start with no keys unless API_AUTH_DISABLED=true,
-which is for a laptop. A default that quietly leaves the service open is how it ends up open in production.
+Auth is on by default. The service will not start with no keys unless API_AUTH_DISABLED=true, which is for a laptop.
 """
 
 from __future__ import annotations
@@ -32,7 +31,9 @@ from src.ratelimit import TokenBucketLimiter
 API_KEY_HEADER = "X-API-Key"
 
 UNAUTHORIZED = PublicError(401, "unauthorized", "A valid API key is required.")
-TOO_MANY_FAILURES = PublicError(429, "too_many_failed_attempts", "Too many failed attempts. Wait and try again.", retry_after=60)
+TOO_MANY_FAILURES = PublicError(
+    429, "too_many_failed_attempts", "Too many failed attempts. Wait and try again.", retry_after=60
+)
 
 # these answer a probe or a load balancer, so they work with no key
 OPEN_PATHS = frozenset({"/health", "/ready"})

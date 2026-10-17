@@ -56,7 +56,7 @@ Citera's eval suite (the 100-question benchmark, ground truth, multi-hop and
 multi-turn sets) draws on 140 of the corpus's 733 documents. `data/`
 computes the other 593 and samples training questions only from those, so
 training a model and then judging it on Citera's existing benchmark is a
-genuine held-out test, not train/eval overlap, by construction (different
+real held-out test, not train/eval overlap, by construction (different
 source documents entirely, not just different questions).
 
 Each training example is built the way a real synthesizer call is built in
@@ -66,7 +66,7 @@ answerable from it (same generator prompt Citera's own
 `eval/generate_questions.py` uses), runs that question through Citera's real
 hybrid retriever, then has Claude Sonnet answer with Citera's actual
 `SYNTHESIZER_PROMPT` against whatever evidence retrieval actually returned.
-That last part matters: 11 of the 348 examples (3.2%) are honest refusals,
+That last part matters: 11 of the 348 examples (3.2%) are refusals,
 because retrieval didn't always find the source document, and the model is
 supposed to learn "refuse when evidence doesn't support an answer" as much as
 "cite correctly when it does."
@@ -182,7 +182,7 @@ python -m eval.provider_bakeoff --providers self_hosted --n 20
 
 - **One judged run, 20 questions.** Citera's own eval work is built around
   the finding that a 10-question benchmark gives flattering, noisy numbers;
-  20 is better than 10 but still narrow. The honest fix is the same one
+  20 is better than 10 but still narrow. The fix is the same one
   Citera already applied to itself: run this against the full 100-question
   benchmark's holdout split before trusting the numbers past "the direction
   looks right."

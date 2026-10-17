@@ -15,7 +15,6 @@ Writes eval/embedding_sweep.{json,md}.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import math
 import os
@@ -182,7 +181,7 @@ def measure_matrix(label: str) -> list[dict[str, Any]]:
 
     ef = _embedding_function(label, mode="query")
     retriever = HybridRetriever(persist_dir=index_dir, embedding_function=ef)
-    questions = json.load(io.open(QUESTIONS_PATH, encoding="utf-8"))["questions"]
+    questions = json.load(open(QUESTIONS_PATH, encoding="utf-8"))["questions"]
     rerank_grid = (False, True) if os.getenv("SWEEP_RERANK") else (False,)
 
     out: list[dict[str, Any]] = []

@@ -7,7 +7,7 @@ baseline. A drop fails the build.
 
 demo_index is a small slice built around those questions, so recall is near the ceiling. That makes
 this a smoke test that retrieval still works, not a measure of quality on all 733 documents (those
-numbers come from the paid harness, README section 7).
+numbers come from the paid harness, docs/EVALUATION.md).
 
     python -m eval.ci_gate            # check against eval/ci_baseline.json
     python -m eval.ci_gate --update   # rewrite the baseline, only on purpose
@@ -19,9 +19,10 @@ import argparse
 import json
 import shutil
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from src.config import PROJECT_ROOT
 from src.retriever import HybridRetriever

@@ -15,7 +15,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 from typing import Any
 
@@ -29,7 +28,7 @@ def _load() -> list[dict[str, Any]]:
             "`python -m src.eval_harness --no-judge` or the Streamlit app."
         )
     traces = []
-    with io.open(TRACE_PATH, encoding="utf-8") as f:
+    with open(TRACE_PATH, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:

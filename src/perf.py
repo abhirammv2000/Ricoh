@@ -9,7 +9,6 @@ write.
 
 from __future__ import annotations
 
-import io
 import json
 import math
 from pathlib import Path
@@ -23,7 +22,7 @@ def load_traces(path: Path = TRACE_PATH) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     records: list[dict[str, Any]] = []
-    with io.open(path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:

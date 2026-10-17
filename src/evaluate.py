@@ -214,7 +214,7 @@ if __name__ == "__main__":
 
     total = sum(r["latency_seconds"] for r in results)
     print(f"\n{'=' * 70}")
-    print(f"  EVALUATION COMPLETE")
+    print("  EVALUATION COMPLETE")
     print(f"  {len(results)} questions | {total:.1f}s total | {total/len(results):.1f}s avg")
     print(f"  CSV:      {CSV_PATH}")
     print(f"  Report:   {REPORT_PATH}")

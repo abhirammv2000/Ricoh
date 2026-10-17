@@ -32,15 +32,15 @@ from src.config import (  # noqa: F401
 for _quiet in ("src.ingest", "src.retriever", "chromadb", "httpx", "httpcore"):
     logging.getLogger(_quiet).setLevel(logging.WARNING)
 
-from src.agent import stream_agent, StreamResult
+from app.guard import allow_query, password_ok, required_password
 from src import feedback
+from src.agent import StreamResult, stream_agent
 from src.conversation import Turn
 from src.guardrails import screen_input
 from src.ingest import ingest_all
 from src.instrumentation import record_run
-from src.retriever import HybridRetriever
 from src.llm_factory import _DEFAULT_MODELS
-from app.guard import allow_query, password_ok, required_password
+from src.retriever import HybridRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ ERROR_ANSWER = "Sorry, something went wrong while answering. Please try again."
 def conversation_history(messages: list[dict]) -> list[Turn]:
     """The finished question and answer pairs in the chat, as Turns. Unanswered and error turns are skipped."""
     turns: list[Turn] = []
-    for prev, curr in zip(messages, messages[1:]):
+    for prev, curr in zip(messages, messages[1:], strict=False):
         if (
             prev["role"] == "user"
             and curr["role"] == "assistant"

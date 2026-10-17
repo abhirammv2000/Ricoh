@@ -107,7 +107,9 @@ def build_app(behavior: Behavior, counters: Counters) -> FastAPI:
 
     @app.get("/_admin/counters")
     async def get_counters():
-        return JSONResponse({"requests": counters.requests, "completed": counters.completed, "in_flight": counters.in_flight})
+        return JSONResponse(
+            {"requests": counters.requests, "completed": counters.completed, "in_flight": counters.in_flight}
+        )
 
     @app.post("/v1/messages")
     async def messages(request: Request):
@@ -195,7 +197,7 @@ class FakeAnthropic:
     def url(self) -> str:
         return f"http://127.0.0.1:{self.port}"
 
-    def start(self, port: int = 0) -> "FakeAnthropic":
+    def start(self, port: int = 0) -> FakeAnthropic:
         if port == 0:
             with socket.socket() as s:
                 s.bind(("127.0.0.1", 0))
@@ -220,7 +222,7 @@ class FakeAnthropic:
         if self._thread is not None:
             self._thread.join(timeout=5)
 
-    def __enter__(self) -> "FakeAnthropic":
+    def __enter__(self) -> FakeAnthropic:
         return self.start()
 
     def __exit__(self, *exc) -> None:

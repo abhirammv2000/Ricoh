@@ -250,10 +250,21 @@ def test_the_metrics_show_what_happened(service, fake):
     fake.behavior.mode = "ok"
     after = CLIENT.get(service + "/metrics").text
 
-    assert series(after, 'citera_answers_total{outcome="answered"}') == series(before, 'citera_answers_total{outcome="answered"}') + 1
-    assert series(after, 'citera_answers_total{outcome="degraded"}') == series(before, 'citera_answers_total{outcome="degraded"}') + 1
-    assert series(after, "citera_retrieval_top_rrf_score_count") >= series(before, "citera_retrieval_top_rrf_score_count") + 2
-    assert series(after, 'citera_llm_tokens_total{kind="input"}') > series(before, 'citera_llm_tokens_total{kind="input"}')
+    assert (
+        series(after, 'citera_answers_total{outcome="answered"}')
+        == series(before, 'citera_answers_total{outcome="answered"}') + 1
+    )
+    assert (
+        series(after, 'citera_answers_total{outcome="degraded"}')
+        == series(before, 'citera_answers_total{outcome="degraded"}') + 1
+    )
+    assert (
+        series(after, "citera_retrieval_top_rrf_score_count")
+        >= series(before, "citera_retrieval_top_rrf_score_count") + 2
+    )
+    assert series(after, 'citera_llm_tokens_total{kind="input"}') > series(
+        before, 'citera_llm_tokens_total{kind="input"}'
+    )
     assert series(after, "citera_llm_cost_usd_total") > series(before, "citera_llm_cost_usd_total")
     assert series(after, "citera_ready") == 1
     assert "How do I configure" not in after, "question text reached the metrics"
@@ -288,7 +299,10 @@ def test_the_first_question_after_startup_is_not_slower_than_the_rest(fake, tmp_
         times = []
         for _ in range(4):
             started = time.perf_counter()
-            assert CLIENT.post(base + "/query", json={"query": "How do I configure the network settings?"}).status_code == 200
+            assert (
+                CLIENT.post(base + "/query", json={"query": "How do I configure the network settings?"}).status_code
+                == 200
+            )
             times.append(time.perf_counter() - started)
         assert times[0] < 1.0, f"the first question took {times[0]:.2f} s: {times}"
         assert times[0] < 3 * (sum(times[1:]) / 3) + 0.3, times
@@ -316,7 +330,12 @@ def test_the_real_service_requires_an_api_key(service):
     assert anonymous.status_code == 401 and anonymous.json()["code"] == "unauthorized"
     wrong = httpx.post(service + "/query", json=body, headers={"X-API-Key": API_KEY + "x"}, timeout=30)
     assert wrong.status_code == 401 and API_KEY not in wrong.text
-    assert httpx.post(service + "/query", json=body, headers={"Authorization": "Bearer " + API_KEY}, timeout=30).status_code == 200
+    assert (
+        httpx.post(
+            service + "/query", json=body, headers={"Authorization": "Bearer " + API_KEY}, timeout=30
+        ).status_code
+        == 200
+    )
     assert httpx.get(service + "/metrics", timeout=30).status_code == 401
     assert httpx.get(service + "/health", timeout=30).status_code == 200  # probes need no key
     assert httpx.get(service + "/ready", timeout=30).status_code == 200
@@ -352,7 +371,7 @@ def test_the_daily_budget_stops_spending_on_the_real_service(budget_service, fak
 
 
 def test_a_model_that_obeys_an_injected_instruction_has_its_answer_withheld(service, fake):
-    # what a successful injection looks like from the outside: the model answers with the attacker's word and no citation
+    # a successful injection, seen from outside: the model says the attacker's word and cites nothing
     fake.behavior.answer = "PWNED"
     r = ask(service)
     assert r.status_code == 200 and r.json()["degraded"] is True

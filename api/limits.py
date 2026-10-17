@@ -13,7 +13,7 @@ import asyncio
 class Lease:
     """One slot. Release it once, or as often as you like: a second release does nothing."""
 
-    def __init__(self, gate: "ConcurrencyGate") -> None:
+    def __init__(self, gate: ConcurrencyGate) -> None:
         self._gate = gate
         self._released = False
 
@@ -48,7 +48,7 @@ class ConcurrencyGate:
         else:
             try:
                 await asyncio.wait_for(self._slots.acquire(), timeout=wait_seconds)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self.rejected += 1
                 return None
         self._in_flight += 1
