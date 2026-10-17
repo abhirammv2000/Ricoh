@@ -1,10 +1,10 @@
 """One JSON object per log line, with the request id on every line that belongs to a request.
 
-A log line that says "query failed" is only useful if you can find the other lines about the same request.
-The request id is set when a request arrives (see RequestIdMiddleware) and carried in a context variable, so
-every line logged while that request is handled has it, including lines from the retriever and the agent that
-know nothing about HTTP. The id is also in the X-Request-ID response header and in every error body, so a
-user who reports a problem can give you the one string that finds all of it.
+A log line that says "query failed" only helps if you can find the other lines about the same request. The request id is
+set when a request arrives (see RequestIdMiddleware) and kept in a context variable, so every line logged while that
+request is handled has it, even lines from the retriever and the agent, which know nothing about HTTP. The id is also in
+the X-Request-ID response header and in every error body, so a user who reports a problem can give you the one string
+that finds everything.
 
 Off by default (LOG_FORMAT=text), because JSON is hard to read on a laptop. The container image turns it on.
 """

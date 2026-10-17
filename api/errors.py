@@ -1,11 +1,11 @@
 """What a caller is told when something fails, and what stays in the log.
 
-A model provider's error text can hold request details, account limits or a key fragment, so none of it
-goes to the caller. The caller gets a stable code, a short sentence and, where retrying makes sense, a
-Retry-After. The full error is logged with the request id so it can be found.
+A model provider's error text can hold request details, account limits or part of a key, so none of it goes to the
+caller. The caller gets a stable code, a short sentence and, where a retry makes sense, a Retry-After. The full error is
+logged with the request id so it can be found.
 
-The classes of provider errors differ between SDKs (anthropic, openai), so this reads the attributes they
-share (a status code, a name that says timeout or connection) and imports neither.
+The SDKs (anthropic, openai) have different error classes, so this reads what they share (a status code, a name that
+says timeout or connection) and imports neither.
 """
 
 from __future__ import annotations

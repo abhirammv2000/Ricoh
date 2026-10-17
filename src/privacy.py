@@ -1,18 +1,18 @@
 """What the service writes down about a user's question.
 
-People paste serial numbers, names and error output into a support box, so a question is treated as personal
-data: it does not go into logs, and what goes into traces is a setting.
+People paste serial numbers, names and error output into a support box, so a question is treated as personal data. It
+does not go into logs, and what goes into traces is a setting.
 
-  describe_query(q)   For logs. Only the length and a short hash, which is enough to match two log lines about
-                      the same question without writing the question.
-  trace_query(q)      For traces, by TRACE_QUERY_MODE:
-                        full   the text as asked. For a laptop, where you want to read your own traces.
-                        hash   the length and the hash, with no text. For a deployed service. The same question
-                               always gets the same hash, so repeated questions are still countable.
-                        none   nothing.
+    describe_query(q)   For logs. Only the length and a short hash, enough to match two log lines about the
+                        same question without writing the question.
+    trace_query(q)      For traces, by TRACE_QUERY_MODE:
+                          full   the text as asked. For a laptop, where you want to read your own traces.
+                          hash   the length and the hash, no text. For a deployed service. The same question
+                                 always gets the same hash, so repeated questions can still be counted.
+                          none   nothing.
 
-The hash is not a secret. Short questions can be guessed and checked against it, so "hash" keeps the text out
-of the file and does not make it unrecoverable. If that matters, use "none".
+The hash is not a secret. Short questions can be guessed and checked against it, so "hash" keeps the text out of the
+file but does not make it unrecoverable. If that matters, use "none".
 """
 
 from __future__ import annotations
