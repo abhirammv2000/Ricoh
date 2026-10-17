@@ -342,7 +342,7 @@ Retrieval is **bit-identical across repeated runs** (verified across fresh clien
 A second signal points the same way: on **Q6**, the retriever alone scores recall@5 = 0.00 while end-to-end evidence recall is 1.00: the planner's query decomposition surfaced a document the raw query missed. That is the clearest case in the set of the agentic layer earning its cost.
 
 **Honest caveats:**
-- **The ablation split is dev-heavy.** It has been run at n=100 (see the section above), but the judged half is the 70-question dev split; holdout was measured on objective metrics only. The planner's dev-split edge on the judged metrics has not been confirmed with the judge on holdout.
+- **The planner comparison is small.** It has been run at n=100 (see the section above) on both splits, with the judge on both. The dev edge in evidence recall (0.943 to 1.000) is four questions and did not appear on the 30 held-out questions, and the judged gaps on both splits are inside the judge's noise. It says the planner is not a reliable win here. It does not say it never helps.
 - **Single judge, model-graded.** No human-labelled agreement (Cohen's κ) has been measured yet, so the judge itself is unvalidated. `eval/human_labels.json` is a prepared 30-item worksheet (passages included) waiting on the labelling pass. The RAGAS cross-check on 50 answers (above) is consistent with the judge but is still model-graded and cannot substitute for human labels.
 - **Citation precision measures the weak thing** (see table above) and 1.00 should be read accordingly.
 - **Latency ~10s** on the default single-call path; fine for assisted lookup, too slow for live phone support. The planner and verifier flags push it to 14 to 17s.
