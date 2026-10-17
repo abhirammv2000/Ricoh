@@ -36,9 +36,10 @@ services:
         sync: false          # set as a secret in the Render dashboard
       - key: ANONYMIZED_TELEMETRY
         value: "False"
-      # Both agentic stages are off by default on evidence (ROADMAP.md, D-6):
-      # the single-retrieval path matched or beat the full pipeline on every
-      # quality metric at 3.1x lower cost. Set "true" to run the full loop.
+      # Both agentic stages are off by default on evidence (docs/EVALUATION.md): on the
+      # 10-question run the single-retrieval path matched or beat the full pipeline
+      # at 3.1x lower cost. At 100 questions the planner's dev gain did not hold on
+      # the held-out split. Set "true" to run the full loop.
       - key: USE_PLANNER
         value: "false"
       - key: USE_VERIFIER
