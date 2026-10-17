@@ -14,7 +14,7 @@ import os
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -213,7 +213,7 @@ class record_run:
         self.record = RunRecord(
             trace_id=uuid.uuid4().hex[:16],
             query=query,
-            started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            started_at=datetime.now(UTC).isoformat(timespec="seconds"),
         )
         self._persist = persist
         self._token: contextvars.Token | None = None
@@ -248,7 +248,7 @@ class span:
         self._started = 0.0
         self._span: Span | None = None
 
-    def __enter__(self) -> "span":
+    def __enter__(self) -> span:
         self._started = time.perf_counter()
         return self
 
@@ -267,7 +267,7 @@ class span:
                 span_type="retrieval",
                 latency_seconds=round(time.perf_counter() - self._started, 3),
                 attributes=self.attributes,
-                started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                started_at=datetime.now(UTC).isoformat(timespec="seconds"),
                 error=f"{exc_type.__name__}: {exc}" if exc_type else None,
             )
         )
@@ -347,7 +347,7 @@ def invoke_messages(llm: Any, messages: Any, stage: str) -> Any:
 
 
 def invoke(llm: Any, prompt: str, stage: str) -> str:
-    """Call an LLM, record a span and return the text. Same as response_text(llm.invoke(prompt)) when nothing is recording."""
+    """Call an LLM, record a span and return the text. With no recording on, it is response_text(llm.invoke(prompt))."""
     rec = _CURRENT.get()
     model = getattr(llm, "model", None) or getattr(llm, "model_name", "unknown")
 
@@ -387,7 +387,7 @@ def invoke(llm: Any, prompt: str, stage: str) -> str:
 
 
 async def ainvoke(llm: Any, prompt: str, stage: str) -> str:
-    """Async version of invoke(), same span. It only helps if the model's ainvoke is truly async (ChatAnthropic's is)."""
+    """Async invoke(), same span. It only helps if the model's ainvoke is really async (ChatAnthropic's is)."""
     rec = _CURRENT.get()
     model = getattr(llm, "model", None) or getattr(llm, "model_name", "unknown")
 

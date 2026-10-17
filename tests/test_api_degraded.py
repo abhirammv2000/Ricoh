@@ -21,7 +21,12 @@ from api.settings import Settings
 SECRET = "PROVIDER-SECRET-DO-NOT-LEAK"
 
 PASSAGES = [
-    {"source_document": "network_guide.pdf", "page_number": 3, "text": "Open the Settings menu.\n  Choose Network.", "rrf_score": 0.0328},
+    {
+        "source_document": "network_guide.pdf",
+        "page_number": 3,
+        "text": "Open the Settings menu.\n  Choose Network.",
+        "rrf_score": 0.0328,
+    },
     {"source_document": "admin_guide.pdf", "page_number": 12, "text": "x" * 900, "rrf_score": 0.0161},
 ]
 
@@ -47,7 +52,9 @@ class FakeRetriever:
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    monkeypatch.setattr(apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1))
+    monkeypatch.setattr(
+        apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1)
+    )
 
 
 def use_retriever(monkeypatch, retriever):

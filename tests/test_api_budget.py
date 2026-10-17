@@ -1,9 +1,9 @@
-"""The daily spend cap: it counts what the model cost, stops spending when the limit is reached, and resets at midnight UTC."""
+"""The daily spend cap: it counts what the model cost, stops spending at the limit, and resets at midnight UTC."""
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -18,7 +18,7 @@ from src.instrumentation import Span
 
 
 def at(day: int, hour: int = 12) -> float:
-    return datetime(2026, 10, day, hour, 0, 0, tzinfo=timezone.utc).timestamp()
+    return datetime(2026, 10, day, hour, 0, 0, tzinfo=UTC).timestamp()
 
 
 class Clock:
@@ -69,7 +69,9 @@ def test_it_says_how_long_until_the_budget_resets():
 
 @pytest.fixture(autouse=True)
 def setup(monkeypatch):
-    monkeypatch.setattr(apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1))
+    monkeypatch.setattr(
+        apimod, "compute_readiness", lambda require_manifest=True: Readiness(index_version="t", chunks=1)
+    )
 
 
 class FakeRetriever:

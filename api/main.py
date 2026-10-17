@@ -1,23 +1,23 @@
-"""The Citera HTTP API: ask a question, get an answer with page-level citations.
+"""The Citera HTTP API: ask a question, get an answer with page citations.
 
     GET  /health         is the process alive (never looks at the index)
-    GET  /ready          can it give a correct answer (503 with the reasons when not)
-    POST /query          answer a question, with its cost and latency
+    GET  /ready          can it answer correctly (503 with the reasons if not)
+    POST /query          answer a question, with its cost and time
     POST /query/stream   the same, streamed as server-sent events
     GET  /metrics        Prometheus metrics
 
-Run it with: uvicorn api.main:api --port 8000   (see docs/OPERATIONS.md for the settings, and the Dockerfile.api image)
+Run it with: uvicorn api.main:api --port 8000. The settings are in docs/OPERATIONS.md, and Dockerfile.api builds an
+image.
 
-What it does when things go wrong, in one place:
-  * no valid API key: 401. A caller is rate limited by their key, so callers behind a proxy do not share a limit.
-  * the model provider is slow, down or the daily budget is spent: the answer is the retrieved passages, marked
+When things go wrong:
+  * no valid API key: 401. Callers are rate limited by key, so callers behind one proxy do not share a limit.
+  * the model is slow or down, or the daily budget is spent: the answer is the passages retrieval found, marked
     degraded. With FALLBACK_TO_RETRIEVAL=false it is a 503 or 504 with a short message, never the provider's text.
-  * a question takes longer than REQUEST_TIMEOUT_SECONDS: the provider call is cancelled.
-  * more than MAX_CONCURRENT_QUERIES questions at once: the extra ones wait QUEUE_TIMEOUT_SECONDS for a slot and
-    then get a 503 with Retry-After.
-  * the index is missing, empty, damaged or does not match the configuration: 503 not_ready, and the model is
-    not called.
-  * a streaming client goes away: the model call is stopped, so nobody pays for an answer no one reads.
+  * a question runs past REQUEST_TIMEOUT_SECONDS: the model call is cancelled.
+  * more than MAX_CONCURRENT_QUERIES at once: the extra ones wait QUEUE_TIMEOUT_SECONDS for a slot, then get a 503 with
+    Retry-After.
+  * the index is missing, empty, damaged or does not match the settings: 503 not_ready, and the model is not called.
+  * a streaming client leaves: the model call stops, so nobody pays for an answer no one reads.
 """
 
 from __future__ import annotations
@@ -48,8 +48,8 @@ from api.readiness import Readiness, compute_readiness, needs_recheck
 from api.settings import Settings, SettingsError
 from src.agent import (
     PROMPT_VERSION,
+    AsyncNotSupportedError,
     StreamResult,
-    UnsupportedAsyncConfig,
     arun_agent,
     astream_agent,
     async_pipeline_supported,
@@ -61,7 +61,6 @@ from src.agent import (
 from src.config import RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K, USE_PLANNER, USE_ROUTER, USE_TOOL_LOOP, USE_VERIFIER
 from src.guardrails import screen_input
 from src.instrumentation import record_run
-from src.privacy import trace_mode
 from src.llm_factory import (
     _DEFAULT_MAX_RETRIES,
     _DEFAULT_TIMEOUT_SECONDS,
@@ -69,6 +68,7 @@ from src.llm_factory import (
     import_provider_sdk,
     warm_up_client,
 )
+from src.privacy import trace_mode
 from src.ratelimit import TokenBucketLimiter
 
 log = logging.getLogger("citera.api")
@@ -81,11 +81,10 @@ _REQUEST_ID_OK = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
 class RequestIdMiddleware:
-    """Gives every request an id (the caller's X-Request-ID if it is sane, else a new one) and sends it back.
+    """Give every request an id (the caller's X-Request-ID if it looks safe, else a new one) and send it back.
 
-    A plain ASGI middleware on purpose. The decorator-style middleware wraps the response in a way that
-    interferes with streaming responses and with cancelling them when the client goes away.
-    """
+    This is a plain ASGI middleware because the decorator style wraps the response in a way that breaks streaming and
+    stops us cancelling it when the client leaves."""
 
     def __init__(self, app) -> None:
         self.app = app
@@ -373,13 +372,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dependencies=[Depends(authenticate), Depends(rate_limit)],
     )
     async def query(request: Request, req: QueryRequest, response: Response) -> QueryResponse:
-        """Answer one question and return the answer with its cost and latency.
+        """Answer one question and return the answer with its cost and time.
 
-        It is traced like a UI request (traces/traces.jsonl). It uses the async arun_agent, which only
-        handles the default setup. For any other configuration it catches UnsupportedAsyncConfig and
-        runs the sync run_agent in a worker thread (a thread cannot be cancelled, so after a timeout it
-        runs on until the provider call gives up, which the client timeout bounds).
-        """
+        It is traced like a UI request (traces/traces.jsonl). It uses the async arun_agent, which only handles the
+        default setup. For any other setup it catches AsyncNotSupportedError and runs the sync run_agent in a worker
+        thread. A thread cannot be cancelled, so after a timeout it keeps running until the provider call gives up,
+        which the client timeout limits."""
         _screen(req.query)
         await require_ready()
         lease = await take_slot(request)
@@ -393,11 +391,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     async with asyncio.timeout(settings.request_timeout_seconds):
                         try:
                             answer = await arun_agent(req.query)
-                        except UnsupportedAsyncConfig:
+                        except AsyncNotSupportedError:
                             answer = await asyncio.to_thread(run_agent, req.query)
                     if not follows_answer_contract(answer):
                         # logged by length only, since the text may be what an injected instruction asked for
-                        log.error("answer withheld: no citation and no refusal, request_id=%s len=%d", _request_id(request), len(answer))
+                        log.error(
+                            "answer withheld: no citation and no refusal, request_id=%s len=%d",
+                            _request_id(request),
+                            len(answer),
+                        )
                         raise AnswerContractError()
                 except Exception as exc:
                     public = classify_error(exc)
@@ -408,8 +410,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     if settings.fallback_to_retrieval and public.code in _DEGRADABLE_CODES:
                         sources = await degraded_sources(req.query)
                         if sources:
-                            # still a success for the caller: they get the evidence, and are told it is degraded.
-                            # No error is raised, so the outage is counted here (a raised error is counted by its handler)
+                            # the caller still gets the evidence and is told it is degraded. No error is raised,
+                            # so the outage is counted here (a raised error is counted by its own handler)
                             metrics.observe_error(public.code)
                             response.headers["X-Citera-Degraded"] = public.code
                             finish_run(rec, "degraded")
@@ -479,7 +481,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         # the tokens have been sent, so all that can be done is to say the answer is not to be trusted
                         done["contract_ok"] = False
                         metrics.observe_error("invalid_answer")
-                        log.error("streamed answer broke the citation contract, request_id=%s len=%d", request_id, len(full))
+                        log.error(
+                            "streamed answer broke the citation contract, request_id=%s len=%d", request_id, len(full)
+                        )
                     yield _sse(done)
                 finally:
                     finish_run(rec, outcome)
@@ -492,15 +496,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def query_stream(request: Request, req: QueryRequest) -> StreamingResponse:
         """Stream the answer as server-sent events.
 
-        Each token is a data: {"token": "..."} event, and a last data: {"done": true, ...} event carries
-        the cost, call count and time to first token. A failure is a data: {"error": ..., "code": ...}
-        event with the same public message a /query failure would give.
+        Each token is a data: {"token": "..."} event. A last data: {"done": true, ...} event carries the cost, call
+        count and time to first token. A failure is a data: {"error": ..., "code": ...} event with the same public
+        message /query would give.
 
-        Starlette runs each step of a sync generator in a different thread context, which breaks the
-        tracer's ContextVar. So the traced generation runs in one worker thread and passes tokens to the
-        response through a queue. When the client goes away, or the deadline passes, the worker is told to
-        stop and closes the agent's generator, which closes the provider connection.
-        """
+        Starlette runs each step of a sync generator in a different thread context, which breaks the tracer's
+        ContextVar. So the traced run happens in one worker thread and passes tokens to the response through a queue.
+        When the client leaves or the deadline passes, the worker is told to stop and closes the agent's generator,
+        which closes the provider connection."""
         _screen(req.query)
         await require_ready()
         lease = await take_slot(request)
@@ -567,7 +570,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     remaining = deadline - time.monotonic()
                     try:
                         kind, value = await asyncio.wait_for(channel.get(), timeout=max(remaining, 0.001))
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         stop.set()
                         outcome = "timeout"
                         log.error("stream timed out, request_id=%s", request_id)
@@ -610,10 +613,9 @@ def _sse(payload: dict) -> str:
 class _LeasedStreamingResponse(StreamingResponse):
     """A streaming response that gives its slot back even if the body never starts.
 
-    The body generator releases the slot when it finishes, but a generator that is never iterated never
-    runs its cleanup (a client can disappear between the headers and the first read). Releasing is
-    idempotent, so doing it here as well costs nothing.
-    """
+    The body generator releases the slot when it finishes, but a generator that is never iterated never runs its cleanup
+    (a client can vanish between the headers and the first read). Releasing twice is harmless, so doing it here as well
+    costs nothing."""
 
     def __init__(self, content, lease: Lease, **kwargs) -> None:
         super().__init__(content, **kwargs)

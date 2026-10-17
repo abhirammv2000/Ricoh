@@ -93,7 +93,7 @@ def test_timeouts_and_connection_errors_are_classified_by_name():
 
     assert classify_error(APITimeoutError()) == TIMEOUT
     assert classify_error(APIConnectionError()) == PROVIDER_UNAVAILABLE
-    assert classify_error(asyncio.TimeoutError()) == TIMEOUT
+    assert classify_error(TimeoutError()) == TIMEOUT
     assert classify_error(TimeoutError()) == TIMEOUT
 
 
@@ -175,7 +175,9 @@ def test_when_full_extra_requests_get_a_fast_503_and_the_admitted_one_still_fini
         return "answer [a.pdf, Page 1]"
 
     monkeypatch.setattr(apimod, "arun_agent", blocked)
-    app = create_app(Settings(auth_disabled=True, fallback_to_retrieval=False, max_concurrent_queries=1, queue_timeout_seconds=0.05))
+    app = create_app(
+        Settings(auth_disabled=True, fallback_to_retrieval=False, max_concurrent_queries=1, queue_timeout_seconds=0.05)
+    )
 
     async def scenario():
         started["flag"] = asyncio.Event()
@@ -271,7 +273,9 @@ def test_a_stream_past_the_deadline_ends_with_a_timeout_event_and_stops_the_work
 
 
 def test_a_full_service_refuses_a_stream_before_it_starts(monkeypatch):
-    app = create_app(Settings(auth_disabled=True, fallback_to_retrieval=False, max_concurrent_queries=1, queue_timeout_seconds=0.0))
+    app = create_app(
+        Settings(auth_disabled=True, fallback_to_retrieval=False, max_concurrent_queries=1, queue_timeout_seconds=0.0)
+    )
 
     async def scenario():
         lease = await app.state.gate.acquire(0)  # something else holds the only slot
@@ -378,7 +382,9 @@ def test_a_waiting_request_gets_the_slot_when_it_frees_up():
 def test_settings_defaults_and_overrides():
     s = Settings.from_env({})
     assert s == Settings()
-    s = Settings.from_env({"REQUEST_TIMEOUT_SECONDS": "12.5", "MAX_CONCURRENT_QUERIES": "4", "QUEUE_TIMEOUT_SECONDS": "0"})
+    s = Settings.from_env(
+        {"REQUEST_TIMEOUT_SECONDS": "12.5", "MAX_CONCURRENT_QUERIES": "4", "QUEUE_TIMEOUT_SECONDS": "0"}
+    )
     assert (s.request_timeout_seconds, s.max_concurrent_queries, s.queue_timeout_seconds) == (12.5, 4, 0.0)
 
 

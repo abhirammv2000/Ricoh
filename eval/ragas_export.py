@@ -15,7 +15,6 @@ it from an env with RAGAS. Per sampled question it writes:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import random
 from pathlib import Path
@@ -37,7 +36,7 @@ def _contexts(question: str) -> list[str]:
 
 
 def export(metrics_path: Path, n: int, seed: int, out_path: Path = OUT_PATH) -> int:
-    report = json.loads(io.open(metrics_path, encoding="utf-8").read())
+    report = json.loads(open(metrics_path, encoding="utf-8").read())
     if report.get("config", {}).get("use_planner"):
         print("WARNING: this run used the planner, so re-retrieved contexts may")
         print("  not match what the judge saw. Use a config-A run.")
@@ -50,7 +49,7 @@ def export(metrics_path: Path, n: int, seed: int, out_path: Path = OUT_PATH) -> 
     sample = random.Random(seed).sample(rows, min(n, len(rows)))
 
     written = 0
-    with io.open(out_path, "w", encoding="utf-8") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         for r in sample:
             record = {
                 "id": r["id"],

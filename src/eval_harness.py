@@ -27,13 +27,13 @@ from typing import Any
 # config has to be imported first (logging and telemetry setup)
 from src.config import (
     DEFAULT_LLM_PROVIDER,
-    USE_PLANNER,
-    USE_VERIFIER,
     JUDGE_MAX_TOKENS,
     JUDGE_MODEL,
     PROJECT_ROOT,
     RETRIEVAL_FINAL_K,
     RETRIEVAL_TOP_K,
+    USE_PLANNER,
+    USE_VERIFIER,
 )
 
 # keep the ingest and retriever logs quiet during an eval
@@ -42,9 +42,11 @@ for _quiet in ("src.ingest", "src.retriever"):
 
 from src.agent import get_agent_graph, initial_state  # noqa: E402
 from src.ingest import ingest_all  # noqa: E402
-from src.instrumentation import PRICING_SNAPSHOT_DATE  # noqa: E402
+from src.instrumentation import (
+    PRICING_SNAPSHOT_DATE,  # noqa: E402
+    record_run,  # noqa: E402
+)
 from src.instrumentation import invoke as instrumented_invoke  # noqa: E402
-from src.instrumentation import record_run  # noqa: E402
 from src.llm_factory import _DEFAULT_MODELS, get_llm  # noqa: E402
 from src.retriever import HybridRetriever, get_retriever, reset_retriever  # noqa: E402
 
@@ -56,9 +58,9 @@ REPORT_PATH: Path = PROJECT_ROOT / "eval" / "eval_report.md"
 
 # these live in agent.py next to the prompt, re-exported here for the other modules
 from src.agent import CITATION_RE as _CITATION_RE  # noqa: E402,F401
-from src.agent import REFUSAL_MARKER, is_refusal as _is_refusal  # noqa: E402,F401
+from src.agent import REFUSAL_MARKER  # noqa: E402,F401
 from src.agent import cited_docs as _cited_docs  # noqa: E402,F401
-
+from src.agent import is_refusal as _is_refusal
 
 # llm judge
 
@@ -422,7 +424,7 @@ def _bootstrap_ci(
 
 
 def _cost_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """Cost and per-stage totals for the run. Serving cost (per query) and judge cost (once per eval run) are kept apart."""
+    """Cost and per-stage totals for the run. Serving cost (per query) and judge cost (once per run) are kept apart."""
     n = len(rows)
     stages: dict[str, dict[str, float]] = {}
     for r in rows:
@@ -535,7 +537,7 @@ def write_outputs(
     metrics_path: Path = METRICS_PATH,
     report_path: Path = REPORT_PATH,
 ) -> None:
-    """Write the metrics json and the markdown report. The paths are parameters because a test once overwrote the real files."""
+    """Write the metrics json and markdown report. Paths are arguments because a test once overwrote the real files."""
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nMetrics  -> {metrics_path}")

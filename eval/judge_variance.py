@@ -14,7 +14,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import statistics
 from pathlib import Path
@@ -28,11 +27,11 @@ GROUND_TRUTH_PATH: Path = PROJECT_ROOT / "eval" / "ground_truth.json"
 
 
 def measure(ids: list[int], repeats: int) -> int:
-    metrics = json.loads(io.open(METRICS_PATH, encoding="utf-8").read())
+    metrics = json.loads(open(METRICS_PATH, encoding="utf-8").read())
     rows = {r["id"]: r for r in metrics["per_question"]}
     truth = {
         q["id"]: q
-        for q in json.loads(io.open(GROUND_TRUTH_PATH, encoding="utf-8").read())["questions"]
+        for q in json.loads(open(GROUND_TRUTH_PATH, encoding="utf-8").read())["questions"]
     }
 
     retriever = get_retriever()

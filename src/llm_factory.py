@@ -21,7 +21,7 @@ from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from src.config import DEFAULT_LLM_PROVIDER
+from src.config import DEFAULT_LLM_PROVIDER, env_number
 
 
 def response_text(response: Any) -> str:
@@ -76,27 +76,12 @@ _NO_SAMPLING_PARAMS: frozenset[str] = frozenset(
 # also has to cover the thinking.
 _DEFAULT_MAX_TOKENS: int = 4096
 
-# retries and timeout, so a 429, a 5xx or a dropped connection doesn't become a crash. The SDK
-# does the retrying (it honours Retry-After), and each call is stateless so retrying is safe. The
-# default timeout is effectively none, so a hung socket would block forever and no retry would fire.
-def _env_number(name: str, default: float, cast=float):
-    """A positive number from the environment, or the default. A bad value stops startup and names itself."""
-    raw = os.getenv(name, "").strip()
-    if not raw:
-        return default
-    try:
-        value = cast(raw)
-    except ValueError:
-        raise ValueError(f"{name} must be a number, got {raw!r}") from None
-    if value < 0:
-        raise ValueError(f"{name} must not be negative, got {raw!r}")
-    return value
-
-
-# the API sets these to fit inside its own request deadline. The worst case for one call is
-# timeout * (retries + 1) plus backoff, and a deadline shorter than that cuts the retries short
-_DEFAULT_TIMEOUT_SECONDS: float = _env_number("LLM_TIMEOUT_SECONDS", 60.0)
-_DEFAULT_MAX_RETRIES: int = int(_env_number("LLM_MAX_RETRIES", 3, int))
+# Retries and a timeout, so a 429, a 5xx or a dropped connection is not a crash. The SDK does the retrying and
+# honours Retry-After, and each call is stateless, so retrying is safe. Without a timeout a hung socket blocks
+# forever and no retry fires. The API sets these to fit inside its own request deadline: one call can take
+# timeout * (retries + 1) plus backoff, and a shorter deadline cuts the retries short.
+_DEFAULT_TIMEOUT_SECONDS: float = env_number("LLM_TIMEOUT_SECONDS", 60.0)
+_DEFAULT_MAX_RETRIES: int = int(env_number("LLM_MAX_RETRIES", 3, int))
 
 
 def get_llm(
@@ -116,7 +101,7 @@ def get_llm(
 
     if provider == "anthropic":
         if not os.getenv("ANTHROPIC_API_KEY"):
-            raise EnvironmentError(
+            raise OSError(
                 "ANTHROPIC_API_KEY not found.  Add it to your .env file:\n"
                 "  ANTHROPIC_API_KEY=sk-ant-..."
             )
@@ -152,7 +137,7 @@ def get_llm(
             key_name = "SELF_HOSTED_LLM_BASE_URL"
             required = base_url
         if not required:
-            raise EnvironmentError(f"{key_name} not found. Add it to your .env file.")
+            raise OSError(f"{key_name} not found. Add it to your .env file.")
 
         kwargs.setdefault("max_tokens", max_tokens)
         kwargs.setdefault("timeout", _DEFAULT_TIMEOUT_SECONDS)
@@ -167,14 +152,12 @@ def get_llm(
         )
 
 
-# ---------------------------------------------------------------------------------------------
 # one client per configuration, for code that handles requests
-# ---------------------------------------------------------------------------------------------
 #
-# get_llm() builds a new client every time. Building one costs about 150 ms, and the async client
-# inside it about another 270 ms the first time it is used, so a service that calls get_llm() per
-# request spent most of its CPU on that and could not use a connection twice. shared_llm() keeps one
-# client per configuration, so the HTTP connection pool is reused.
+# get_llm() builds a new client every time. Building one costs about 150 ms, and the async client inside it about
+# another 270 ms the first time it is used, so a service that called get_llm() for every request spent most of its CPU
+# on that and could not reuse a connection. shared_llm() keeps one client per configuration, so the HTTP connection pool
+# is reused.
 
 _SHARED_ENV_VARS: tuple[str, ...] = (
     "ANTHROPIC_API_KEY",
@@ -191,14 +174,14 @@ _SHARED_ENV_VARS: tuple[str, ...] = (
 # would then be handed a client whose connections belong to the dead one. Code with no running loop (a
 # worker thread, the sync path) shares one set.
 _shared_sync: dict[tuple, BaseChatModel] = {}
-_shared_by_loop: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[tuple, BaseChatModel]]" = (
+_shared_by_loop: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[tuple, BaseChatModel]] = (
     weakref.WeakKeyDictionary()
 )
 _shared_lock = threading.Lock()
 
 
 def _env_fingerprint() -> tuple:
-    """The credentials and endpoints that change what a client talks to. Hashed, so a key never sits in the cache key."""
+    """The keys and endpoints that decide what a client talks to. Hashed, so a key never sits in a cache key."""
     return tuple(
         hashlib.sha256(os.getenv(name, "").encode()).hexdigest()[:12] for name in _SHARED_ENV_VARS
     )

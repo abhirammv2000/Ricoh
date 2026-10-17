@@ -79,6 +79,7 @@ ngrok http 8501
 ```bash
 pip install -r requirements-dev.txt
 pytest                      # offline unit tests (LLM is mocked, no API key needed)
+ruff check .                # lint, including the snake_case name check (rules are in pyproject.toml)
 ```
 
 The suite covers the logic most likely to break silently:
@@ -87,7 +88,7 @@ The suite covers the logic most likely to break silently:
 - **Agent control flow**, retry routing, planner JSON parsing (incl. fenced/malformed output), verifier verdict normalisation (`tests/test_agent.py`)
 - **Eval metrics**, citation extraction, recall@k, citation precision, refusal detection (`tests/test_eval_metrics.py`)
 
-[GitHub Actions](../.github/workflows/ci.yml) runs `pytest` on every push/PR (Python 3.11). No secrets required. The tests mock the LLM.
+[GitHub Actions](../.github/workflows/ci.yml) runs `ruff check .` and `pytest` on every push/PR (Python 3.11). No secrets required. The tests mock the LLM.
 
 A second CI job is a **retrieval regression gate** (`python -m eval.ci_gate`): it runs real hybrid retrieval against the committed `demo_index/` on the seed questions and fails the build if recall@1/3/5 drops below `eval/ci_baseline.json`. The unit suite never touches a real index, so this is what would catch an RRF or fusion bug that still passes every mocked test. The same job also checks that `demo_index` has not drifted from the benchmark it serves: if `eval/ground_truth.json` gains a question whose expected document is not baked into the index, the build fails with a "rebuild demo_index" message. `demo_index` is a small curated slice, so the recall check is a smoke gate, not a quality measurement; the full-corpus numbers come from the paid harness in [§7](EVALUATION.md#7-evaluation-and-metrics).
 

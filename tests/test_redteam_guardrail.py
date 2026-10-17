@@ -23,7 +23,7 @@ def test_benign_prompts_are_never_blocked():
 
 def test_obfuscated_and_novel_are_mostly_not_caught():
     """Not a bug: the regex is a cheap, narrow layer by design. This pins
-    the honest baseline so a future change to the regex is a deliberate,
+    the baseline so a future change to the regex is a deliberate,
     visible decision rather than a silent shift in what gets through."""
     summary = _screen_stage()["summary"]
     assert summary["obfuscated"]["block_rate"] <= 0.2

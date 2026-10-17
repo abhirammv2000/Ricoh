@@ -1,10 +1,10 @@
 """One JSON object per log line, with the request id on every line that belongs to a request.
 
-A log line that says "query failed" is only useful if you can find the other lines about the same request.
-The request id is set when a request arrives (see RequestIdMiddleware) and carried in a context variable, so
-every line logged while that request is handled has it, including lines from the retriever and the agent that
-know nothing about HTTP. The id is also in the X-Request-ID response header and in every error body, so a
-user who reports a problem can give you the one string that finds all of it.
+A log line that says "query failed" only helps if you can find the other lines about the same request. The request id is
+set when a request arrives (see RequestIdMiddleware) and kept in a context variable, so every line logged while that
+request is handled has it, even lines from the retriever and the agent, which know nothing about HTTP. The id is also in
+the X-Request-ID response header and in every error body, so a user who reports a problem can give you the one string
+that finds everything.
 
 Off by default (LOG_FORMAT=text), because JSON is hard to read on a laptop. The container image turns it on.
 """
@@ -14,7 +14,7 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("citera_request_id", default="")
 
@@ -25,7 +25,7 @@ _STANDARD = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {"mess
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         entry = {
-            "ts": datetime.fromtimestamp(record.created, timezone.utc).isoformat(timespec="milliseconds"),
+            "ts": datetime.fromtimestamp(record.created, UTC).isoformat(timespec="milliseconds"),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

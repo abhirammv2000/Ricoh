@@ -21,12 +21,10 @@ Default models, override with --models:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import random
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from src.config import JUDGE_MODEL, PROJECT_ROOT, RETRIEVAL_FINAL_K, RETRIEVAL_TOP_K
@@ -60,7 +58,7 @@ def run(providers: list[str], models: dict[str, str], n: int, seed: int, use_jud
     from src.eval_harness import _format_evidence_block, _judge
     from src.retriever import get_retriever
 
-    gt = json.loads(io.open(GENERATED, encoding="utf-8").read())["questions"]
+    gt = json.loads(open(GENERATED, encoding="utf-8").read())["questions"]
     dev = [q for q in gt if q.get("split") == "dev"]
     questions = random.Random(seed).sample(dev, min(n, len(dev)))
     retriever = get_retriever()

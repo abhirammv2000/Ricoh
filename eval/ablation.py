@@ -9,7 +9,7 @@ Same benchmark, retriever and judge, but a bit more of the pipeline each time:
 Each step adds one thing, so a difference between neighbours is down to it. Judge noise goes up to
 0.10 on borderline answers, so a smaller difference, or one or two questions flipping, isn't a result,
 which is why it prints per-question deltas. The default is the curated 10 questions. --n100 runs the
-70-question dev split with the judge, which changed the n=10 conclusion (README section 7): the verifier
+70-question dev split with the judge, which changed the n=10 conclusion (docs/EVALUATION.md): the verifier
 still earns nothing, and the planner helps on dev but not holdout.
 
 Usage:
@@ -156,7 +156,7 @@ def _print_comparison(reports: dict[str, dict[str, Any]], use_judge: bool) -> No
         for row in rep["per_question"]:
             b = base_rows.get(row["id"], {})
 
-            def delta(field: str) -> str:
+            def delta(field: str, row=row, b=b) -> str:
                 x, y = row.get(field), b.get(field)
                 if x is None or y is None:
                     return "n/a"
@@ -174,7 +174,9 @@ def _print_comparison(reports: dict[str, dict[str, Any]], use_judge: bool) -> No
     print("\n" + "-" * 72)
     print("Interpretation guard-rails:")
     print(f"  * n={n}. Judge noise on borderline answers reaches 0.10.")
-    print(f"    A mean difference under ~0.10, or {'a single question' if n <= 20 else 'one or two questions'} flipping,")
+    print(
+        f"    A mean difference under ~0.10, or {'a single question' if n <= 20 else 'one or two questions'} flipping,"
+    )
     print("    is NOT evidence of a real effect.")
     print("  * If the cheap config ties, the expensive stages are not earning")
     print("    their cost on THIS benchmark - which is a statement about this")

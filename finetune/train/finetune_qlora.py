@@ -11,16 +11,16 @@ turn (train_on_responses_only), so the model doesn't spend effort memorising the
 
 from __future__ import annotations
 
-# unsloth has to be imported before trl, transformers and datasets, since it patches them. Importing
-# it later left the tokenizer with a mismatched eos_token
-from unsloth import FastLanguageModel, is_bfloat16_supported
-from unsloth.chat_templates import get_chat_template, train_on_responses_only
-
 import json
 from pathlib import Path
 
 from datasets import Dataset
 from trl import SFTConfig, SFTTrainer
+
+# unsloth has to be imported before trl, transformers and datasets, since it patches them. Importing
+# it later left the tokenizer with a mismatched eos_token
+from unsloth import FastLanguageModel, is_bfloat16_supported
+from unsloth.chat_templates import get_chat_template, train_on_responses_only
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = REPO_ROOT / "data" / "train_examples.jsonl"
