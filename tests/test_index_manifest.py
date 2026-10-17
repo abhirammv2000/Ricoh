@@ -15,9 +15,9 @@ import pytest
 from src import index_manifest
 from src.index_manifest import (
     IndexIntegrityError,
+    check_files,
     corpus_fingerprint,
     read_manifest,
-    verify_files_before_loading,
 )
 from src.retriever import HybridRetriever
 
@@ -128,7 +128,7 @@ def test_a_manifest_can_be_written_for_an_index_built_before_manifests_existed(t
     (tmp_path / index_manifest.MANIFEST_NAME).unlink()
     reopened = reopen(tmp_path)
     assert not reopened.check_index().ok
-    reopened.write_manifest_for_existing_index()
+    reopened.add_missing_manifest()
     assert reopened.check_index().ok
 
 
@@ -173,7 +173,7 @@ def test_an_index_without_a_manifest_still_loads_so_old_indexes_keep_working(tmp
 def test_verify_files_with_no_manifest_does_nothing(tmp_path):
     (tmp_path / "a.pkl").write_bytes(b"x")
     (tmp_path / "b.pkl").write_bytes(b"y")
-    verify_files_before_loading(tmp_path, tmp_path / "a.pkl", tmp_path / "b.pkl")
+    check_files(tmp_path, tmp_path / "a.pkl", tmp_path / "b.pkl")
 
 
 def test_the_corpus_fingerprint_ignores_order_and_changes_with_content():

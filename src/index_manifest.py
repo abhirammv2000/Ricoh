@@ -146,7 +146,7 @@ def make_manifest(
     )
 
 
-def verify_files_before_loading(persist_dir: Path, bm25_index_path: Path, bm25_chunks_path: Path) -> None:
+def check_files(persist_dir: Path, bm25_index_path: Path, bm25_chunks_path: Path) -> None:
     """Raise IndexIntegrityError if a BM25 pickle differs from the manifest. Call it before unpickling.
 
     With no manifest there is nothing to compare with, and the files are loaded as before. A manifest that
@@ -253,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
 
     retriever = _open_existing(persist_dir)
     if args.command == "write":
-        manifest = retriever.write_manifest_for_existing_index()
+        manifest = retriever.add_missing_manifest()
         print(f"wrote {persist_dir / MANIFEST_NAME}: {manifest.chunk_count} chunks, "
               f"{manifest.document_count} documents, index_version {manifest.index_version}")
         return 0

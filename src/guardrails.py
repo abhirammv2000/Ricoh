@@ -67,7 +67,7 @@ class GuardrailResult:
     reason: str = ""
 
 
-def looks_like_instructions_to_the_model(text: str) -> bool:
+def looks_like_instructions(text: str) -> bool:
     """Whether a retrieved chunk contains phrasing that tries to override the model's instructions.
 
     Indirect prompt injection: the question can be innocent while a document in the corpus carries the attack.

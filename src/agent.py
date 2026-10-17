@@ -28,7 +28,7 @@ from src.config import (  # noqa: F401 - triggers config.py logging setup
     USE_VERIFIER,
 )
 from src.conversation import Turn, condense_query  # noqa: F401 - Turn re-exported for callers
-from src.guardrails import looks_like_instructions_to_the_model
+from src.guardrails import looks_like_instructions
 from src.instrumentation import ainvoke as instrumented_ainvoke
 from src.instrumentation import astream as instrumented_astream
 from src.instrumentation import invoke as instrumented_invoke
@@ -194,7 +194,7 @@ def quarantine_suspicious_evidence(evidence: list[dict[str, Any]]) -> list[dict[
     does not match is passed through untouched, so answers on clean evidence are unchanged. What was
     dropped is logged by document and page only, and recorded in the trace for the metrics.
     """
-    kept = [e for e in evidence if not looks_like_instructions_to_the_model(e.get("text", ""))]
+    kept = [e for e in evidence if not looks_like_instructions(e.get("text", ""))]
     if len(kept) != len(evidence):
         dropped = [e for e in evidence if e not in kept]
         where = [f"{e.get('source_document', '?')} p.{e.get('page_number', '?')}" for e in dropped]
@@ -394,7 +394,7 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
 
 # routing after the verifier
 
-def should_retry_or_synthesize(state: AgentState) -> str:
+def retry_or_answer(state: AgentState) -> str:
     """Back to the planner if the evidence was insufficient and retries are left, else synthesize."""
     if (
         state["verification_status"] == "INSUFFICIENT"
@@ -441,7 +441,7 @@ def build_agent_graph(
         if use_planner:
             graph.add_conditional_edges(
                 "verifier",
-                should_retry_or_synthesize,
+                retry_or_answer,
                 {"planner": "planner", "synthesizer": "synthesizer"},
             )
         else:

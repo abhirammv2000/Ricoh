@@ -11,7 +11,7 @@ from src.agent import (
     arun_agent,
     planner_node,
     record_citation_guardrail,
-    should_retry_or_synthesize,
+    retry_or_answer,
     synthesizer_node,
     verifier_node,
 )
@@ -22,17 +22,17 @@ from tests.helpers import FakeLLM
 
 def test_routes_back_to_planner_when_insufficient_and_under_cap():
     state = {"verification_status": "INSUFFICIENT", "iterations": 1}
-    assert should_retry_or_synthesize(state) == "planner"
+    assert retry_or_answer(state) == "planner"
 
 
 def test_routes_to_synthesizer_when_cap_reached():
     state = {"verification_status": "INSUFFICIENT", "iterations": MAX_ITERATIONS}
-    assert should_retry_or_synthesize(state) == "synthesizer"
+    assert retry_or_answer(state) == "synthesizer"
 
 
 def test_routes_to_synthesizer_when_sufficient():
     state = {"verification_status": "SUFFICIENT", "iterations": 0}
-    assert should_retry_or_synthesize(state) == "synthesizer"
+    assert retry_or_answer(state) == "synthesizer"
 
 
 # planner json
