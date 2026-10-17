@@ -1,20 +1,20 @@
 """A manifest for the retrieval index, and the checks that use it.
 
-The index is two stores that have to agree: the Chroma vectors and the BM25 files. They are built from the
-same chunks, with the same embedding model, and a service that serves from them has to know that they
-still match. Four things go wrong without a record of how the index was built, and none of them raises:
+The index is two stores that have to agree: the Chroma vectors and the BM25 files. They are built from the same chunks
+with the same embedding model, and a service that reads them has to know they still match. Without a record of how the
+index was built, four things go wrong and none of them raises an error:
 
-* The embedding model changes. Chroma rejects a query vector of another size, but several models share a
-  size (MiniLM, bge-small and e5-small are all 384), so the service keeps running and retrieval gets worse.
-* A partial re-ingest. build_index upserts into Chroma but rebuilds BM25 from only the chunks it was given, so
-  BM25 can cover a subset of what Chroma holds.
-* A file is damaged or replaced. The BM25 files are pickles, and loading a pickle runs code, so a changed
-  file has to be caught before it is loaded, not after.
+* The embedding model changes. Chroma rejects a query vector of another size, but several models share a size (MiniLM,
+  bge-small and e5-small are all 384), so the service keeps running and retrieval just gets worse.
+* A partial re-ingest. build_index upserts into Chroma but rebuilds BM25 from only the chunks it was given, so BM25 can
+  cover a subset of what Chroma holds.
+* A file is damaged or replaced. The BM25 files are pickles and loading a pickle runs code, so a changed file has to be
+  caught before it is loaded.
 * The chunking changes. Chunks of 500 words and chunks of 200 words are different corpora.
 
-build_index writes index_manifest.json next to the index. verify_index compares it with the configuration
-and with what is on disk. `python -m src.index_manifest write` creates one for an index built before this
-existed, and `python -m src.index_manifest check` prints the result.
+build_index writes index_manifest.json next to the index. verify_index compares it with the settings and with what is on
+disk. `python -m src.index_manifest write` makes one for an index built before manifests existed, and `python -m
+src.index_manifest check` prints the result.
 """
 
 from __future__ import annotations

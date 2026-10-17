@@ -1,19 +1,19 @@
 """Prometheus metrics for the API, at /metrics.
 
-Two groups, for two readers:
+There are two groups, for two readers.
 
-  Service health, for whoever is on call: request counts and latency by endpoint, requests in flight, errors
-  by public code, how often the service is full or not ready.
+Service health, for whoever is on call: request counts and latency by endpoint, requests in flight, errors by public
+code, and how often the service is full or not ready.
 
-  RAG quality, for whoever owns answer quality. A retrieval system gets worse without any request failing,
-  so latency and error rate cannot see it. These can:
-    * answers by outcome (answered, refused, degraded, error). A rising refusal rate means the corpus no
-      longer covers what people ask, or retrieval has broken.
-    * how many chunks were retrieved and the top fused score. A fall in either is retrieval drifting.
-    * answers whose citations name a document that was not retrieved. That should be zero.
-    * tokens and dollars, which is how a change in prompt size or traffic shows up as cost.
+RAG quality, for whoever owns answer quality. A retrieval system can get worse without any request failing, so latency
+and error rate cannot see it. These can:
+  * answers by outcome (answered, refused, degraded, error). A rising refusal rate means the documents no longer cover
+    what people ask, or retrieval broke.
+  * how many chunks were retrieved and the top fused score. If either falls, retrieval is drifting.
+  * answers whose citations name a document that was not retrieved. This should be zero.
+  * tokens and dollars, which is how a change in prompt size or traffic shows up as cost.
 
-Nothing user-supplied is ever a label, so the number of series is fixed. No question text is stored here.
+Nothing a user supplies is ever a label, so the number of series is fixed. No question text is stored here.
 """
 
 from __future__ import annotations

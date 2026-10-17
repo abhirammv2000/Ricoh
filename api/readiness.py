@@ -1,15 +1,14 @@
 """Is this instance fit to answer questions?
 
-Two different questions, answered by two endpoints:
+Two endpoints answer two different questions.
 
-  /health  Is the process alive? Cheap, and it never looks at the index. If it failed because an index was
-           bad, an orchestrator would restart the process in a loop and the index would still be bad.
-  /ready   Can it give a correct answer? The model provider is configured, the retrieval index opens, is not
-           empty, and matches its manifest and the current configuration. If not, no traffic is routed here
-           and /query refuses with a 503 instead of calling the model with nothing to cite. A service that is
-           "healthy" and refuses every question is the failure this exists to prevent.
+* /health: is the process alive? It is cheap and never looks at the index. If it failed because the index was bad, an
+  orchestrator would restart the process in a loop and the index would still be bad.
+* /ready: can it give a correct answer? The model provider is set up, the index opens, is not empty, and matches its
+  manifest and the current settings. If not, no traffic is routed here and /query refuses with a 503 instead of calling
+  the model with nothing to cite.
 
-The check never calls the model provider, so it costs nothing and can run as often as a probe wants.
+The check never calls the model provider, so it costs nothing and a probe can run it as often as it likes.
 """
 
 from __future__ import annotations

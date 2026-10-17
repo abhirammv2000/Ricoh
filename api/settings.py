@@ -1,8 +1,8 @@
 """Settings for the HTTP API, read from the environment once at startup.
 
-Every value has a default that is safe for one small instance. A value that is set but wrong (a negative
-timeout, text where a number goes) stops the service at startup with a message that names the variable.
-Finding that out on the first request, in front of a user, is worse.
+Every value has a default that is safe for one small instance. A value that is set but wrong (a negative timeout, text
+where a number goes) stops the service at startup with a message that names the variable. That is better than finding
+out on the first request, in front of a user.
 """
 
 from __future__ import annotations
