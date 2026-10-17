@@ -3,7 +3,7 @@ optional shared-password gate.
 
 The logic here is deliberately free of Streamlit calls so it can be unit tested.
 app/main.py wraps it in the UI (a password box, a rate-limit notice). Both
-controls are proportionate to a portfolio demo rather than enterprise auth: the
+controls are sized for a public demo rather than full user accounts: the
 rate limit caps the whole app's query throughput, and so its Anthropic spend, on
 a public URL, and the password keeps crawlers and casual traffic out when one is
 set. Neither is active in local development unless you opt in.
