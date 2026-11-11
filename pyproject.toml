@@ -20,3 +20,6 @@ select = ["E", "F", "I", "N", "B", "UP"]
 "tests/test_agent.py" = ["E402"]
 "tests/test_eval_metrics.py" = ["E402"]
 "tests/test_llm_factory.py" = ["E402"]
+# The labelling page is one string of HTML, CSS and JavaScript. Breaking its lines would change code in three languages
+# for no gain, so the long lines stay. The Python around the string is kept under the limit by hand, not by the linter.
+"eval/label_ui.py" = ["E501"]
