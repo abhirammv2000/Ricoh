@@ -6,7 +6,7 @@ Build a technical-support assistant that answers complex, multi-part questions a
 
 Field technicians and support engineers lose significant time searching documentation for specific procedures, error-code resolutions, and configuration steps. The system needs to ingest that documentation, understand natural-language questions, retrieve the relevant passages, and generate accurate, cited answers with zero hallucination.
 
-The thing that actually shapes the design is the corpus: 733 individual help-topic articles, most of them a single page, not a handful of long manuals (median chunk: 307 words; 1,314 chunks total). So the core retrieval task is **selecting the right document out of 733**, not locating a passage within a long document. Almost every design decision below follows from that, see [§5](DESIGN.md#5-data-handling-and-preprocessing).
+The thing that actually shapes the design is the corpus: 733 individual help-topic articles, most of them a single page, not a handful of long manuals (median chunk: 307 words; 1,314 chunks total when the headline evaluation ran, 1,322 after the vision pass added descriptions). So the core retrieval task is **selecting the right document out of 733**, not locating a passage within a long document. Almost every design decision below follows from that, see [§5](DESIGN.md#5-data-handling-and-preprocessing).
 
 **End user:** Ricoh field service technicians, help desk agents, and customers seeking self-service support.
 
@@ -75,7 +75,7 @@ Cited answer plus the Glass Box view
 | UI | Streamlit | Glass Box dashboard with chat interface |
 
 ### Why this architecture?
-- **Hybrid retrieval** because pure vector search misses exact matches on error codes (`SC542`) and model numbers (`IM C3500`), while pure BM25 misses semantic similarity.
+- **Hybrid retrieval** because each method alone misses 12 of the 100 benchmark questions, 9 of them ones the other finds, and fusing them leaves 6 missed ([measured here](EVALUATION.md#hybrid-retrieval-and-the-fusion-method)). Vector search cannot match an exact token such as a message id (it found 6 of 14 in a direct test, BM25 found 14), and BM25 cannot match a paraphrase.
 - **RRF fusion** because BM25 and cosine similarity scores are incommensurable - rank-based fusion avoids score normalisation issues.
 - **Agentic loop, built, measured, and switched off by default.** The rationale was that single-pass retrieval misses evidence on multi-part questions and a plan-then-verify loop catches the gaps. At n=100 the verifier still earns nothing, and the planner helps retrieval on the dev split but not the held-out one, so the loop is not worth 1.7x the cost per query here. It stays behind config flags for a corpus where retrieval is weaker ([§7](EVALUATION.md#7-evaluation-and-metrics)).
 

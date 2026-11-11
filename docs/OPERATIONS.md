@@ -31,6 +31,7 @@ All by environment variable. A value that is set and wrong stops the service at 
 | `REQUEST_TIMEOUT_SECONDS` | `30` (image: `45`) | The longest one question may take. After it, a 504 or a degraded answer. |
 | `MAX_CONCURRENT_QUERIES` | `16` | Questions handled at once. |
 | `QUEUE_TIMEOUT_SECONDS` | `2` | How long an extra request waits for a slot before a 503. |
+| `MAX_BODY_BYTES` | `32768` | The largest request body. A bigger one gets a 413 before the service reads it, so a caller with no key cannot make it hold a huge upload in memory. The longest allowed question is 24,013 bytes (2000 emoji, escaped). |
 | `RATE_LIMIT_RPS`, `RATE_LIMIT_BURST` | `1`, `10` | Per caller (by key). |
 | `DAILY_BUDGET_USD` | `20` | The most the model may cost in one UTC day. `0` turns it off. |
 | `FALLBACK_TO_RETRIEVAL` | `true` | Answer with passages when the model is down, too slow or the budget is spent. |
@@ -57,6 +58,7 @@ error body carries it, so a user who reports a problem can give you one string t
 |---|---|---|
 | 400 | Input rejected by the prompt-injection screen. | Not retry. |
 | 401 `unauthorized` | No key, or a wrong one. | Fix the key. |
+| 413 `request_too_large` | The body is over `MAX_BODY_BYTES`. It is refused without being read. A client still uploading a very large body may see its connection reset before it can read this answer, because the service does not keep reading to be polite. | Fix the request. |
 | 422 | Empty question, or over 2000 characters. | Fix the request. |
 | 429 | Rate limit, or too many wrong keys. `Retry-After` says when. | Wait. |
 | 503 `overloaded` | The service is full. | Retry after `Retry-After`. |
@@ -104,6 +106,10 @@ Measured against the fake model provider, one process, a 0.3 s provider, 100 que
 
 The container (`Dockerfile.api`, Docker Desktop, one process): 791 MB image, ready 7 to 12 s after it starts, 237 to
 246 MiB of memory at rest and 295 to 304 MiB after 100 questions at concurrency 10 plus the outage drills.
+
+Measured again on 2026-11-11 on a Windows machine with 22 logical CPUs, with the fake provider and the load generator on the same machine (so they compete with the service). The container runs were limited to 2 CPUs by Docker Desktop. The image was 798 MB, ready after 9 s, with 240 MiB at rest and 312 MiB after the load. Normal runs of the same 100 questions at concurrency 10 gave 12 to 20 questions per second and a median of 0.45 to 0.72 s, so 21.9 was the best of those runs, not the typical one. Some runs collapsed instead: 4 of 23 runs of this test fell to under 4 questions per second (1.7 to 3.1), once with a median of 5.4 s, in the container and on the host. Most of the time in the slow requests was retrieval, which ran at a 3.1 s median in them against 0.27 s overall. The fake provider alone held steady across 10 runs, and limiting retrieval to 1, 2 or 4 at a time did not remove the collapses (3 of the 4 settings had one in 6 runs).
+
+I could not reproduce it later. A batch of 14 consecutive runs on the host, with nothing else busy, were all clean: 22 to 25 questions per second and a median of 0.37 to 0.43 s, which matches the 21.9 above. An event-loop heartbeat during that batch showed 2 stalls over 0.1 s (the worst 0.41 s), so the service was not blocking its loop, and the busy threads were the embedding model running in worker threads. My guess is that the machine was busier during the earlier runs, but I did not prove it, so the cause is unknown. With the real provider the model's 10 s dwarfs this, but it is an unexplained tail and it was not tested with one.
 
 With the real provider the time is the model's, about 10 s a question, so one process holds
 `MAX_CONCURRENT_QUERIES` questions open at once and CPU is not the limit. Add capacity with more containers, not
