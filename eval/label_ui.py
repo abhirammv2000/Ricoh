@@ -320,8 +320,13 @@ def make_handler(path: Path, token: str, port_holder: list[int]):
 
         def do_POST(self) -> None:
             body = self._take_body()
-            origin_ok = self.headers.get("Origin") in (None, f"http://127.0.0.1:{port_holder[0]}", f"http://localhost:{port_holder[0]}")
-            if not self._local() or not origin_ok or not secrets.compare_digest(self.headers.get("X-Label-Token", ""), token):
+            allowed_origins = (None, f"http://127.0.0.1:{port_holder[0]}", f"http://localhost:{port_holder[0]}")
+            origin_ok = self.headers.get("Origin") in allowed_origins
+            if (
+                not self._local()
+                or not origin_ok
+                or not secrets.compare_digest(self.headers.get("X-Label-Token", ""), token)
+            ):
                 return self._send(403, b"forbidden", "text/plain")
             if self.path != "/api/label":
                 return self._send(404, b"not found", "text/plain")

@@ -6,8 +6,8 @@ it uses Cohen's kappa, which corrects for chance: kappa = (observed - chance) / 
 Roughly: 0.2 to 0.4 fair, 0.4 to 0.6 moderate, 0.6 to 0.8 substantial, over 0.8 near-perfect.
 Scores are turned into good or bad at a threshold, which is saved with the output.
 
-    python -m eval.label_for_kappa --sample 30    # writes a worksheet
-    # fill in the human_* fields by hand
+    python -m eval.label_for_kappa --sample 30 --stratified    # writes a worksheet
+    # fill in the human_* fields by hand (python -m eval.label_ui shows them one at a time)
     python -m eval.label_for_kappa --score        # computes kappa
 
 The worksheet hides the judge's scores while you label so they don't sway you.
@@ -52,7 +52,75 @@ def _reconstruct_evidence(question: str) -> list[dict[str, Any]]:
     ]
 
 
-def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
+# an answer scoring under this on either measure is still acceptable but close to the line, and is where the judge
+# and a person are most likely to disagree
+BORDERLINE_BELOW = 0.95
+
+
+def _lowest_score(row: dict[str, Any]) -> float:
+    scores = [row[k] for k in ("groundedness", "correctness") if isinstance(row.get(k), (int, float))]
+    return min(scores)
+
+
+def pick_stratified(
+    rows: list[dict[str, Any]], n: int, seed: int, evidence_for: Any
+) -> list[tuple[dict[str, Any], list[dict[str, Any]]]]:
+    """Choose n rows so the worksheet can say something about the judge, and return each with its evidence.
+
+    A random sample of a benchmark that mostly passes is mostly passes, and then even a perfect agreement
+    gives a kappa near zero. So this takes every failing row first (up to half of n), then borderline rows (up
+    to two thirds of the rest), then clear passes to fill n. Within each group the order is shuffled with the
+    seed. A row is skipped when the documents retrieved now differ from the ones the judge saw, because then a
+    person would be labelling different passages from the ones the judge scored. The next row of the same group
+    takes its place.
+    """
+    rng = random.Random(seed)
+    groups: dict[str, list[dict[str, Any]]] = {"fail": [], "borderline": [], "pass": []}
+    for row in rows:
+        low = _lowest_score(row)
+        band = "fail" if low < BINARY_THRESHOLD else "borderline" if low < BORDERLINE_BELOW else "pass"
+        groups[band].append(row)
+    for group in groups.values():
+        rng.shuffle(group)
+
+    quota_fail = min(len(groups["fail"]), n // 2)
+    quota_borderline = min(len(groups["borderline"]), (n - quota_fail) * 2 // 3)
+    quotas = {"fail": quota_fail, "borderline": quota_borderline, "pass": n - quota_fail - quota_borderline}
+
+    picked: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
+    skipped = 0
+    for band in ("fail", "borderline", "pass"):
+        taken = 0
+        for row in groups[band]:
+            if taken == quotas[band]:
+                break
+            evidence = evidence_for(row)
+            if {p["source"] for p in evidence} != set(row.get("evidence_docs", [])):
+                skipped += 1
+                continue
+            picked.append((row, evidence))
+            taken += 1
+        print(f"  {band:10s} {taken:3d} of {quotas[band]} wanted (from {len(groups[band])} available)")
+
+    # a group that ran short (rows skipped, or not enough of them) is topped up from what is left, so the
+    # worksheet has n items whenever n usable rows exist
+    chosen = {row["id"] for row, _ in picked}
+    for band in ("pass", "borderline", "fail"):
+        for row in groups[band]:
+            if len(picked) >= n:
+                break
+            if row["id"] in chosen:
+                continue
+            evidence = evidence_for(row)
+            if {p["source"] for p in evidence} == set(row.get("evidence_docs", [])):
+                picked.append((row, evidence))
+                chosen.add(row["id"])
+    if skipped:
+        print(f"  skipped {skipped} row(s) whose passages differ now from what the judge saw")
+    return picked
+
+
+def make_worksheet(metrics_path: Path, n: int, seed: int, stratified: bool = False) -> int:
     report = json.loads(open(metrics_path, encoding="utf-8").read())
     rows = [r for r in report["per_question"] if r.get("groundedness") is not None]
     if not rows:
@@ -62,18 +130,24 @@ def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
         print("WARNING: this run used the planner, so the reconstructed evidence")
         print("  may not match what the judge saw. Use a config-A run.")
 
-    rng = random.Random(seed)
-    sample = rng.sample(rows, min(n, len(rows)))
+    if stratified:
+        picked = pick_stratified(rows, n, seed, lambda r: _reconstruct_evidence(r["question"]))
+    else:
+        rng = random.Random(seed)
+        picked = [(r, _reconstruct_evidence(r["question"])) for r in rng.sample(rows, min(n, len(rows)))]
+    if not any(r.get("expected_behavior") == "refuse" for r, _ in picked):
+        print("NOTE: no item expects a refusal, so this worksheet says nothing about whether the judge")
+        print("  can tell a correct refusal from a wrong one.")
 
     items = []
-    for r in sample:
+    for r, evidence in picked:
         items.append(
             {
                 "id": r["id"],
                 "question": r["question"],
                 "answer": r["answer"],
                 "expected_behavior": r.get("expected_behavior"),
-                "evidence": _reconstruct_evidence(r["question"]),
+                "evidence": evidence,
                 # fill these in, 1 for acceptable and 0 for not
                 "human_grounded": None,
                 "human_correct": None,
@@ -100,6 +174,7 @@ def make_worksheet(metrics_path: Path, n: int, seed: int) -> int:
         ),
         "binary_threshold": BINARY_THRESHOLD,
         "seed": seed,
+        "sampling": "stratified by the judge's scores" if stratified else "random",
         "items": items,
     }
     WORKSHEET_PATH.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -409,6 +484,10 @@ if __name__ == "__main__":
     ap.add_argument("--n", type=int, default=30, help="sample size for --cross-judge")
     ap.add_argument("--sample", type=int, help="create a worksheet with N items")
     ap.add_argument(
+        "--stratified", action="store_true",
+        help="with --sample: take every failing answer, then borderline ones, then passes, instead of a random sample",
+    )
+    ap.add_argument(
         "--metrics", type=Path,
         default=PROJECT_ROOT / "eval" / "metrics_n100.json",
         help="metrics file to sample answers from",
@@ -423,5 +502,5 @@ if __name__ == "__main__":
     if args.score:
         raise SystemExit(score())
     if args.sample:
-        raise SystemExit(make_worksheet(args.metrics, args.sample, args.seed))
+        raise SystemExit(make_worksheet(args.metrics, args.sample, args.seed, stratified=args.stratified))
     ap.error("pass --sample N, --score, --cross-judge, or --spot-check")

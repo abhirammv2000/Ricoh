@@ -1,4 +1,4 @@
-"""The labelling page: it saves labels, keeps the judge's scores away from you, and refuses anything but its own page."""
+"""The labelling page saves labels, keeps the judge's scores away from you, and refuses anything but its own page."""
 
 from __future__ import annotations
 
@@ -9,7 +9,15 @@ from pathlib import Path
 import httpx
 import pytest
 
-from eval.label_ui import LabelError, apply_label, make_server, make_server_preferring, progress, public_items, read_sheet
+from eval.label_ui import (
+    LabelError,
+    apply_label,
+    make_server,
+    make_server_preferring,
+    progress,
+    public_items,
+    read_sheet,
+)
 
 
 def worksheet(n=3) -> dict:
