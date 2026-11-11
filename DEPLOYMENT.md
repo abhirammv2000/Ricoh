@@ -104,6 +104,32 @@ Live demo: https://citera-634289062173.us-central1.run.app
 
 ---
 
+## Option E: the HTTP API on Cloud Run (tested once, privately, then deleted)
+
+On 2026-11-11 the API image (`Dockerfile.api`) was deployed to Cloud Run as a **private** service: no public
+invoker, reached through `gcloud run services proxy`. A stub model provider (`tests/fake_anthropic.py`) ran as a
+sidecar container on localhost, so nothing cost money. It was deleted afterwards. What it showed:
+
+- **It runs unchanged.** Cloud Run's `PORT` is honoured, and all 21 functional checks of `eval/container_smoke.py`
+  pass against it (health, readiness, a cited answer, auth, metrics, streaming).
+- **Startup probes come from outside the container.** A server bound to `127.0.0.1` fails the probe, so every probed
+  container must listen on `0.0.0.0`. A container that another one depends on must have a startup probe.
+- **Cold start is 25 to 37 seconds** from instance start to the app being ready, measured on 4 instances (locally it
+  is 9 s). The "few seconds" in Option D was written about the Streamlit image and is not measured.
+- **A burst that has to wait for an instance to start has a long tail.** The first burst of 100 questions at
+  concurrency 10 after a deploy had a p95 of 12.5 s in one test and 20.6 s (max 40.9 s) in another, where the
+  platform refused 4 requests with a 500, "aborted after waiting too long for an available instance". Those never
+  reached the app. Once warm, the same burst ran at 12 to 16 questions per second with a p95 of 0.9 to 1.5 s and every
+  request succeeding.
+- **Not established:** whether `--min-instances 1` removes the tail. The test started its burst before the new
+  instance was ready, so it did not answer the question. Check it before relying on it.
+- **Not tested:** Secret Manager (`--set-secrets`), the provider outage drill (it needs the stub's admin port), a real
+  model, and more than 3 instances.
+- Platform concurrency was set to 16, the same as `MAX_CONCURRENT_QUERIES`, so Cloud Run adds an instance before the app
+  has to turn anyone away.
+
+---
+
 ## Production hardening checklist
 
 The HTTP API (`Dockerfile.api`, see [docs/OPERATIONS.md](docs/OPERATIONS.md)) has been hardened. The Streamlit
@@ -134,4 +160,5 @@ page has not, and is for demos. What is done and what is still open:
       CI-*built* full-corpus index still needs the source PDFs CI does not have.
 - [ ] Multi-replica: the semantic cache, the rate limits, the concurrency cap and the spend count are all
       per-process. With N containers the real ceilings are N times the settings. Move them to a shared store (Redis).
-- [ ] Run it under real traffic. Nothing here has served a real user, or been deployed to a cloud.
+- [ ] Run it under real traffic. Nothing here has served a real user. The API image has been deployed to Cloud Run
+      once, as a private test with a stub model (Option E), and then deleted.

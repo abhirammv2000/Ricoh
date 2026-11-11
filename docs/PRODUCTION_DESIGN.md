@@ -6,8 +6,8 @@ what broke while I was building it.
 
 **What "fit to run" means here, and what it does not.** The service is built so that when something fails it
 fails safely and says so, and every claim about that is a test. Everything was proved against a fake model
-provider, in the container, and in a local model experiment. It has not been deployed to a cloud, and it has not
-served a real user. Nothing here says how it behaves under real traffic.
+provider, in the container, and in a local model experiment. It was deployed to Cloud Run once as a private test with a
+stub model and then deleted (DEPLOYMENT.md, Option E), and it has not served a real user. Nothing here says how it behaves under real traffic.
 
 ## Decisions, and what I rejected
 
