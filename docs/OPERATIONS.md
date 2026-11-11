@@ -209,5 +209,6 @@ also lists such chunks.
 - **No automatic reindexing.** A changed document needs a rebuild and a restart, as above.
 - **The answer-quality figures are not from this service.** They are from `docs/EVALUATION.md`, measured on 100
   questions with a model judge that has not been checked against human labels.
-- **Never deployed to a cloud or used by real users.** It was proved with the fake provider, the Docker image and the
-  local Kubernetes-free checks listed in the pull request, not under production traffic.
+- **Never used by real users.** It was proved with the fake provider, the Docker image and the local checks listed in
+  the pull request, and deployed once to Cloud Run as a private test with a stub model (see DEPLOYMENT.md, Option E),
+  not under production traffic.
