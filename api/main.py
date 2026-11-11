@@ -39,6 +39,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from api.auth import ANONYMOUS, Authenticator, parse_keys
+from api.body_limit import BodyLimitMiddleware
 from api.budget import BUDGET_EXCEEDED, DailyBudget
 from api.errors import NOT_READY, OVERLOADED, TIMEOUT, AnswerContractError, ApiError, PublicError, classify_error
 from api.limits import ConcurrencyGate, Lease
@@ -252,6 +253,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     metrics.in_flight.set_function(lambda: app.state.gate.in_flight)
     metrics.budget_spent.set_function(lambda: budget.spent_usd)
     metrics.budget_limit.set_function(lambda: budget.limit_usd if budget.enabled else 0.0)
+    # added first so it is innermost: the request id and the metrics both see its 413
+    app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes, on_refused=metrics.observe_error)
     app.add_middleware(MetricsMiddleware, metrics=metrics)
     app.add_middleware(RequestIdMiddleware)
 

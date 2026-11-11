@@ -31,6 +31,7 @@ All by environment variable. A value that is set and wrong stops the service at 
 | `REQUEST_TIMEOUT_SECONDS` | `30` (image: `45`) | The longest one question may take. After it, a 504 or a degraded answer. |
 | `MAX_CONCURRENT_QUERIES` | `16` | Questions handled at once. |
 | `QUEUE_TIMEOUT_SECONDS` | `2` | How long an extra request waits for a slot before a 503. |
+| `MAX_BODY_BYTES` | `32768` | The largest request body. A bigger one gets a 413 before the service reads it, so a caller with no key cannot make it hold a huge upload in memory. The longest allowed question is 24,013 bytes (2000 emoji, escaped). |
 | `RATE_LIMIT_RPS`, `RATE_LIMIT_BURST` | `1`, `10` | Per caller (by key). |
 | `DAILY_BUDGET_USD` | `20` | The most the model may cost in one UTC day. `0` turns it off. |
 | `FALLBACK_TO_RETRIEVAL` | `true` | Answer with passages when the model is down, too slow or the budget is spent. |
@@ -57,6 +58,7 @@ error body carries it, so a user who reports a problem can give you one string t
 |---|---|---|
 | 400 | Input rejected by the prompt-injection screen. | Not retry. |
 | 401 `unauthorized` | No key, or a wrong one. | Fix the key. |
+| 413 `request_too_large` | The body is over `MAX_BODY_BYTES`. It is refused without being read. A client still uploading a very large body may see its connection reset before it can read this answer, because the service does not keep reading to be polite. | Fix the request. |
 | 422 | Empty question, or over 2000 characters. | Fix the request. |
 | 429 | Rate limit, or too many wrong keys. `Retry-After` says when. | Wait. |
 | 503 `overloaded` | The service is full. | Retry after `Retry-After`. |

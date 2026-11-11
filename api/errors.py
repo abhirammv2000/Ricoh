@@ -38,6 +38,7 @@ INVALID_ANSWER = PublicError(
     502, "invalid_answer", "The language model's answer did not meet the citation requirement, so it was withheld."
 )
 OVERLOADED = PublicError(503, "overloaded", "The service is busy. Try again in a moment.", retry_after=1)
+TOO_LARGE = PublicError(413, "request_too_large", "The request is too large for a question.")
 TIMEOUT = PublicError(504, "timeout", "The answer took too long. Try again.", retry_after=5)
 PROVIDER_UNAVAILABLE = PublicError(
     503, "model_unavailable", "The language model is temporarily unavailable. Try again shortly.", retry_after=10

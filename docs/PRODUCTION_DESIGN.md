@@ -97,6 +97,7 @@ timeout code. That is how the 529-versus-deadline interaction and the cancelled 
 - **The injection attack mostly did not work.** Against this prompt and a 7B model, the recognised attacks were followed
   0 times in 30 even with no defense. The one that worked was a paraphrase the pattern screen cannot see. So the pattern
   screen is defense in depth and not the defense, and the report says so.
+- **A request body was read before the key was checked.** FastAPI reads the whole body before it runs the check for the API key, so one anonymous 300 MB request took the service from 438 MB to 1,047 MB before it answered 401. A middleware now refuses a body over `MAX_BODY_BYTES` before reading it, and counts a body that has no declared size as it arrives. In the container, three 300 MB anonymous uploads were refused and memory stayed at 317.5 MiB. My first limit, 16 KiB, was wrong: the longest allowed question, 2000 emoji, is 24,013 bytes once a client escapes it, so the default is 32 KiB and a test pins that case. Refusing early has a cost I chose not to remove: a client still uploading a very large body may see its connection reset before it reads the 413, because the service does not keep reading to be polite.
 - **A smoke test caught a stale image.** The container passed everything except the newest feature, because I had built the
   image before adding it. Rebuilding fixed it, which is the point of testing the image and not the source.
 

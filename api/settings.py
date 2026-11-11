@@ -59,6 +59,10 @@ class Settings:
     # slot and is then turned away with a 503, so a burst gets fast failures and the admitted work stays quick
     max_concurrent_queries: int = 16
     queue_timeout_seconds: float = 2.0
+    # the largest request body, in bytes. The longest allowed question (2000 emoji, each escaped as two \uXXXX
+    # units by most JSON clients) is 24,013 bytes, so this leaves room for it and for extra fields. A bigger
+    # body is refused with a 413 before the service reads the rest of it
+    max_body_bytes: int = 32768
     # per client, requests a second with a burst
     rate_limit_rps: float = 1.0
     rate_limit_burst: int = 10
@@ -91,6 +95,7 @@ class Settings:
             queue_timeout_seconds=_number(
                 env, "QUEUE_TIMEOUT_SECONDS", defaults.queue_timeout_seconds, minimum=0.0
             ),
+            max_body_bytes=int(_number(env, "MAX_BODY_BYTES", defaults.max_body_bytes, minimum=1024, integer=True)),
             rate_limit_rps=_number(env, "RATE_LIMIT_RPS", defaults.rate_limit_rps, minimum=0.001),
             rate_limit_burst=int(
                 _number(env, "RATE_LIMIT_BURST", defaults.rate_limit_burst, minimum=1, integer=True)
