@@ -105,6 +105,8 @@ Measured against the fake model provider, one process, a 0.3 s provider, 100 que
 The container (`Dockerfile.api`, Docker Desktop, one process): 791 MB image, ready 7 to 12 s after it starts, 237 to
 246 MiB of memory at rest and 295 to 304 MiB after 100 questions at concurrency 10 plus the outage drills.
 
+Measured again on 2026-11-11 on a laptop with 2 CPUs, with the fake provider and the load generator on the same machine (so they compete with the service). The image was 798 MB, ready after 9 s, with 240 MiB at rest and 312 MiB after the load. Normal runs of the same 100 questions at concurrency 10 gave 12 to 20 questions per second and a median of 0.45 to 0.72 s, so 21.9 is the best of the runs, not the typical one. Some runs collapsed instead: 4 of 23 runs of this test fell to under 4 questions per second (1.7 to 3.1), once with a median of 5.4 s. Most of the time in the slow requests was retrieval, which ran at a 3.1 s median in them against 0.27 s overall. The fake provider alone held steady across 10 runs, and limiting retrieval to 1, 2 or 4 at a time did not remove the collapses (3 of the 4 settings had one in 6 runs). I do not know the cause. With the real provider the model's 10 s dwarfs this, but it is an unexplained tail and it was not tested with one.
+
 With the real provider the time is the model's, about 10 s a question, so one process holds
 `MAX_CONCURRENT_QUERIES` questions open at once and CPU is not the limit. Add capacity with more containers, not
 more workers. The rate limits, the concurrency cap and the daily budget are counted **per process**, so with N
